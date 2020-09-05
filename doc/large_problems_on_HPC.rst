@@ -15,7 +15,7 @@ In some cases, the sizes of the source and target grids lead to weights that eit
 too long to compute or can't fit into memory on a regular desktop/laptop machine. But fear not,
 there are solutions to solve large regridding problems, provided you have access to a High
 Performance Computing machine. Your ESMF installation (from conda or equivalent) comes with
-command line tools (ESMF_RegridWeightGen and ESMF_Regrid) that can be executed in parallel with
+command line tools (`ESMF_RegridWeightGen and ESMF_Regrid <http://www.earthsystemmodeling.org/esmf_releases/public/ESMF_8_0_0/ESMF_refdoc/node3.html>`_) that can be executed in parallel with
 MPI. This allows very large regridding to be performed in minutes on hundred of compute cores.
 Using these tools, we are able to regrid data at 500 meters resolution (13300x13300 pts) from 
 a South Polar Stereographic projection to a 15' regular longitude/latitude grid (6720x86400 pts).
@@ -176,4 +176,3 @@ And then recompile mpi4py from scratch:
     pushd mpi4py-3.0.3
     python setup.py build --mpi=gaea-gnu
     python setup.py install
-
