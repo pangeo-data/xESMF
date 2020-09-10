@@ -1,4 +1,7 @@
-numpydoc
-ipython
-nbsphinx
-sphinx_rtd_theme
+python=3.8.5
+numpydoc=1.1.0
+ipython=7.17.0
+pygments=2.4.1
+nbsphinx=0.7.1
+sphinx=3.2.1
+sphinx_rtd_theme=0.5.0
