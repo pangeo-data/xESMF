@@ -5,7 +5,7 @@
   :alt: elevation in polar stereographic
 
 .. |regular| image:: images/elevation_regulargrid.png
-  :width: 800
+  :width: 600
   :alt: elevation on regular lat/lon grid
 
 Solving large problems using HPC
