@@ -7,6 +7,9 @@ from xesmf.frontend import as_2d_mesh
 from numpy.testing import assert_equal, assert_almost_equal
 import pytest
 
+dask_clients = ['threaded_client', 'processes_client', 'distributed_client']
+
+
 # same test data as test_backend.py, but here we can use xarray DataSet
 ds_in = xe.util.grid_global(20, 12)
 ds_out = xe.util.grid_global(15, 9)
@@ -268,9 +271,10 @@ def test_regrid_dataarray_from_locstream():
         regridder = xe.Regridder(ds_locs, ds_in, 'conservative', locstream_in=True)
 
 
-def test_regrid_dask():
+@pytest.mark.parametrize('client', dask_clients)
+def test_regrid_dask(request, client):
     # chunked dask array (no xarray metadata)
-
+    client = request.getfixturevalue(client)
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
     indata = ds_in_chunked['data4D'].data
@@ -285,26 +289,31 @@ def test_regrid_dask():
     assert np.max(np.abs(rel_err)) < 0.05
 
 
-def test_regrid_dask_to_locstream():
+@pytest.mark.parametrize('client', dask_clients)
+def test_regrid_dask_to_locstream(request, client):
     # chunked dask array (no xarray metadata)
-
+    
+    client = request.getfixturevalue(client)
     regridder = xe.Regridder(ds_in, ds_locs, 'bilinear', locstream_out=True)
 
     indata = ds_in_chunked['data4D'].data
     outdata = regridder(indata)
 
 
-def test_regrid_dask_from_locstream():
+@pytest.mark.parametrize('client', dask_clients)
+def test_regrid_dask_from_locstream(request, client):
     # chunked dask array (no xarray metadata)
-
+    
+    client = request.getfixturevalue(client)
     regridder = xe.Regridder(ds_locs, ds_in, 'nearest_s2d', locstream_in=True)
 
     outdata = regridder(ds_locs['lat'].data)
 
 
-def test_regrid_dataarray_dask():
+@pytest.mark.parametrize('client', dask_clients)
+def test_regrid_dataarray_dask(request, client):
     # xarray.DataArray containing chunked dask array
-
+    client = request.getfixturevalue(client)
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
     dr_in = ds_in_chunked['data4D']
@@ -324,19 +333,21 @@ def test_regrid_dataarray_dask():
     assert_equal(dr_out['lat'].values, ds_out['lat'].values)
     assert_equal(dr_out['lon'].values, ds_out['lon'].values)
 
-
-def test_regrid_dataarray_dask_to_locstream():
+@pytest.mark.parametrize('client', dask_clients)
+def test_regrid_dataarray_dask_to_locstream(request, client):
     # xarray.DataArray containing chunked dask array
-
+    client = request.getfixturevalue(client)
     regridder = xe.Regridder(ds_in, ds_locs, 'bilinear', locstream_out=True)
 
     dr_in = ds_in_chunked['data4D']
     dr_out = regridder(dr_in)
 
 
-def test_regrid_dataarray_dask_from_locstream():
+@pytest.mark.parametrize('client', dask_clients)
+def test_regrid_dataarray_dask_from_locstream(request, client):
     # xarray.DataArray containing chunked dask array
-
+    
+    client = request.getfixturevalue(client)
     regridder = xe.Regridder(ds_locs, ds_in, 'nearest_s2d', locstream_in=True)
 
     outdata = regridder(ds_locs['lat'])
