@@ -310,7 +310,7 @@ def test_regrid_dask_from_locstream(request, scheduler):
     scheduler = request.getfixturevalue(scheduler)
     regridder = xe.Regridder(ds_locs, ds_in, 'nearest_s2d', locstream_in=True)
 
-    outdata = regridder(ds_locs['lat'].data)
+    outdata = regridder(ds_locs.chunk()['lat'].data)
     assert dask.is_dask_collection(outdata)
 
 
@@ -356,7 +356,7 @@ def test_regrid_dataarray_dask_from_locstream(request, scheduler):
     scheduler = request.getfixturevalue(scheduler)
     regridder = xe.Regridder(ds_locs, ds_in, 'nearest_s2d', locstream_in=True)
 
-    outdata = regridder(ds_locs['lat'])
+    outdata = regridder(ds_locs.chunk()['lat'])
     assert dask.is_dask_collection(outdata)
 
 
