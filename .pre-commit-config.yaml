@@ -48,4 +48,5 @@ repos:
             '--keep-metadata',
             '--keep-execution-count',
             '--keep-empty',
+            '--no-black',
           ]
