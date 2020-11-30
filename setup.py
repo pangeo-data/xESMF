@@ -10,10 +10,10 @@ URL = 'https://github.com/pangeo-data/xESMF'
 LICENSE = 'MIT'
 PYTHON_REQUIRES = '>=3.6'
 USE_SCM_VERSION = {
-    "write_to": "xesmf/_version.py",
-    "write_to_template": '__version__ = "{version}"',
-    "tag_regex": r"^(?P<prefix>v)?(?P<version>[^\+]+)(?P<suffix>.*)?$",
-    }
+    'write_to': 'xesmf/_version.py',
+    'write_to_template': '__version__ = "{version}"',
+    'tag_regex': r'^(?P<prefix>v)?(?P<version>[^\+]+)(?P<suffix>.*)?$',
+}
 
 # https://github.com/rtfd/readthedocs.org/issues/5512#issuecomment-475024373
 on_rtd = os.environ.get('READTHEDOCS') == 'True'
