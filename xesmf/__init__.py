@@ -1,3 +1,5 @@
+# flake8: noqa
+
 from . import data, util
 from .frontend import Regridder, SpatialAverager
 
