@@ -559,7 +559,11 @@ class BaseRegridder(object):
         ]
         ds_in = ds_in.drop_vars(non_regriddable)
 
-        out_dtype = 'float32' if all([d.dtype == 'float32' for d in ds_in.data_vars.values()]) else 'float64'
+        out_dtype = (
+            'float32'
+            if all([d.dtype == 'float32' for d in ds_in.data_vars.values()])
+            else 'float64'
+        )
 
         ds_out = xr.apply_ufunc(
             self._regrid_array,
