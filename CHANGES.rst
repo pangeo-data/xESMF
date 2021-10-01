@@ -1,6 +1,13 @@
 What's new
 ==========
 
+0.6.2 (unreleased)
+------------------
+
+Bug fixes
+~~~~~~~~~
+- Regridding datasets with dask-backed variables is fixed. Dtype of the outputs is changed for this specific case. By `Pascal Bourgault <https://github.com/aulemahal>`_
+
 0.6.1 (23-09-2021)
 ------------------
 
