@@ -566,6 +566,27 @@ def test_regrid_dataset():
     xr.testing.assert_identical(ds_result2, ds_result)
 
 
+@pytest.mark.parametrize('scheduler', dask_schedulers)
+def test_regrid_dataset_dask(request, scheduler):
+    scheduler = request.getfixturevalue(scheduler)
+    # xarray.Dataset containing dask array
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
+
+    # `ds_out` already refers to output grid object
+    ds_result = regridder(ds_in.chunk())
+
+    # output should contain all data variables
+    assert set(ds_result.data_vars.keys()) == set(ds_in.data_vars.keys())
+    assert dask.is_dask_collection(ds_result)
+    assert ds_result.data.dtype == 'float64'
+
+    ds_in_32 = ds_in.copy()
+    ds_in_32['data'] = ds_in_32.data.astype('float32')
+    ds_in_32['data4D'] = ds_in_32.data4D.astype('float32')
+    ds_result = regridder(ds_in_32.chunk())
+    assert ds_result.data.dtype == 'float32'
+
+
 def test_regrid_dataset_to_locstream():
     # xarray.Dataset containing in-memory numpy array
 
