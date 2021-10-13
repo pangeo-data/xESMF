@@ -412,7 +412,7 @@ def test_regrid_dataarray_endianess():
 
     # Results should be the same
     assert_equal(exp.values, out.values)
-    assert exp.dtype == out.dtype
+    assert out.dtype == '>f8'
 
 
 def test_regrid_dataarray_to_locstream():

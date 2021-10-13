@@ -125,11 +125,12 @@ def apply_weights(weights, indata, shape_in, shape_out):
     # Limitation from numba : some big-endian dtypes are not supported.
     try:
         nb.from_dtype(indata.dtype)
+        nb.from_dtype(weights.dtype)
     except NotImplementedError:
         warnings.warn(
-            'Input array has a dtype not supported by numba. Recasting might affest performance.'
+            'Input array has a dtype not supported by sparse and numba. Falling back to scipy.'
         )
-        indata = indata.astype(indata.dtype.newbyteorder())
+        weights = weights.to_scipy_sparse()
 
     # COO matrix is fast with F-ordered array but slow with C-array, so we
     # take in a C-ordered and then transpose)
