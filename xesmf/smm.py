@@ -126,7 +126,9 @@ def apply_weights(weights, indata, shape_in, shape_out):
     try:
         nb.from_dtype(indata.dtype)
     except NotImplementedError:
-        warnings.warn('Input array has a dtype not supported by numba. Recasting might affest performance.')
+        warnings.warn(
+            'Input array has a dtype not supported by numba. Recasting might affest performance.'
+        )
         indata = indata.astype(indata.dtype.newbyteorder())
 
     # COO matrix is fast with F-ordered array but slow with C-array, so we

@@ -407,7 +407,7 @@ def test_regrid_dataarray_endianess():
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
     exp = regridder(ds_in['data'])  # Normal (little-endian)
-    with pytest.warns(UserWarning, match="Input array has a dtype not supported"):
+    with pytest.warns(UserWarning, match='Input array has a dtype not supported'):
         out = regridder(ds_in['data'].astype('>f8'))  # big endian
 
     # Results should be the same
