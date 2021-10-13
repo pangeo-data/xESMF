@@ -1,6 +1,13 @@
 What's new
 ==========
 
+0.6.2 (unreleased)
+------------------
+
+Bug fixes
+~~~~~~~~~
+- The introduction of `sparse`, with `numba` under the hood, restricted input data to little-endian dtypes. On-the-fly endianness conversion fixes that problem, but performances might be affected (:pull:`125`). By `Pascal Bourgault <https://github.com/aulemahal>`_
+
 0.6.1 (23-09-2021)
 ------------------
 
