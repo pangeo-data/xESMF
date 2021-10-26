@@ -585,12 +585,10 @@ class BaseRegridder(object):
 
         # For dask-backed, we force the dtype to fit the input's
         # (numpy-backed variables already have been handled in `apply_weights`)
-        for varname, varda in ds_out.data_vars.items():
-            if (
-                xr.core.common.is_duck_dask_array(varda.data)
-                and varda.dtype != ds_in[varname].dtype
-            ):
-                ds_out[varname] = varda.astype(ds_in[varname].dtype, keep_attrs=True)
+        for name, data in ds_out.data_vars.items():
+            indtype = ds_in[name].dtype
+            if xr.core.common.is_duck_dask_array(data.data) and data.dtype != indtype:
+                ds_out[name] = data.astype(indtype, keep_attrs=True)
 
         return self._format_xroutput(ds_out, temp_horiz_dims)
 
