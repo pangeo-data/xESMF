@@ -559,8 +559,8 @@ class BaseRegridder(object):
         ]
         ds_in = ds_in.drop_vars(non_regriddable)
 
-        out_dtype = (
-            'float32'
+        out_dtype = (  # Useful for dask-backed datasets
+            'float32'  # choosing float32 when possible reduces the memory usage.
             if all([d.dtype == 'float32' for d in ds_in.data_vars.values()])
             else 'float64'
         )
@@ -582,6 +582,15 @@ class BaseRegridder(object):
             },
             keep_attrs=keep_attrs,
         )
+
+        # For dask-backed, we force the dtype to fit the input's
+        # (numpy-backed variables already have been handled in `apply_weights`)
+        for varname, varda in ds_out.data_vars.items():
+            if (
+                xr.core.common.is_duck_dask_array(varda.data)
+                and varda.dtype != ds_in[varname].dtype
+            ):
+                ds_out[varname] = varda.astype(ds_in[varname].dtype, keep_attrs=True)
 
         return self._format_xroutput(ds_out, temp_horiz_dims)
 

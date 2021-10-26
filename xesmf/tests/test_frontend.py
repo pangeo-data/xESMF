@@ -578,7 +578,7 @@ def test_regrid_dataset_dask(request, scheduler):
     # output should contain all data variables
     assert set(ds_result.data_vars.keys()) == set(ds_in.data_vars.keys())
     assert dask.is_dask_collection(ds_result)
-    assert ds_result.data.dtype == 'float64'
+    assert ds_result.data.dtype == ds_in.data.dtype
 
     ds_in_32 = ds_in.copy()
     ds_in_32['data'] = ds_in_32.data.astype('float32')
