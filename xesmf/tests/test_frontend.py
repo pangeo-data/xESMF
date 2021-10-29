@@ -653,9 +653,6 @@ def test_compare_weights_from_poly_and_grid():
 
     # Normally, weights should be identical, but this fails
     # np.testing.assert_array_equal(rgrid.weights.data.todense(), rpoly.weights.data.todense())
-    # i = ds.indexes['lon'].get_loc(-55, method='nearest')
-    # j1 = ds.indexes['lat'].get_loc(12, method='nearest')
-    # j2 = ds.indexes['lat'].get_loc(72, method='nearest')
 
     # Visualize the weights
     wg = np.reshape(rgrid.weights.data.todense(), ds.a.T.shape)
@@ -664,11 +661,18 @@ def test_compare_weights_from_poly_and_grid():
     ds['wg'] = (('lat', 'lon'), wg)
     ds['wp'] = (('lat', 'lon'), wp)
 
+    # Figure of weights in two cases
     # fig, (ax1, ax2) = plt.subplots(1, 2)
     # ds.wg.plot(ax=ax1); ds.wp.plot(ax=ax2)
     # ax1.set_title("Regridder weights")
     # ax2.set_title("SpatialAverager weights")
-    # assert ds.wg.isel(lon=i, lat=j1) > ds.wg.isel(lon=i, lat=j2)
+
+    # Check that source area affects weights
+    i = ds.indexes['lon'].get_loc(-55, method='nearest')
+    j1 = ds.indexes['lat'].get_loc(12, method='nearest')
+    j2 = ds.indexes['lat'].get_loc(72, method='nearest')
+    assert ds.wg.isel(lon=i, lat=j1) > ds.wg.isel(lon=i, lat=j2)
+    assert ds.wp.isel(lon=i, lat=j1).data > ds.wp.isel(lon=i, lat=j2).data  # Fails
 
 
 def test_polys_to_ESMFmesh():
