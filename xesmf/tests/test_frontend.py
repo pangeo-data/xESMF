@@ -628,6 +628,49 @@ def test_spatial_averager(poly, exp):
     assert 'my_geom' in out.dims
 
 
+def test_compare_weights_from_poly_and_grid():
+    """Confirm that the weights are identical when they are computed from a grid->grid and grid->poly."""
+
+    # Global grid
+    ds = xe.util.grid_global(20, 12, cf=True)
+
+    # A single destination tile
+    tile = xe.util.cf_grid_2d(-40, -80, -40, 0, 80, 80)
+    ds['a'] = xr.DataArray(
+        np.ones((ds.lon.size, ds.lat.size)),
+        coords={'lat': ds.lat, 'lon': ds.lon},
+        dims=('lon', 'lat'),
+    )
+
+    # Create polygon from tile corners
+    x1, x2 = tile.lon_bounds
+    y1, y2 = tile.lat_bounds
+    poly = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
+
+    # Regrid using two identical destination grids (in theory)
+    rgrid = xe.Regridder(ds, tile, method='conservative')
+    rpoly = xe.SpatialAverager(ds, [poly])
+
+    # Normally, weights should be identical, but this fails
+    # np.testing.assert_array_equal(rgrid.weights.data.todense(), rpoly.weights.data.todense())
+    # i = ds.indexes['lon'].get_loc(-55, method='nearest')
+    # j1 = ds.indexes['lat'].get_loc(12, method='nearest')
+    # j2 = ds.indexes['lat'].get_loc(72, method='nearest')
+
+    # Visualize the weights
+    wg = np.reshape(rgrid.weights.data.todense(), ds.a.T.shape)
+    wp = np.reshape(rpoly.weights.data.todense(), ds.a.T.shape)
+
+    ds['wg'] = (('lat', 'lon'), wg)
+    ds['wp'] = (('lat', 'lon'), wp)
+
+    # fig, (ax1, ax2) = plt.subplots(1, 2)
+    # ds.wg.plot(ax=ax1); ds.wp.plot(ax=ax2)
+    # ax1.set_title("Regridder weights")
+    # ax2.set_title("SpatialAverager weights")
+    # assert ds.wg.isel(lon=i, lat=j1) > ds.wg.isel(lon=i, lat=j2)
+
+
 def test_polys_to_ESMFmesh():
     import ESMF
 

@@ -883,7 +883,7 @@ class SpatialAverager(BaseRegridder):
             Shape of bounds should be (n+1,) or (n_y+1, n_x+1).
 
         polys : sequence of shapely Polygons and MultiPolygons
-            Sequence of polygons over which to average `ds_in`.
+            Sequence of polygons (lon, lat) over which to average `ds_in`.
 
         ignore_holes : bool
             Whether to ignore holes in polygons.
