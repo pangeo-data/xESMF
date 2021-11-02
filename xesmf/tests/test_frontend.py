@@ -59,11 +59,11 @@ polys = [
             Polygon([[0.25, 1.25], [0.25, 1.75], [0.75, 1.75], [0.75, 1.25]]),
             Polygon([[1.25, 1.25], [1.25, 1.75], [1.75, 1.75], [1.75, 1.25]]),
         ]
-    ),  # Multipolygon on 3 and 4
+    ),  # Multipolygon on 2 and 4
     Polygon(
         [[0, 0], [0, 1], [2, 1], [2, 0]],
         holes=[[[0.5, 0.25], [0.5, 0.75], [1.0, 0.75], [1.0, 0.25]]],
-    ),  # Simple polygon covering 1 and 2 with hole spanning on both
+    ),  # Simple polygon covering 1 and 3 with hole over 1
     Polygon([[1, 1], [1, 3], [3, 3], [3, 1]]),  # Polygon partially outside, covering a part of 4
     Polygon([[3, 3], [3, 4], [4, 4], [4, 3]]),  # Polygon totally outside
     Polygon(
@@ -80,8 +80,17 @@ polys = [
             [2, 0],
         ]
     ),  # Long multifaceted polygon
+    [
+        Polygon([[0.5, 0.5], [0.5, 1.5], [1.5, 0.5]]),
+        MultiPolygon(
+            [
+                Polygon([[0.25, 1.25], [0.25, 1.75], [0.75, 1.75], [0.75, 1.25]]),
+                Polygon([[1.25, 1.25], [1.25, 1.75], [1.75, 1.75], [1.75, 1.25]]),
+            ]
+        ),
+    ],  # Combination of Polygon and MultiPolygon
 ]
-exps_polys = [1.75, 3, 2.1429, 4, 0, 2.5]
+exps_polys = [1.75, 3, 2.1429, 4, 0, 2.5, [1.75, 3]]
 
 
 def test_as_2d_mesh():
@@ -621,7 +630,9 @@ def test_ds_to_ESMFlocstream():
 
 @pytest.mark.parametrize('poly,exp', list(zip(polys, exps_polys)))
 def test_spatial_averager(poly, exp):
-    savg = xe.SpatialAverager(ds_savg, [poly], geom_dim_name='my_geom')
+    if isinstance(poly, (Polygon, MultiPolygon)):
+        poly = [poly]
+    savg = xe.SpatialAverager(ds_savg, poly, geom_dim_name='my_geom')
     out = savg(ds_savg.abc)
     assert_allclose(out, exp, rtol=1e-3)
 
@@ -652,7 +663,7 @@ def test_compare_weights_from_poly_and_grid():
     rpoly = xe.SpatialAverager(ds, [poly])
 
     # Normally, weights should be identical, but this fails
-    # np.testing.assert_array_equal(rgrid.weights.data.todense(), rpoly.weights.data.todense())
+    np.testing.assert_array_almost_equal(rgrid.weights.data.todense(), rpoly.weights.data.todense())
 
     # Visualize the weights
     wg = np.reshape(rgrid.weights.data.todense(), ds.a.T.shape)
@@ -662,10 +673,12 @@ def test_compare_weights_from_poly_and_grid():
     ds['wp'] = (('lat', 'lon'), wp)
 
     # Figure of weights in two cases
+    # from matplotlib import pyplot as plt
     # fig, (ax1, ax2) = plt.subplots(1, 2)
     # ds.wg.plot(ax=ax1); ds.wp.plot(ax=ax2)
     # ax1.set_title("Regridder weights")
     # ax2.set_title("SpatialAverager weights")
+    # plt.show()
 
     # Check that source area affects weights
     i = ds.indexes['lon'].get_loc(-55, method='nearest')
