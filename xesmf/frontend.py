@@ -984,9 +984,7 @@ class SpatialAverager(BaseRegridder):
 
         # Get the weights and convert to a DataArray
         weights = regrid.get_weights_dict(deep_copy=True)
-        shape_out = mesh_out.get_shape()[::-1]
-        n_out = shape_out[0] * shape_out[1]
-        w = _parse_coords_and_values(weights, self.n_in, n_out)
+        w = _parse_coords_and_values(weights, self.n_in, mesh_out.element_count)
 
         # Get destination area - important for renormalizing the subgeometries.
         regrid.dstfield.get_area()

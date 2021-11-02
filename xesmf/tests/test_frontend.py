@@ -163,11 +163,11 @@ def test_existing_weights():
     # make sure we can reuse weights
     assert os.path.exists(fn)
     regridder_reuse = xe.Regridder(ds_in, ds_out, method, weights=fn)
-    assert regridder_reuse.A.shape == regridder.A.shape
+    assert regridder_reuse.weights.shape == regridder.weights.shape
 
     # this should also work with reuse_weights=True
     regridder_reuse = xe.Regridder(ds_in, ds_out, method, reuse_weights=True, weights=fn)
-    assert regridder_reuse.A.shape == regridder.A.shape
+    assert regridder_reuse.weights.shape == regridder.weights.shape
 
     # or can also overwrite it
     xe.Regridder(ds_in, ds_out, method)
@@ -175,7 +175,7 @@ def test_existing_weights():
     # check legacy args still work
     regridder = xe.Regridder(ds_in, ds_out, method, filename='wgts.nc')
     regridder_reuse = xe.Regridder(ds_in, ds_out, method, reuse_weights=True, filename='wgts.nc')
-    assert regridder_reuse.A.shape == regridder.A.shape
+    assert regridder_reuse.weights.shape == regridder.weights.shape
 
     # check fails on non-existent file
     with pytest.raises(OSError):
