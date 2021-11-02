@@ -736,6 +736,7 @@ class Regridder(BaseRegridder):
               - a dictionary with keys `row_dst`, `col_src` and `weights`,
               - an xarray Dataset with data variables `col`, `row` and `S`,
               - or a path to a netCDF file created by ESMF.
+
             If None, compute the weights.
 
         ignore_degenerate : bool, optional
@@ -911,6 +912,7 @@ class SpatialAverager(BaseRegridder):
               - a dictionary with keys `row_dst`, `col_src` and `weights`,
               - an xarray Dataset with data variables `col`, `row` and `S`,
               - or a path to a netCDF file created by ESMF.
+
             If None, compute the weights.
 
         ignore_degenerate : bool, optional
