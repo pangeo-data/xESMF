@@ -163,7 +163,7 @@ def _flatten_poly_list(polys):
     """Iterator flattening MultiPolygons."""
     for i, poly in enumerate(polys):
         if isinstance(poly, MultiPolygon):
-            for sub_poly in poly:
+            for sub_poly in poly.geoms:
                 yield (i, sub_poly)
         else:
             yield (i, poly)

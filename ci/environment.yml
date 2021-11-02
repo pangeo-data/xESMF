@@ -6,13 +6,13 @@ dependencies:
   - cftime
   - codecov
   - dask
-  - esmpy
+  - esmpy<8.2.0
   - numpy
   - pip
   - pre-commit
   - pydap
   - pytest
   - pytest-cov
-  - shapely
+  - shapely<=1.7
   - sparse
   - xarray>=0.17.0

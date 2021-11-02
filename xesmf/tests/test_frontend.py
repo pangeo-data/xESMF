@@ -85,12 +85,12 @@ polys = [
         MultiPolygon(
             [
                 Polygon([[0.25, 1.25], [0.25, 1.75], [0.75, 1.75], [0.75, 1.25]]),
-                Polygon([[1.25, 1.25], [1.25, 1.75], [1.75, 1.75], [1.75, 1.25]]),
+                Polygon([[1, 1], [1, 2], [2, 2], [2, 1]]),
             ]
         ),
-    ],  # Combination of Polygon and MultiPolygon
+    ],  # Combination of Polygon and MultiPolygon with two different areas
 ]
-exps_polys = [1.75, 3, 2.1429, 4, 0, 2.5, [1.75, 3]]
+exps_polys = [1.75, 3, 2.1429, 4, 0, 2.5, [1.75, 3.6]]
 
 
 def test_as_2d_mesh():
