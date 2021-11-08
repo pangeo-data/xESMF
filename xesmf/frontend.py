@@ -559,11 +559,15 @@ class BaseRegridder(object):
         ]
         ds_in = ds_in.drop_vars(non_regriddable)
 
-        out_dtype = (  # Useful for dask-backed datasets
-            'float32'  # choosing float32 when possible reduces the memory usage.
-            if all([d.dtype == 'float32' for d in ds_in.data_vars.values()])
-            else 'float64'
-        )
+        # Select dtype (only relevant for dask-backed arrays, this has no effect otherwise)
+        dtypes = set(da.dtype for da in ds_in.data_vars.values())
+        if len(dtypes) == 1:
+            out_dtype = dtypes.pop()
+        else:
+            size = 1  # init to 1 byte
+            for d in dtypes:
+                size = max(size, d.itemsize)  # use max number of bytes found in dtypes
+                out_dtype = np.dtype(f'f{size}')
 
         ds_out = xr.apply_ufunc(
             self._regrid_array,

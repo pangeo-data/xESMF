@@ -580,10 +580,10 @@ def test_regrid_dataset_dask(request, scheduler):
     assert dask.is_dask_collection(ds_result)
     assert ds_result.data.dtype == ds_in.data.dtype
 
-    ds_in_32 = ds_in.copy()
-    ds_in_32['data'] = ds_in_32.data.astype('float32')
-    ds_in_32['data4D'] = ds_in_32.data4D.astype('float32')
-    ds_result = regridder(ds_in_32.chunk())
+    ds_in_f4 = ds_in.copy()
+    ds_in_f4['data'] = ds_in_f4.data.astype('float32')
+    ds_in_f4['data4D'] = ds_in_f4.data4D.astype('float32')
+    ds_result = regridder(ds_in_f4.chunk())
     assert ds_result.data.dtype == 'float32'
 
 
