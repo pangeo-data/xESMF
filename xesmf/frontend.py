@@ -24,6 +24,7 @@ try:
 
     dask_array_type = (da.Array,)  # for isinstance checks
 except ImportError:
+    da = None
     dask_array_type = ()
 
 
@@ -461,25 +462,32 @@ class BaseRegridder(object):
 
     @staticmethod
     def _regrid_array(indata, weights, *, shape_in, shape_out, sequence_in, skipna, na_thres):
+        if isinstance(indata, dask_array_type):
+            weights = da.from_array(weights, chunks=weights.shape)
+            mod = da
+        else:
+            mod = np
 
         if sequence_in:
             indata = np.expand_dims(indata, axis=-2)
 
         # skipna: set missing values to zero
         if skipna:
-            missing = np.isnan(indata)
-            indata = np.where(missing, 0.0, indata)
+            missing = mod.isnan(indata)
+            indata = mod.where(missing, 0.0, indata)
 
         # apply weights
-        outdata = apply_weights(weights, indata, shape_in, shape_out)
+        outdata = apply_weights(weights, indata, shape_in, shape_out, mod=mod)
 
         # skipna: Compute the influence of missing data at each interpolation point and filter those not meeting acceptable threshold.
         if skipna:
-            fraction_valid = apply_weights(weights, (~missing).astype('d'), shape_in, shape_out)
+            fraction_valid = apply_weights(
+                weights, (~missing).astype('d'), shape_in, shape_out, mod=mod
+            )
             tol = 1e-6
-            bad = fraction_valid < np.clip(1 - na_thres, tol, 1 - tol)
+            bad = fraction_valid < mod.clip(1 - na_thres, tol, 1 - tol)
             fraction_valid[bad] = 1
-            outdata = np.where(bad, np.nan, outdata / fraction_valid)
+            outdata = mod.where(bad, np.nan, outdata / fraction_valid)
 
         return outdata
 
@@ -501,16 +509,13 @@ class BaseRegridder(object):
     def regrid_dask(self, indata, skipna=False, na_thres=1.0):
         """See __call__()."""
 
-        extra_chunk_shape = indata.chunksize[0:-2]
+        # extra_chunk_shape = indata.chunksize[0:-2]
 
-        output_chunk_shape = extra_chunk_shape + self.shape_out
+        # output_chunk_shape = extra_chunk_shape + self.shape_out
 
-        outdata = da.map_blocks(
-            self._regrid_array,
+        outdata = self._regrid_array(
             indata,
             self.weights.data,
-            dtype=indata.dtype,
-            chunks=output_chunk_shape,
             skipna=skipna,
             na_thres=na_thres,
             **self._regrid_kwargs,
@@ -531,14 +536,14 @@ class BaseRegridder(object):
             kwargs=kwargs,
             input_core_dims=[input_horiz_dims, ('out_dim', 'in_dim')],
             output_core_dims=[temp_horiz_dims],
-            dask='parallelized',
+            dask='allowed',
             output_dtypes=[dr_in.dtype],
-            dask_gufunc_kwargs={
-                'output_sizes': {
-                    temp_horiz_dims[0]: self.shape_out[0],
-                    temp_horiz_dims[1]: self.shape_out[1],
-                },
-            },
+            # dask_gufunc_kwargs={
+            #     'output_sizes': {
+            #         temp_horiz_dims[0]: self.shape_out[0],
+            #         temp_horiz_dims[1]: self.shape_out[1],
+            #     },
+            # },
             keep_attrs=keep_attrs,
         )
 

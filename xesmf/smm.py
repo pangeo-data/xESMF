@@ -2,7 +2,7 @@
 Sparse matrix multiplication (SMM) using scipy.sparse library.
 """
 
-import warnings
+# import warnings
 from pathlib import Path
 
 import numpy as np
@@ -100,7 +100,7 @@ def _parse_coords_and_values(indata, n_in, n_out):
     return xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=('out_dim', 'in_dim'), name='weights')
 
 
-def apply_weights(weights, indata, shape_in, shape_out):
+def apply_weights(weights, indata, shape_in, shape_out, mod=np):
     """
     Apply regridding weights to data.
 
@@ -124,8 +124,8 @@ def apply_weights(weights, indata, shape_in, shape_out):
     # COO matrix is fast with F-ordered array but slow with C-array, so we
     # take in a C-ordered and then transpose)
     # (CSR or CRS matrix is fast with C-ordered array but slow with F-array)
-    if not indata.flags['C_CONTIGUOUS']:
-        warnings.warn('Input array is not C_CONTIGUOUS. ' 'Will affect performance.')
+    # if not indata.flags['C_CONTIGUOUS']:
+    #     warnings.warn('Input array is not C_CONTIGUOUS. ' 'Will affect performance.')
 
     # get input shape information
     shape_horiz = indata.shape[-2:]
@@ -145,13 +145,15 @@ def apply_weights(weights, indata, shape_in, shape_out):
     ), 'ny_out * nx_out should equal to weights.shape[0]'
 
     # use flattened array for dot operation
-    indata_flat = indata.reshape(-1, shape_in[0] * shape_in[1])
-    outdata_flat = weights.dot(indata_flat.T).T
+    indata_flat = indata.reshape(*extra_shape, shape_in[0] * shape_in[1])
+
+    # Dot product on the last axis of indata and first of w.T (last of w)
+    outdata_flat = mod.tensordot(indata_flat, weights.T, axes=1)
 
     outdata_flat = outdata_flat.astype(indata_flat.dtype)
 
     # unflattened output array
-    outdata = outdata_flat.reshape([*extra_shape, shape_out[0], shape_out[1]])
+    outdata = outdata_flat.reshape(*extra_shape, shape_out[0], shape_out[1])
     return outdata
 
 
