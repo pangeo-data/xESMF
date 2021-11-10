@@ -6,12 +6,17 @@ import warnings
 
 import cf_xarray as cfxr
 import numpy as np
-import sparse as sps
 import xarray as xr
 from xarray import DataArray, Dataset
 
 from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
-from .smm import _combine_weight_multipoly, add_nans_to_weights, apply_weights, read_weights
+from .smm import (
+    _combine_weight_multipoly,
+    _parse_coords_and_values,
+    add_nans_to_weights,
+    apply_weights,
+    read_weights,
+)
 from .util import split_polygons_and_holes
 
 try:
@@ -427,7 +432,7 @@ class BaseRegridder(object):
 
         Returns
         -------
-        outdata : Data type is the same as input data type.
+        outdata : Data type is the same as input data type, except for datasets.
             On the same horizontal grid as ``ds_out``,
             with extra dims in ``dr_in``.
 
@@ -437,6 +442,10 @@ class BaseRegridder(object):
             - (n_y_out, n_x_out), if ``dr_in`` is 2D
             - (n_time, n_lev, n_y_out, n_x_out), if ``dr_in`` has shape
               (n_time, n_lev, n_y, n_x)
+
+            Datasets with dask-backed variables will have modified dtypes.
+            If all input variables are 'float32', all output will be 'float32',
+            for any other case, all outputs will be 'float64'.
 
         """
         if isinstance(indata, np.ndarray):
@@ -555,7 +564,15 @@ class BaseRegridder(object):
         ]
         ds_in = ds_in.drop_vars(non_regriddable)
 
-        ds_dtypes = [d.dtype for d in ds_in.data_vars.values()]
+        # Select dtype (only relevant for dask-backed arrays, this has no effect otherwise)
+        dtypes = set(da.dtype for da in ds_in.data_vars.values())
+        if len(dtypes) == 1:
+            out_dtype = dtypes.pop()
+        else:
+            size = 1  # init to 1 byte
+            for d in dtypes:
+                size = max(size, d.itemsize)  # use max number of bytes found in dtypes
+                out_dtype = np.dtype(f'f{size}')
 
         ds_out = xr.apply_ufunc(
             self._regrid_array,
@@ -565,7 +582,7 @@ class BaseRegridder(object):
             input_core_dims=[input_horiz_dims, ('out_dim', 'in_dim')],
             output_core_dims=[temp_horiz_dims],
             dask='parallelized',
-            output_dtypes=ds_dtypes,
+            output_dtypes=[out_dtype],
             dask_gufunc_kwargs={
                 'output_sizes': {
                     temp_horiz_dims[0]: self.shape_out[0],
@@ -574,6 +591,13 @@ class BaseRegridder(object):
             },
             keep_attrs=keep_attrs,
         )
+
+        # For dask-backed, we force the dtype to fit the input's
+        # (numpy-backed variables already have been handled in `apply_weights`)
+        for name, data in ds_out.data_vars.items():
+            indtype = ds_in[name].dtype
+            if xr.core.common.is_duck_dask_array(data.data) and data.dtype != indtype:
+                ds_out[name] = data.astype(indtype, keep_attrs=True)
 
         return self._format_xroutput(ds_out, temp_horiz_dims)
 
@@ -731,6 +755,7 @@ class Regridder(BaseRegridder):
               - a dictionary with keys `row_dst`, `col_src` and `weights`,
               - an xarray Dataset with data variables `col`, `row` and `S`,
               - or a path to a netCDF file created by ESMF.
+
             If None, compute the weights.
 
         ignore_degenerate : bool, optional
@@ -883,11 +908,11 @@ class SpatialAverager(BaseRegridder):
             Shape of bounds should be (n+1,) or (n_y+1, n_x+1).
 
         polys : sequence of shapely Polygons and MultiPolygons
-            Sequence of polygons over which to average `ds_in`.
+            Sequence of polygons (lon, lat) over which to average `ds_in`.
 
         ignore_holes : bool
             Whether to ignore holes in polygons.
-            Default (True) is to substract the weight of holes from the weight of the polygon.
+            Default (True) is to subtract the weight of holes from the weight of the polygon.
 
         filename : str, optional
             Name for the weight file. The default naming scheme is::
@@ -906,6 +931,7 @@ class SpatialAverager(BaseRegridder):
               - a dictionary with keys `row_dst`, `col_src` and `weights`,
               - an xarray Dataset with data variables `col`, `row` and `S`,
               - or a path to a netCDF file created by ESMF.
+
             If None, compute the weights.
 
         ignore_degenerate : bool, optional
@@ -925,6 +951,7 @@ class SpatialAverager(BaseRegridder):
         ----------
         This approach is inspired by `OCGIS <https://github.com/NCPP/ocgis>`_.
         """
+        # Note, I suggest we refactor polys -> geoms
         self.ignore_holes = ignore_holes
         self.polys = polys
         self.geom_dim_name = geom_dim_name
@@ -963,51 +990,71 @@ class SpatialAverager(BaseRegridder):
             unmapped_to_nan=False,
         )
 
-    def _compute_weights(self):
-        """Return weight sparse matrix."""
+    def _compute_weights_and_area(self, mesh_out):
+        """Return the weights and the area of the destination mesh cells."""
 
-        # Split all (multi-)polygons into single polygons and holes. Keep track of owners.
-        exts, holes, i_ext, i_hol = split_polygons_and_holes(self.polys)
-        owners = np.array(i_ext + i_hol)
-
-        mesh_ext, shape_ext = polys_to_ESMFmesh(exts)
-
-        # Get weights for single polygons and holes
-        # Stack everything together
-        reg_ext = BaseRegridder(
-            mesh_ext,
+        # Build the regrid object
+        regrid = esmf_regrid_build(
             self.grid_in,
-            'conservative',
+            mesh_out,
+            method='conservative',
             ignore_degenerate=self.ignore_degenerate,
-            unmapped_to_nan=False,
         )
-        if len(holes) > 0 and not self.ignore_holes:
-            mesh_holes, shape_holes = polys_to_ESMFmesh(holes)
-            reg_holes = BaseRegridder(
-                mesh_holes,
-                self.grid_in,
-                'conservative',
-                ignore_degenerate=self.ignore_degenerate,
-                unmapped_to_nan=False,
-            )
-            w_all = xr.concat((reg_ext.weights, -reg_holes.weights), 'in_dim')
-        else:
-            w_all = reg_ext.weights
 
-        # "Transpose" the data, weights generated before are mesh -> grid, we want grid -> mesh
-        w_all = w_all.rename(in_dim='out_dim', out_dim='in_dim')
+        # Get the weights and convert to a DataArray
+        weights = regrid.get_weights_dict(deep_copy=True)
+        w = _parse_coords_and_values(weights, self.n_in, mesh_out.element_count)
 
-        # Combine weights of same owner
-        weights = _combine_weight_multipoly(w_all, owners)
-        # Normalize weights
-        wsum = weights.sum('in_dim')
-        # All this only to change the fill_value...
-        wsum = wsum.copy(
-            data=sps.COO(wsum.data.coords, wsum.data.data, shape=wsum.data.shape, fill_value=1)
-        )
-        weights = weights / wsum
-        # Transpose to fit with the rest of xesmf.
-        return weights.transpose('out_dim', 'in_dim')
+        # Get destination area - important for renormalizing the subgeometries.
+        regrid.dstfield.get_area()
+        dstarea = regrid.dstfield.data.copy()
+
+        esmf_regrid_finalize(regrid)
+        return w, dstarea
+
+    def _compute_weights(self):
+        """Return weight sparse matrix.
+
+        This function first explodes the geometries into a flat list of Polygon exterior objects:
+          - Polygon -> polygon.exterior
+          - MultiPolygon -> list of polygon.exterior
+
+        and a list of Polygon.interiors (holes).
+
+        Individual meshes are created for the exteriors and the interiors, and their regridding weights computed.
+        We cannot compute the exterior and interior weights at the same time, because the meshes overlap.
+
+        Weights for the subgeometries are then aggregated back to the original geometries. Because exteriors and
+        interiors are computed independently, we need to normalize the weights according to their area.
+        """
+
+        # Explode geometries into a flat list of polygon exteriors and interiors.
+        # Keep track of original geometry index.
+        # The convention used here is to list the exteriors first and then the interiors.
+        exteriors, interiors, i_ext, i_int = split_polygons_and_holes(self.polys)
+        geom_indices = np.array(i_ext + i_int)
+
+        # Create mesh from external polygons (positive contribution)
+        mesh_ext = Mesh.from_polygons(exteriors)
+
+        # Get weights for external polygons
+        w, area = self._compute_weights_and_area(mesh_ext)
+
+        # Get weights for interiors and append them to weights from exteriors as a negative contribution.
+        if len(interiors) > 0 and not self.ignore_holes:
+            mesh_int = Mesh.from_polygons(interiors)
+
+            # Get weights for interiors
+            w_int, area_int = self._compute_weights_and_area(mesh_int)
+
+            # Append weights from holes as negative weights
+            w = xr.concat((w, -w_int), 'out_dim')
+
+            # Append areas
+            area = np.concatenate([area, area_int])
+
+        # Combine weights for all the subgeometries belonging to the same geometry
+        return _combine_weight_multipoly(w, area, geom_indices).T
 
     def _get_default_filename(self):
         # e.g. bilinear_400x600_300x400.nc
