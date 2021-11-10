@@ -7,6 +7,8 @@ What's new
 Bug fixes
 ~~~~~~~~~
 - Regridding datasets with dask-backed variables is fixed. Dtype of the outputs is changed for this specific case. By `Pascal Bourgault <https://github.com/aulemahal>`_
+- SpatialAverager did not compute the same weights as Regridder when source cell areas were not uniform (:pull:`128`). By `David Huard <https://github.com/huard>`_
+
 
 0.6.1 (23-09-2021)
 ------------------
