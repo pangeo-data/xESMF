@@ -411,6 +411,26 @@ def test_regrid_dataarray(use_cfxr):
         xr.testing.assert_identical(dr_out, dr_out_rn)
 
 
+@pytest.mark.parametrize('use_dask', [True, False])
+def test_regrid_dataarray_endianess(use_dask):
+    # xarray.DataArray containing in-memory numpy array
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
+
+    exp = regridder(ds_in['data'])  # Normal (little-endian)
+    # with pytest.warns(UserWarning, match='Input array has a dtype not supported'):
+
+    if use_dask:
+        indata = ds_in.data.astype('>f8').chunk()
+    else:
+        indata = ds_in.data.astype('>f8')
+
+    out = regridder(indata)  # big endian
+
+    # Results should be the same
+    assert_equal(exp.values, out.values)
+    assert out.dtype == '>f8'
+
+
 def test_regrid_dataarray_to_locstream():
     # xarray.DataArray containing in-memory numpy array
 
@@ -580,6 +600,27 @@ def test_regrid_dataset():
     # Allow (but skip) other non spatial variables
     ds_result2 = regridder(ds_in.assign(nonspatial=ds_in.x * ds_in.time))
     xr.testing.assert_identical(ds_result2, ds_result)
+
+
+@pytest.mark.parametrize('scheduler', dask_schedulers)
+def test_regrid_dataset_dask(request, scheduler):
+    scheduler = request.getfixturevalue(scheduler)
+    # xarray.Dataset containing dask array
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
+
+    # `ds_out` already refers to output grid object
+    ds_result = regridder(ds_in.chunk())
+
+    # output should contain all data variables
+    assert set(ds_result.data_vars.keys()) == set(ds_in.data_vars.keys())
+    assert dask.is_dask_collection(ds_result)
+    assert ds_result.data.dtype == ds_in.data.dtype
+
+    ds_in_f4 = ds_in.copy()
+    ds_in_f4['data'] = ds_in_f4.data.astype('float32')
+    ds_in_f4['data4D'] = ds_in_f4.data4D.astype('float32')
+    ds_result = regridder(ds_in_f4.chunk())
+    assert ds_result.data.dtype == 'float32'
 
 
 def test_regrid_dataset_to_locstream():

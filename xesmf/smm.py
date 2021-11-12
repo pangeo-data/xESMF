@@ -147,10 +147,15 @@ def apply_weights(weights, indata, shape_in, shape_out, mod=np):
     # use flattened array for dot operation
     indata_flat = indata.reshape(*extra_shape, shape_in[0] * shape_in[1])
 
+    # Numba doesn't support little-endian.
+    if indata_flat.dtype.byteorder == '>':
+        indata_flat = indata_flat.astype(indata.dtype.newbyteorder('<'))
+
     # Dot product on the last axis of indata and first of w.T (last of w)
     outdata_flat = mod.tensordot(indata_flat, weights.T, axes=1)
 
-    outdata_flat = outdata_flat.astype(indata_flat.dtype)
+    if outdata_flat.dtype != indata.dtype:
+        outdata_flat = outdata_flat.astype(indata.dtype)
 
     # unflattened output array
     outdata = outdata_flat.reshape(*extra_shape, shape_out[0], shape_out[1])
