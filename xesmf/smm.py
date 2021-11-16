@@ -102,6 +102,28 @@ def _parse_coords_and_values(indata, n_in, n_out):
 
 
 def check_shapes(arr_shape, w_shape, shape_in, shape_out):
+    """Compare the shapes of the input array, the weights and the regridder and raises
+    potential errors.
+
+    Parameters
+    ----------
+    arr_shape : tuple of int
+      Shape of the input array with the two spatial dimensions at the end,
+      which should fit shape_in.
+    w_shape : 2-tuple of int
+      Shape of the weights (out_dim, in_dim).
+      First element should be the product of shape_out.
+      Second element should be the product of shape_in.
+    shape_in : 2-tuple of int
+      Shape of the input of the Regridder.
+    shape_out : 2-tuple of int
+      Shape of the output of the Regridder.
+
+    Raises
+    ------
+    ValueError
+      If any of the conditions is not respected.
+    """
 
     # COO matrix is fast with F-ordered array but slow with C-array, so we
     # take in a C-ordered and then transpose)
@@ -112,16 +134,17 @@ def check_shapes(arr_shape, w_shape, shape_in, shape_out):
     # get input shape information
     shape_horiz = arr_shape[-2:]
 
-    assert shape_horiz == shape_in, (
-        'The horizontal shape of input data is {}, different from that of'
-        'the regridder {}!'.format(arr_shape[-2:], shape_in)
-    )
+    if shape_horiz != shape_in:
+        raise ValueError(
+            f'The horizontal shape of input data is {shape_horiz}, different from that '
+            f'of the regridder {shape_in}!'
+        )
 
-    assert shape_in[0] * shape_in[1] == w_shape[1], 'ny_in * nx_in should equal to weights.shape[1]'
+    if shape_in[0] * shape_in[1] != w_shape[1]:
+        raise ValueError('ny_in * nx_in should equal to weights.shape[1]')
 
-    assert (
-        shape_out[0] * shape_out[1] == w_shape[0]
-    ), 'ny_out * nx_out should equal to weights.shape[0]'
+    if shape_out[0] * shape_out[1] != w_shape[0]:
+        raise ValueError('ny_out * nx_out should equal to weights.shape[0]')
 
 
 def apply_weights(weights, indata, shape_in, shape_out):

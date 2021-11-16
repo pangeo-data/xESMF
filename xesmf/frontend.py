@@ -25,7 +25,6 @@ try:
 
     dask_array_type = (da.Array,)  # for isinstance checks
 except ImportError:
-    da = None
     dask_array_type = ()
 
 
