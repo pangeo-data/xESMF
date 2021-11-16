@@ -5,6 +5,7 @@ Sparse matrix multiplication (SMM) using scipy.sparse library.
 # import warnings
 from pathlib import Path
 
+import numba as nb
 import numpy as np
 import sparse as sps
 import xarray as xr
@@ -148,9 +149,12 @@ def apply_weights(weights, indata, shape_in, shape_out):
     # use flattened array for dot operation
     indata_flat = indata.reshape(-1, shape_in[0] * shape_in[1])
 
-    # Numba doesn't support little-endian.
-    if indata_flat.dtype.byteorder == '>':
-        indata_flat = indata_flat.astype(indata.dtype.newbyteorder('<'))
+    # Limitation from numba : some big-endian dtypes are not supported.
+    try:
+        nb.from_dtype(indata.dtype)
+        nb.from_dtype(weights.dtype)
+    except NotImplementedError:
+        weights = weights.to_scipy_sparse()
 
     # Dot product
     outdata_flat = weights.dot(indata_flat.T).T
