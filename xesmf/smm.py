@@ -1,8 +1,7 @@
 """
 Sparse matrix multiplication (SMM) using scipy.sparse library.
 """
-
-# import warnings
+import warnings
 from pathlib import Path
 
 import numba as nb
@@ -101,17 +100,17 @@ def _parse_coords_and_values(indata, n_in, n_out):
     return xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=('out_dim', 'in_dim'), name='weights')
 
 
-def check_shapes(arr_shape, w_shape, shape_in, shape_out):
+def check_shapes(indata, weights, shape_in, shape_out):
     """Compare the shapes of the input array, the weights and the regridder and raises
     potential errors.
 
     Parameters
     ----------
-    arr_shape : tuple of int
-      Shape of the input array with the two spatial dimensions at the end,
+    indata : array
+      Input array with the two spatial dimensions at the end,
       which should fit shape_in.
-    w_shape : 2-tuple of int
-      Shape of the weights (out_dim, in_dim).
+    weights : array
+      Weights 2D array of shape (out_dim, in_dim).
       First element should be the product of shape_out.
       Second element should be the product of shape_in.
     shape_in : 2-tuple of int
@@ -124,15 +123,24 @@ def check_shapes(arr_shape, w_shape, shape_in, shape_out):
     ValueError
       If any of the conditions is not respected.
     """
-
     # COO matrix is fast with F-ordered array but slow with C-array, so we
     # take in a C-ordered and then transpose)
     # (CSR or CRS matrix is fast with C-ordered array but slow with F-array)
-    # if not indata.flags['C_CONTIGUOUS']:
-    #     warnings.warn('Input array is not C_CONTIGUOUS. ' 'Will affect performance.')
+    if hasattr(indata, 'flags') and not indata.flags['C_CONTIGUOUS']:
+        warnings.warn('Input array is not C_CONTIGUOUS. ' 'Will affect performance.')
+
+    # Limitation from numba : some big-endian dtypes are not supported.
+    try:
+        nb.from_dtype(indata.dtype)
+        nb.from_dtype(weights.dtype)
+    except NotImplementedError:
+        warnings.warn(
+            'Input array has a dtype not supported by sparse and numba.'
+            'Computation will fall back to scipy.'
+        )
 
     # get input shape information
-    shape_horiz = arr_shape[-2:]
+    shape_horiz = indata.shape[-2:]
 
     if shape_horiz != shape_in:
         raise ValueError(
@@ -140,10 +148,10 @@ def check_shapes(arr_shape, w_shape, shape_in, shape_out):
             f'of the regridder {shape_in}!'
         )
 
-    if shape_in[0] * shape_in[1] != w_shape[1]:
+    if shape_in[0] * shape_in[1] != weights.shape[1]:
         raise ValueError('ny_in * nx_in should equal to weights.shape[1]')
 
-    if shape_out[0] * shape_out[1] != w_shape[0]:
+    if shape_out[0] * shape_out[1] != weights.shape[0]:
         raise ValueError('ny_out * nx_out should equal to weights.shape[0]')
 
 

@@ -492,7 +492,7 @@ class BaseRegridder(object):
             'shape_out': self.shape_out,
         }
 
-        check_shapes(indata.shape, weights.shape, **kwargs)
+        check_shapes(indata, weights, **kwargs)
 
         kwargs.update(skipna=skipna, na_thres=na_thres)
 
