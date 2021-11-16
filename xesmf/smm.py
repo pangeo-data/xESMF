@@ -100,7 +100,30 @@ def _parse_coords_and_values(indata, n_in, n_out):
     return xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=('out_dim', 'in_dim'), name='weights')
 
 
-def apply_weights(weights, indata, shape_in, shape_out, mod=np):
+def check_shapes(arr_shape, w_shape, shape_in, shape_out):
+
+    # COO matrix is fast with F-ordered array but slow with C-array, so we
+    # take in a C-ordered and then transpose)
+    # (CSR or CRS matrix is fast with C-ordered array but slow with F-array)
+    # if not indata.flags['C_CONTIGUOUS']:
+    #     warnings.warn('Input array is not C_CONTIGUOUS. ' 'Will affect performance.')
+
+    # get input shape information
+    shape_horiz = arr_shape[-2:]
+
+    assert shape_horiz == shape_in, (
+        'The horizontal shape of input data is {}, different from that of'
+        'the regridder {}!'.format(arr_shape[-2:], shape_in)
+    )
+
+    assert shape_in[0] * shape_in[1] == w_shape[1], 'ny_in * nx_in should equal to weights.shape[1]'
+
+    assert (
+        shape_out[0] * shape_out[1] == w_shape[0]
+    ), 'ny_out * nx_out should equal to weights.shape[0]'
+
+
+def apply_weights(weights, indata, shape_in, shape_out):
     """
     Apply regridding weights to data.
 
@@ -120,42 +143,20 @@ def apply_weights(weights, indata, shape_in, shape_out, mod=np):
         Extra dimensions are the same as `indata`.
         If input data is C-ordered, output will also be C-ordered.
     """
-
-    # COO matrix is fast with F-ordered array but slow with C-array, so we
-    # take in a C-ordered and then transpose)
-    # (CSR or CRS matrix is fast with C-ordered array but slow with F-array)
-    # if not indata.flags['C_CONTIGUOUS']:
-    #     warnings.warn('Input array is not C_CONTIGUOUS. ' 'Will affect performance.')
-
-    # get input shape information
-    shape_horiz = indata.shape[-2:]
     extra_shape = indata.shape[0:-2]
 
-    assert shape_horiz == shape_in, (
-        'The horizontal shape of input data is {}, different from that of'
-        'the regridder {}!'.format(shape_horiz, shape_in)
-    )
-
-    assert (
-        shape_in[0] * shape_in[1] == weights.shape[1]
-    ), 'ny_in * nx_in should equal to weights.shape[1]'
-
-    assert (
-        shape_out[0] * shape_out[1] == weights.shape[0]
-    ), 'ny_out * nx_out should equal to weights.shape[0]'
-
     # use flattened array for dot operation
-    indata_flat = indata.reshape(*extra_shape, shape_in[0] * shape_in[1])
+    indata_flat = indata.reshape(-1, shape_in[0] * shape_in[1])
 
     # Numba doesn't support little-endian.
     if indata_flat.dtype.byteorder == '>':
         indata_flat = indata_flat.astype(indata.dtype.newbyteorder('<'))
 
-    # Dot product on the last axis of indata and first of w.T (last of w)
-    outdata_flat = mod.tensordot(indata_flat, weights.T, axes=1)
+    # Dot product
+    outdata_flat = weights.dot(indata_flat.T).T
 
-    if outdata_flat.dtype != indata.dtype:
-        outdata_flat = outdata_flat.astype(indata.dtype)
+    # Ensure same dtype as the input.
+    outdata_flat = outdata_flat.astype(indata.dtype)
 
     # unflattened output array
     outdata = outdata_flat.reshape(*extra_shape, shape_out[0], shape_out[1])
