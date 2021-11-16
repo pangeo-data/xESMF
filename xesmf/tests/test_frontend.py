@@ -490,7 +490,7 @@ def test_regrid_dask(request, scheduler):
     # Check that the number of tasks hasn't exploded.
     n_task_in = len(indata.__dask_graph__().keys())
     n_task_out = len(outdata.__dask_graph__().keys())
-    assert (n_task_out / n_task_in) < 10
+    assert (n_task_out / n_task_in) < 3
 
     outdata_ref = ds_out['data4D_ref'].values
     rel_err = (outdata.compute() - outdata_ref) / outdata_ref

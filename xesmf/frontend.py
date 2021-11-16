@@ -507,14 +507,26 @@ class BaseRegridder(object):
                 weights,
                 dtype=indata.dtype,
                 chunks=output_chunks,
-                # drop_axis=[],
-                # new_axis=[-2, -1],
                 meta=np.array((), dtype=indata.dtype),
                 **kwargs,
             )
         else:  # numpy
             outdata = self._regrid(indata, weights, **kwargs)
         return outdata
+
+    def regrid_numpy(self, indata, **kwargs):
+        warnings.warn(
+            '`regrid_numpy()` will be removed in xESMF 0.7, please use `regrid_array` instead.',
+            category=FutureWarning,
+        )
+        return self.regrid_array(indata, self.weights.data, **kwargs)
+
+    def regrid_dask(self, indata, **kwargs):
+        warnings.warn(
+            '`regrid_dask()` will be removed in xESMF 0.7, please use `regrid_array` instead.',
+            category=FutureWarning,
+        )
+        return self.regrid_array(indata, self.weights.data, **kwargs)
 
     def regrid_dataarray(self, dr_in, keep_attrs=False, skipna=False, na_thres=1.0):
         """See __call__()."""
