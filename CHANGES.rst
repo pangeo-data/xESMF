@@ -6,7 +6,7 @@ What's new
 
 Bug fixes
 ~~~~~~~~~
-- The introduction of `sparse`, with `numba` under the hood, restricted input data to little-endian dtypes. For big-endian dtypes, xESMF switches back to using scipy (:pull:`125`). By `Pascal Bourgault <https://github.com/aulemahal>`_
+- The introduction of `sparse`, with `numba` under the hood, restricted input data to little-endian dtypes. For big-endian dtypes, xESMF will convert to little-endian, regrid and convert back (:pull:`135`). By `Pascal Bourgault <https://github.com/aulemahal>`_
 - ``SpatialAverager`` did not compute the same weights as ``Regridder`` when source cell areas were not uniform (:pull:`128`). By `David Huard <https://github.com/huard>`_
 - Refactor of how the regridding is called internally, to fix a bug with dask and sparse (:pull:`135`). By `Pascal Bourgault <https://github.com/aulemahal>`_
 
