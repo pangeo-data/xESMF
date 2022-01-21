@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.7, 3.8, 3.9]
 
     steps:
       - name: Cancel previous runs
@@ -77,7 +77,7 @@ jobs:
           mamba-version: '*'
           activate-environment: xesmf
           auto-update-conda: false
-          python-version: 3.8
+          python-version: 3.9
       - name: Set up conda environment
         run: |
           mamba env update -f ci/environment-upstream-dev.yml
