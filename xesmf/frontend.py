@@ -63,6 +63,9 @@ def _get_lon_lat_bounds(ds):
         # Old way.
         return ds['lon_b'], ds['lat_b']
     # else : cf-xarray way
+    if 'longitude' not in ds.cf.coordinates:
+        # If we are here, _get_lon_lat() didn't fail, thus we should be able to guess the coords.
+        ds = ds.cf.guess_coord_axis()
     try:
         lon_bnds = ds.cf.get_bounds('longitude')
         lat_bnds = ds.cf.get_bounds('latitude')

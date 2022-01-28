@@ -1,6 +1,13 @@
 What's new
 ==========
 
+0.6.3 (unreleased)
+------------------
+
+Internal changes
+~~~~~~~~~~~~~~~~
+- Use `cf-xarray` to guess missing CF coordinates before extracting bounds (:pull:`147`). By `Pascal Bourgault <https://github.com/aulemahal>`_
+
 0.6.2 (23-11-2021)
 ------------------
 
