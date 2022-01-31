@@ -133,7 +133,7 @@ def check_shapes(indata, weights, shape_in, shape_out):
     try:
         nb.from_dtype(indata.dtype)
         nb.from_dtype(weights.dtype)
-    except NotImplementedError:
+    except (NotImplementedError, nb.core.errors.NumbaError):
         warnings.warn(
             'Input array has a dtype not supported by sparse and numba.'
             'Computation will fall back to scipy.'
@@ -184,7 +184,7 @@ def apply_weights(weights, indata, shape_in, shape_out):
     try:
         nb.from_dtype(indata.dtype)
         nb.from_dtype(weights.dtype)
-    except NotImplementedError:
+    except (NotImplementedError, nb.core.errors.NumbaError):
         weights = weights.to_scipy_sparse()
 
     # Dot product
