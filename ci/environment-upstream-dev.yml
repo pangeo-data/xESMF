@@ -6,6 +6,7 @@ dependencies:
   - codecov
   - dask
   - esmpy
+  - numba
   - numpy
   - pip
   - pre-commit
