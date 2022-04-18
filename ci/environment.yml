@@ -16,3 +16,5 @@ dependencies:
   - shapely
   - sparse
   - xarray>=0.17.0
+  - pip:
+    - git+https://github.com/psf/black
