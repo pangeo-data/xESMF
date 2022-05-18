@@ -7,6 +7,7 @@ dependencies:
   - codecov
   - dask
   - esmpy
+  - numba
   - numpy
   - pip
   - pre-commit
@@ -14,5 +15,5 @@ dependencies:
   - pytest
   - pytest-cov
   - shapely
-  - sparse
+  - sparse>=0.8.0
   - xarray>=0.17.0
