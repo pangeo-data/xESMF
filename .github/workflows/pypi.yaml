@@ -43,6 +43,6 @@ jobs:
       #     python -m twine upload dist/*
 
       - name: upload artifacs
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           path: dist/*
