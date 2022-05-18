@@ -26,7 +26,8 @@ else:
         'numpy>=1.16',
         'shapely',
         'cf-xarray>=0.5.1',
-        'sparse',
+        'sparse>=0.8.0',
+        'numba',
     ]
 
 CLASSIFIERS = [
