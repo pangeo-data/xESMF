@@ -327,8 +327,8 @@ def test_regrid_with_1d_grid():
 
 
 def test_regrid_with_1d_grid_infer_bounds():
-    ds_in_1d = ds_2d_to_1d(ds_in).rename(x='lon', y='lat')
-    ds_out_1d = ds_2d_to_1d(ds_out).rename(x='lon', y='lat')
+    ds_in_1d = ds_2d_to_1d(ds_in).swap_dims(x='lon', y='lat')
+    ds_out_1d = ds_2d_to_1d(ds_out).swap_dims(x='lon', y='lat')
 
     regridder = xe.Regridder(ds_in_1d, ds_out_1d, 'conservative', periodic=True)
 
