@@ -6,13 +6,14 @@ dependencies:
   - codecov
   - dask
   - esmpy
+  - numba
   - numpy
   - pip
   - pre-commit
   - pydap
   - pytest
   - pytest-cov
-  - sparse
+  - sparse>=0.8.0
   - pip:
       - git+https://github.com/pydata/xarray.git
       - git+https://github.com/xarray-contrib/cf-xarray.git
