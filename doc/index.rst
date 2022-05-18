@@ -91,5 +91,5 @@ Your support in any form will be appreciated. The easy ways (takes several secon
 
 More advanced ways:
 
-- Cite xESMF in your scientific publications. Currently the best way is to cite the DOI: https://doi.org/10.5281/zenodo.1134365.
+- Cite xESMF in your scientific publications. Currently the best way is to cite the DOI: https://doi.org/10.5281/zenodo.4294774.
 - If you'd like to contribute code, see this `preliminary contributor guide <https://github.com/JiaweiZhuang/xESMF/issues/28>`_. Also see `Contributing to xarray <http://xarray.pydata.org/en/stable/contributing.html>`_ for more backgrounds.
