@@ -302,7 +302,7 @@ def test_regridded_respects_input_dtype(dtype, data_in):
     regridder = xe.Regridder(ds_in, ds_out, 'bilinear')  # Make this a fixture?
     out = regridder(data_in)
 
-    if 'data' in data_in:
+    if isinstance(data_in, xr.Dataset):
         # When data_in is xr.Dataset, a mapping...
         assert out['data'].dtype == data_in['data'].dtype
     else:
@@ -567,7 +567,6 @@ def test_regrid_dataarray_dask_from_locstream(request, scheduler):
 
 def test_regrid_dataset():
     # xarray.Dataset containing in-memory numpy array
-
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
     # `ds_out` already refers to output grid object
@@ -600,6 +599,25 @@ def test_regrid_dataset():
     # Allow (but skip) other non spatial variables
     ds_result2 = regridder(ds_in.assign(nonspatial=ds_in.x * ds_in.time))
     xr.testing.assert_identical(ds_result2, ds_result)
+
+
+def test_regrid_dataset_extracoords():
+    ds_out2 = ds_out.copy().assign_coords(
+        x=np.arange(24),
+        y=np.arange(20),  # coords to be transfered
+        latitude_longitude=xr.DataArray(),  # grid_mapping
+        bogus=ds_out.lev * ds_out.lon,  # coord not to be transfered
+    )
+    ds_out2['data_ref'].attrs['grid_mapping'] = 'latitude_longitude'
+    ds_out2['data4D_ref'].attrs['grid_mapping'] = 'latitude_longitude'
+
+    regridder = xe.Regridder(ds_in, ds_out2, 'conservative')
+    ds_result = regridder(ds_in)
+
+    assert 'x' in ds_result.coords
+    assert 'y' in ds_result.coords
+    assert 'bogus' not in ds_result.coords
+    assert 'latitude_longitude' in ds_result.coords
 
 
 @pytest.mark.parametrize('scheduler', dask_schedulers)
@@ -788,7 +806,7 @@ def test_non_cf_latlon():
     [
         ({}, 'locations'),
         ({'lon': {'locations': 'foo'}, 'lat': {'locations': 'foo'}}, 'foo'),
-        ({'lon': {'locations': 'foo'}, 'lat': {'locations': 'bar'}}, 'locations'),
+        ({'lon': {'locations': 'foo'}, 'lat': {'locations': 'bar'}}, None),
     ],
 )
 def test_locstream_dim_name(var_renamer, dim_out):
@@ -797,10 +815,14 @@ def test_locstream_dim_name(var_renamer, dim_out):
     for var, renamer in var_renamer.items():
         ds_locs_renamed[var] = ds_locs_renamed[var].rename(renamer)
 
-    regridder = xe.Regridder(ds_in, ds_locs_renamed, 'bilinear', locstream_out=True)
-    expected = {'lev', 'time', 'x_b', 'y_b', dim_out}
-    actual = set(regridder(ds_in).dims)
-    assert expected == actual
+    if dim_out is None:
+        with pytest.raises(ValueError, match='not specified along the same dimension'):
+            regridder = xe.Regridder(ds_in, ds_locs_renamed, 'bilinear', locstream_out=True)
+    else:
+        regridder = xe.Regridder(ds_in, ds_locs_renamed, 'bilinear', locstream_out=True)
+        expected = {'lev', 'time', 'x_b', 'y_b', dim_out}
+        actual = set(regridder(ds_in).dims)
+        assert expected == actual
 
 
 def test_spatial_averager_mask():
