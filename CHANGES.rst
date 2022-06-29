@@ -4,9 +4,15 @@ What's new
 0.6.3 (unreleased)
 ------------------
 
+Bug fixes
+~~~~~~~~~
+- Spatial coordinates of `ds_out` are kept within the regridder and transferred to the regridded DataArray or Dataset (:pull:`175`). By `Pascal Bourgault <https://github.com/aulemahal>`_
+- Added `numba` as an explicit dependency to fix installation with conda (:pull:`168`). By `Pascal Bourgault <https://github.com/aulemahal>`_
+
 Internal changes
 ~~~~~~~~~~~~~~~~
 - Use `cf-xarray` to guess missing CF coordinates before extracting bounds (:pull:`147`). By `Pascal Bourgault <https://github.com/aulemahal>`_
+
 
 0.6.2 (23-11-2021)
 ------------------

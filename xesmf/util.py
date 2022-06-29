@@ -4,6 +4,9 @@ import numpy as np
 import xarray as xr
 from shapely.geometry import MultiPolygon, Polygon
 
+LON_CF_ATTRS = {'standard_name': 'longitude', 'units': 'degrees_east'}
+LAT_CF_ATTRS = {'standard_name': 'latitude', 'units': 'degrees_north'}
+
 
 def _grid_1d(start_b, end_b, step):
     """
@@ -105,13 +108,14 @@ def cf_grid_2d(lon0_b, lon1_b, d_lon, lat0_b, lat1_b, d_lat):
             'lon': (
                 'lon',
                 lon_1d,
-                {'standard_name': 'longitude', 'units': 'degrees_east', 'bounds': 'lon_bounds'},
+                {'bounds': 'lon_bounds', **LON_CF_ATTRS},
             ),
             'lat': (
                 'lat',
                 lat_1d,
-                {'standard_name': 'latitude', 'units': 'degrees_north', 'bounds': 'lat_bounds'},
+                {'bounds': 'lat_bounds', **LAT_CF_ATTRS},
             ),
+            'latitude_longitude': xr.DataArray(),
         },
         data_vars={
             'lon_bounds': vertices_to_bounds(lon_b_1d, ('bound', 'lon')),

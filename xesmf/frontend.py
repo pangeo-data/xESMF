@@ -18,7 +18,7 @@ from .smm import (
     check_shapes,
     read_weights,
 )
-from .util import split_polygons_and_holes
+from .util import LAT_CF_ATTRS, LON_CF_ATTRS, split_polygons_and_holes
 
 try:
     import dask.array as da
@@ -783,59 +783,55 @@ class Regridder(BaseRegridder):
 
         # record output grid and metadata
         lon_out, lat_out = _get_lon_lat(ds_out)
-        self._lon_out, self._lat_out = np.asarray(lon_out), np.asarray(lat_out)
-        self._coord_names = dict(
-            lon=lon_out.name if isinstance(lon_out, DataArray) else 'lon',
-            lat=lat_out.name if isinstance(lat_out, DataArray) else 'lat',
-        )
-        self._lon_out_attrs = lon_out.attrs if isinstance(lon_out, DataArray) else {}
-        self._lat_out_attrs = lat_out.attrs if isinstance(lat_out, DataArray) else {}
+        if not isinstance(lon_out, DataArray):
+            if lon_out.ndim == 2:
+                dims = [('y', 'x'), ('y', 'x')]
+            elif self.sequence_out:
+                dims = [('locations',), ('locations',)]
+            else:
+                dims = [('lon',), ('lat',)]
+            lon_out = xr.DataArray(lon_out, dims=dims[0], name='lon', attrs=LON_CF_ATTRS)
+            lat_out = xr.DataArray(lat_out, dims=dims[1], name='lat', attrs=LAT_CF_ATTRS)
 
-        if self._lon_out.ndim == 2:
-            try:
-                self.lon_dim = self.lat_dim = lon_out.dims
-            except Exception:
-                self.lon_dim = self.lat_dim = ('y', 'x')
+        if lat_out.ndim == 2:
+            self.out_horiz_dims = lat_out.dims
+        elif self.sequence_out:
+            if lat_out.dims != lon_out.dims:
+                raise ValueError(
+                    'Regridder expects a locstream output, but the passed longitude '
+                    'and latitude are not specified along the same dimension. '
+                    f'(lon: {lon_out.dims}, lat: {lat_out.dims})'
+                )
+            self.out_horiz_dims = ('dummy',) + lat_out.dims
+        else:
+            self.out_horiz_dims = (lat_out.dims[0], lon_out.dims[0])
 
-            self.out_horiz_dims = self.lon_dim
-
-        elif self._lon_out.ndim == 1:
-            try:
-                (self.lon_dim,) = lon_out.dims
-                (self.lat_dim,) = lat_out.dims
-            except Exception:
-                self.lon_dim = 'lon'
-                self.lat_dim = 'lat'
-
-            self.out_horiz_dims = (self.lat_dim, self.lon_dim)
+        if isinstance(ds_out, Dataset):
+            self.out_coords = {
+                name: crd
+                for name, crd in ds_out.coords.items()
+                if set(self.out_horiz_dims).issuperset(crd.dims)
+            }
+            grid_mapping = {
+                var.attrs['grid_mapping']
+                for var in ds_out.data_vars.values()
+                if 'grid_mapping' in var.attrs
+            }
+            if grid_mapping:
+                self.out_coords.update({gm: ds_out[gm] for gm in grid_mapping if gm in ds_out})
+        else:
+            self.out_coords = {lat_out.name: lat_out, lon_out.name: lon_out}
 
     def _format_xroutput(self, out, new_dims=None):
-        if not self.sequence_out and new_dims is not None:
+        if new_dims is not None:
             # rename dimension name to match output grid
-            out = out.rename(
-                {new_dims[0]: self.out_horiz_dims[0], new_dims[1]: self.out_horiz_dims[1]}
-            )
+            out = out.rename({nd: od for nd, od in zip(new_dims, self.out_horiz_dims)})
 
-        # append output horizontal coordinate values
-        # extra coordinates are automatically tracked by apply_ufunc
-        lon_args = dict(data=self._lon_out, attrs=self._lon_out_attrs)
-        lat_args = dict(data=self._lat_out, attrs=self._lat_out_attrs)
-        if self.sequence_out:
-            out.coords['lon'] = xr.DataArray(**lon_args, dims=('locations',))
-            out.coords['lat'] = xr.DataArray(**lat_args, dims=('locations',))
-        else:
-            out.coords['lon'] = xr.DataArray(**lon_args, dims=self.lon_dim)
-            out.coords['lat'] = xr.DataArray(**lat_args, dims=self.lat_dim)
-
+        out = out.assign_coords(**self.out_coords)
         out.attrs['regrid_method'] = self.method
 
         if self.sequence_out:
             out = out.squeeze(dim='dummy')
-            if self.lon_dim == self.lat_dim:
-                out = out.rename(locations=self.lon_dim)
-
-        # Use ds_out coordinates
-        out = out.rename(self._coord_names)
 
         return out
 
