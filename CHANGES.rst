@@ -7,6 +7,7 @@ What's new
 Bug fixes
 ~~~~~~~~~
 - Spatial coordinates of `ds_out` are kept within the regridder and transfered to the regridded DataArray or Dataset (:pull:`175`). By `Pascal Bourgault <https://github.com/aulemahal>`_
+- Added `numba` as an explicit dependency to fix installation on with conda (:pull:`168`). By `Pascal Bourgault <https://github.com/aulemahal>`_
 
 Internal changes
 ~~~~~~~~~~~~~~~~
