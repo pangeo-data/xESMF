@@ -423,7 +423,7 @@ class BaseRegridder(object):
             of missing values exceeds the level set by `na_thres`:
             for instance, when the center of a cell is computed linearly
             from its four corners, one of which is missing, the output value
-            is set to NaN if `na_thres` is greater or equal to 0.25.
+            is set to NaN if `na_thres` is smaller than 0.25.
 
         na_thres: float, optional
             A value within the [0., 1.] interval that defines the maximum
