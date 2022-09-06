@@ -41,13 +41,15 @@ def read_weights(weights, n_in, n_out):
         weights = _parse_coords_and_values(weights, n_in, n_out)
 
     elif isinstance(weights, sps.COO):
-        try :
+        try:
             weights = xr.DataArray(weights, dims=('out_dim', 'in_dim'), name='weights')
-        except MemoryError :
+        except MemoryError:
             print(' WARNING : Handling MemoryError execption')
             print('    xarray.DataArray backed by the sparse.COO matrix of weights')
             print('    does not understand the sparse object and is hosting in turn')
-            print('    the full matrix size => to avoid failure keep weights as a sparse.COO object')
+            print(
+                '    the full matrix size => to avoid failure keep weights as a sparse.COO object'
+            )
 
     elif not isinstance(weights, xr.DataArray):
         raise ValueError(f'Weights of type {type(weights)} not understood.')
@@ -103,23 +105,28 @@ def _parse_coords_and_values(indata, n_in, n_out):
         s = indata['weights']
 
     crds = np.stack([row, col])
-    # BLXD : Wrapping up the sparse.COO weights inside an xarray.DataArray structure 
+    # BLXD : Wrapping up the sparse.COO weights inside an xarray.DataArray structure
     #   can cause a failure and/or involve an unecessarily large amount of Memory use.
-    #   Indeed : 
+    #   Indeed :
     #   - xarray.DataArray does not recognize the sps.COO sparse object (coords,data) hidden behind the numpy.ndarray.
     #   - self.weights.values or data attributes ends up hosting the full size weight matrix,
     #   Would require xarray making some specific tests ? In the meantime handling the MemoryError exception
-    #   by keeping the weights as a sparse.COO object and modifying the xesmf smm.py/frontend.py accordingly. 
-    try :
-        output=xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=('out_dim', 'in_dim'), coords={'out_dim','in_dim'} , name='weights')
-    except MemoryError :
+    #   by keeping the weights as a sparse.COO object and modifying the xesmf smm.py/frontend.py accordingly.
+    try:
+        output = xr.DataArray(
+            sps.COO(crds, s, (n_out, n_in)),
+            dims=('out_dim', 'in_dim'),
+            coords={'out_dim', 'in_dim'},
+            name='weights',
+        )
+    except MemoryError:
         print(' WARNING : Handling MemoryError exception')
         print('    xarray.DataArray backed by the sparse.COO matrix of weights')
         print('    does not understand the sparse object and is hosting in turn')
         print('    the full matrix size => to avoid failure keep weights as a sparse.COO object')
-        output=sps.COO(crds, s, (n_out, n_in))
-    return output 
-    #return xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=('out_dim', 'in_dim'), name='weights')
+        output = sps.COO(crds, s, (n_out, n_in))
+    return output
+    # return xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=('out_dim', 'in_dim'), name='weights')
 
 
 def check_shapes(indata, weights, shape_in, shape_out):
@@ -241,8 +248,8 @@ def add_nans_to_weights(weights):
     # Taken from @trondkr and adapted by @raphaeldussin to use `lil`.
     # lil matrix is better than CSR when changing sparsity
 
-    if isinstance(weights,xr.DataArray) :
-        # BLXD : the original instruction causes an AttributeError: 
+    if isinstance(weights, xr.DataArray):
+        # BLXD : the original instruction causes an AttributeError:
         # 'numpy.ndarray' object has no attribute 'to_scipy_sparse'
         # It is required to convert the numpy.ndarray weights.data to a sparse.COO first
         # m = weights.data.to_scipy_sparse().tolil()
@@ -252,7 +259,7 @@ def add_nans_to_weights(weights):
         # read_weights and _parse_coords_and_values functions
         # weights can be of the sparse.COO type
         m = weights.to_scipy_sparse().tolil()
-    else :
+    else:
         raise ValueError(f'Weights of type {type(weights)} not understood.')
 
     # replace empty rows by one NaN value at element 0 (arbitrary)
@@ -263,12 +270,12 @@ def add_nans_to_weights(weights):
     # update regridder weights (in COO)
     # BLXD : handling again MemoryError exception here
     # Memory issue when encapsulating sps.COO matrix within xr.DataArray
-    if  isinstance(weights,xr.DataArray) :
-        try :
+    if isinstance(weights, xr.DataArray):
+        try:
             weights = weights.copy(data=sps.COO.from_scipy_sparse(m))
-        except MemoryError :
+        except MemoryError:
             weights = sps.COO.from_scipy_sparse(m)
-    else :
+    else:
         # BLXD : if weights is a sparse.COO object when entering the function
         # MemoryError exception have alread happened ?
         # print('Previously encountered MemoryError, weights kept as sparse.COO object')
@@ -297,23 +304,23 @@ def _combine_weight_multipoly(weights, areas, indexes):
       Sum of weights from individual geometries.
     """
 
-    # BLXD : In the case of the MemoryError exception due to the xarray limitations 
+    # BLXD : In the case of the MemoryError exception due to the xarray limitations
     # when hosting sparse.COO objects within an xarray.DataArray
     # weights can be of the sparse.COO type in this function
-    if isinstance( w, (sps.COO) ) :
-        print("@Class Regridder.__call__ method : Memory Issue Handling")
+    if isinstance(w, (sps.COO)):
+        print('@Class Regridder.__call__ method : Memory Issue Handling')
         print('@function _combine_weight_multipoly : weights has sparse.COO format')
         print('@WARNING : not tested!!!')
         #'out_dim' renamed 'sub-geometries' <-> rows <-> axis=0
-        #element-wise multiplication between weights sparse.COO and area np.ndarray
-        out = (weights*areas).sum(axis=0)
+        # element-wise multiplication between weights sparse.COO and area np.ndarray
+        out = (weights * areas).sum(axis=0)
         # Not sure necessary to handle NaNs ?
-        try :
-            wsum = out[ ~np.isnan(out) ].sum( axis=1 )
-        except :
-            wsum = out.sum( axis=1 )
+        try:
+            wsum = out[~np.isnan(out)].sum(axis=1)
+        except:
+            wsum = out.sum(axis=1)
 
-    else :
+    else:
 
         sub_weights = weights.rename(out_dim='subgeometries')
 
@@ -326,7 +333,6 @@ def _combine_weight_multipoly(weights, areas, indexes):
             dims=('out_dim', 'subgeometries'),
             name='area',
         )
-
 
         # Weight the regridding weights by the area of the destination polygon and sum over sub-geometries
         out = (sub_weights * a).sum(dim='subgeometries')
