@@ -218,7 +218,8 @@ def add_nans_to_weights(weights):
 
     # Taken from @trondkr and adapted by @raphaeldussin to use `lil`.
     # lil matrix is better than CSR when changing sparsity
-    m = weights.data.to_scipy_sparse().tolil()
+    # m = weights.data.to_scipy_sparse().tolil()
+    m = sps.COO.from_numpy(weights.data).to_scipy_sparse().tolil()
     # replace empty rows by one NaN value at element 0 (arbitrary)
     # so that remapped element become NaN instead of zero
     for krow in range(len(m.rows)):
