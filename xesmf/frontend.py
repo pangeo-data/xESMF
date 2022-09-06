@@ -8,6 +8,7 @@ import cf_xarray as cfxr
 import numpy as np
 import xarray as xr
 from xarray import DataArray, Dataset
+import sparse as sps
 
 from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
 from .smm import (
@@ -452,18 +453,53 @@ class BaseRegridder(object):
             for any other case, all outputs will be 'float64'.
 
         """
-        if isinstance(indata, dask_array_type + (np.ndarray,)):
-            return self.regrid_array(indata, self.weights.data, skipna=skipna, na_thres=na_thres)
-        elif isinstance(indata, xr.DataArray):
-            return self.regrid_dataarray(
-                indata, keep_attrs=keep_attrs, skipna=skipna, na_thres=na_thres
-            )
-        elif isinstance(indata, xr.Dataset):
-            return self.regrid_dataset(
-                indata, keep_attrs=keep_attrs, skipna=skipna, na_thres=na_thres
-            )
-        else:
-            raise TypeError('input must be numpy array, dask array, xarray DataArray or Dataset!')
+
+        # BLXD
+        # if if_expected_weight_type :
+        # 1) is True weights have the regular xarray.DataArray structure
+        # 2) else weights is a sparse.COO 2D matrix of weights
+        #    This enables to bypass the MemoryError due to xarray and 
+        #    xarray.DataArray data construction which automatically 
+        #    converts the sparse matrix to its full size numpy.ndarray dense format.
+        expected_dims=['out_dim', 'in_dim']
+        try :
+            if_expected_weight_type = ( expected_dims == list(self.weights.dims) )
+        except :
+            if_expected_weight_type = False
+
+        if if_expected_weight_type :
+
+            if isinstance(indata, dask_array_type + (np.ndarray,)):
+                return self.regrid_array(indata, self.weights.data, skipna=skipna, na_thres=na_thres)
+            elif isinstance(indata, xr.DataArray):
+                return self.regrid_dataarray(
+                    indata, keep_attrs=keep_attrs, skipna=skipna, na_thres=na_thres
+                )
+            elif isinstance(indata, xr.Dataset):
+                return self.regrid_dataset(
+                    indata, keep_attrs=keep_attrs, skipna=skipna, na_thres=na_thres
+                )
+            else:
+                raise TypeError('input must be numpy array, dask array, xarray DataArray or Dataset!')
+
+        else :
+
+            # Handling the sparse.COO 2D matrix of weights
+            assert isinstance(self.weights, sps.COO), f"self.weights is not a sparse.COO matrix" 
+            if isinstance(indata, dask_array_type + (np.ndarray,)):
+                return self.regrid_array(indata, self.weights, skipna=skipna, na_thres=na_thres)
+            elif isinstance(indata, xr.DataArray):
+                return self.coo_regrid_dataarray(
+                    indata, keep_attrs=keep_attrs, skipna=skipna, na_thres=na_thres
+                )
+            elif isinstance(indata, xr.Dataset):
+                return self.coo_regrid_dataset(
+                    indata, keep_attrs=keep_attrs, skipna=skipna, na_thres=na_thres
+                )
+            else:
+                raise TypeError('input must be numpy array, dask array, xarray DataArray or Dataset!')
+
+
 
     @staticmethod
     def _regrid(indata, weights, *, shape_in, shape_out, skipna, na_thres):
@@ -548,6 +584,20 @@ class BaseRegridder(object):
 
         return self._format_xroutput(dr_out, temp_horiz_dims)
 
+    def coo_regrid_dataarray(self, dr_in, keep_attrs=False, skipna=False, na_thres=1.0):
+        """See __call__()."""
+
+        input_horiz_dims, temp_horiz_dims = self._parse_xrinput(dr_in)
+
+        indata=dr_in.data
+
+        outdata=self.regrid_array(indata, self.weights, skipna=skipna, na_thres=na_thres)
+
+        dr_out=xr.DataArray( outdata, name=dr_in.name, dims=list(self.out_horiz_dims) )
+
+        return self._format_xroutput(dr_out, self.out_horiz_dims)
+
+
     def regrid_dataset(self, ds_in, keep_attrs=False, skipna=False, na_thres=1.0):
         """See __call__()."""
 
@@ -575,6 +625,30 @@ class BaseRegridder(object):
         )
 
         return self._format_xroutput(ds_out, temp_horiz_dims)
+
+    def coo_regrid_dataset(self, ds_in, keep_attrs=False, skipna=False, na_thres=1.0):
+        """See __call__()."""
+
+        # get the first data variable to infer input_core_dims
+        input_horiz_dims, temp_horiz_dims = self._parse_xrinput(ds_in)
+
+        kwargs = dict(skipna=skipna, na_thres=na_thres)
+
+        non_regriddable = [
+            name
+            for name, data in ds_in.data_vars.items()
+            if not set(input_horiz_dims).issubset(data.dims)
+        ]
+        ds_in = ds_in.drop_vars(non_regriddable)
+
+        da_out_lst=[]
+        for varnam, da in ds_in.data_vars.items():
+            indata=da.data
+            outdata=self.regrid_array(indata, self.weights, skipna=skipna, na_thres=na_thres)
+            da_out_lst.append( xr.DataArray( outdata, name=varnam, dims=list(self.out_horiz_dims) ) )
+        ds_out = xr.merge( da_out_lst  )
+
+        return self._format_xroutput(ds_out, self.out_horiz_dims)
 
     def _parse_xrinput(self, dr_in):
         # dr could be a DataArray or a Dataset
@@ -639,8 +713,15 @@ class BaseRegridder(object):
         """Save weights to disk as a netCDF file."""
         if filename is None:
             filename = self.filename
-        w = self.weights.data
         dim = 'n_s'
+        if isinstance(self.weights, sps.COO ) :
+            w=self.weights
+        elif isinstance(self.weights, xr.DataArray ):
+            w=sps.COO.from_numpy( self.weights.data )
+        else :
+            raise Error(
+                'self.weights does not have the proper type when writing weights to netCDF'
+            )
         ds = xr.Dataset(
             {'S': (dim, w.data), 'col': (dim, w.coords[1, :] + 1), 'row': (dim, w.coords[0, :] + 1)}
         )
@@ -972,6 +1053,9 @@ class SpatialAverager(BaseRegridder):
             ignore_degenerate=self.ignore_degenerate,
         )
 
+        # BLXD : handling the MemoryError exception due to the xarray limitations 
+        # in hosting sparse.COO objects within an xarray.DataArray
+        # _parse_coords_and_values can return w as a sparse.COO matrix of weights 
         # Get the weights and convert to a DataArray
         weights = regrid.get_weights_dict(deep_copy=True)
         w = _parse_coords_and_values(weights, self.n_in, mesh_out.element_count)
@@ -1008,6 +1092,9 @@ class SpatialAverager(BaseRegridder):
         # Create mesh from external polygons (positive contribution)
         mesh_ext = Mesh.from_polygons(exteriors)
 
+        # BLXD : handling the MemoryError exception due to the xarray limitations 
+        # in hosting sparse.COO objects within an xarray.DataArray
+        # _compute_weights_and_area can return w as a sparse.COO matrix of weights 
         # Get weights for external polygons
         w, area = self._compute_weights_and_area(mesh_ext)
 
@@ -1018,8 +1105,16 @@ class SpatialAverager(BaseRegridder):
             # Get weights for interiors
             w_int, area_int = self._compute_weights_and_area(mesh_int)
 
+            # BLXD : 
+            # Handling the MemoryError exception due to the xarray limitations 
+            # when hosting sparse.COO objects within an xarray.DataArray
+            # Process the case where w remains a sparse.COO object
+            # axis=0 <-> rows <-> 'out_dim'
             # Append weights from holes as negative weights
-            w = xr.concat((w, -w_int), 'out_dim')
+            if isinstance( w, (sps.COO) ) :
+                w = sps.concatenate([w, -w_int],axis=0)
+            else :
+                w = xr.concat((w, -w_int), 'out_dim')
 
             # Append areas
             area = np.concatenate([area, area_int])

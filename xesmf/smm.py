@@ -41,7 +41,13 @@ def read_weights(weights, n_in, n_out):
         weights = _parse_coords_and_values(weights, n_in, n_out)
 
     elif isinstance(weights, sps.COO):
-        weights = xr.DataArray(weights, dims=('out_dim', 'in_dim'), name='weights')
+        try :
+            weights = xr.DataArray(weights, dims=('out_dim', 'in_dim'), name='weights')
+        except MemoryError :
+            print(' WARNING : Handling MemoryError execption')
+            print('    xarray.DataArray backed by the sparse.COO matrix of weights')
+            print('    does not understand the sparse object and is hosting in turn')
+            print('    the full matrix size => to avoid failure keep weights as a sparse.COO object')
 
     elif not isinstance(weights, xr.DataArray):
         raise ValueError(f'Weights of type {type(weights)} not understood.')
@@ -97,7 +103,23 @@ def _parse_coords_and_values(indata, n_in, n_out):
         s = indata['weights']
 
     crds = np.stack([row, col])
-    return xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=('out_dim', 'in_dim'), name='weights')
+    # BLXD : Wrapping up the sparse.COO weights inside an xarray.DataArray structure 
+    #   can cause a failure and/or involve an unecessarily large amount of Memory use.
+    #   Indeed : 
+    #   - xarray.DataArray does not recognize the sps.COO sparse object (coords,data) hidden behind the numpy.ndarray.
+    #   - self.weights.values or data attributes ends up hosting the full size weight matrix,
+    #   Would require xarray making some specific tests ? In the meantime handling the MemoryError exception
+    #   by keeping the weights as a sparse.COO object and modifying the xesmf smm.py/frontend.py accordingly. 
+    try :
+        output=xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=('out_dim', 'in_dim'), coords={'out_dim','in_dim'} , name='weights')
+    except MemoryError :
+        print(' WARNING : Handling MemoryError exception')
+        print('    xarray.DataArray backed by the sparse.COO matrix of weights')
+        print('    does not understand the sparse object and is hosting in turn')
+        print('    the full matrix size => to avoid failure keep weights as a sparse.COO object')
+        output=sps.COO(crds, s, (n_out, n_in))
+    return output 
+    #return xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=('out_dim', 'in_dim'), name='weights')
 
 
 def check_shapes(indata, weights, shape_in, shape_out):
@@ -218,14 +240,39 @@ def add_nans_to_weights(weights):
 
     # Taken from @trondkr and adapted by @raphaeldussin to use `lil`.
     # lil matrix is better than CSR when changing sparsity
-    m = weights.data.to_scipy_sparse().tolil()
+
+    if isinstance(weights,xr.DataArray) :
+        # BLXD : the original instruction causes an AttributeError: 
+        # 'numpy.ndarray' object has no attribute 'to_scipy_sparse'
+        # It is required to convert the numpy.ndarray weights.data to a sparse.COO first
+        # m = weights.data.to_scipy_sparse().tolil()
+        m = sps.COO.from_numpy(weights.data).to_scipy_sparse().tolil()
+    elif isinstance(weights, sps.COO):
+        # BLXD : In the case of the MemoryError exception handled in
+        # read_weights and _parse_coords_and_values functions
+        # weights can be of the sparse.COO type
+        m = weights.to_scipy_sparse().tolil()
+    else :
+        raise ValueError(f'Weights of type {type(weights)} not understood.')
+
     # replace empty rows by one NaN value at element 0 (arbitrary)
     # so that remapped element become NaN instead of zero
     for krow in range(len(m.rows)):
         m.rows[krow] = [0] if m.rows[krow] == [] else m.rows[krow]
         m.data[krow] = [np.NaN] if m.data[krow] == [] else m.data[krow]
     # update regridder weights (in COO)
-    weights = weights.copy(data=sps.COO.from_scipy_sparse(m))
+    # BLXD : handling again MemoryError exception here
+    # Memory issue when encapsulating sps.COO matrix within xr.DataArray
+    if  isinstance(weights,xr.DataArray) :
+        try :
+            weights = weights.copy(data=sps.COO.from_scipy_sparse(m))
+        except MemoryError :
+            weights = sps.COO.from_scipy_sparse(m)
+    else :
+        # BLXD : if weights is a sparse.COO object when entering the function
+        # MemoryError exception have alread happened ?
+        # print('Previously encountered MemoryError, weights kept as sparse.COO object')
+        weights = sps.COO.from_scipy_sparse(m)
     return weights
 
 
@@ -250,27 +297,46 @@ def _combine_weight_multipoly(weights, areas, indexes):
       Sum of weights from individual geometries.
     """
 
-    sub_weights = weights.rename(out_dim='subgeometries')
+    # BLXD : In the case of the MemoryError exception due to the xarray limitations 
+    # when hosting sparse.COO objects within an xarray.DataArray
+    # weights can be of the sparse.COO type in this function
+    if isinstance( w, (sps.COO) ) :
+        print("@Class Regridder.__call__ method : Memory Issue Handling")
+        print('@function _combine_weight_multipoly : weights has sparse.COO format')
+        print('@WARNING : not tested!!!')
+        #'out_dim' renamed 'sub-geometries' <-> rows <-> axis=0
+        #element-wise multiplication between weights sparse.COO and area np.ndarray
+        out = (weights*areas).sum(axis=0)
+        # Not sure necessary to handle NaNs ?
+        try :
+            wsum = out[ ~np.isnan(out) ].sum( axis=1 )
+        except :
+            wsum = out.sum( axis=1 )
 
-    # Create a sparse DataArray with the mesh areas
-    # This ties the `out_dim` (the dimension for the original geometries) to the
-    # subgeometries dimension (the exploded polygon exteriors and interiors).
-    crds = np.stack([indexes, np.arange(len(indexes))])
-    a = xr.DataArray(
-        sps.COO(crds, areas, (indexes.max() + 1, len(indexes)), fill_value=0),
-        dims=('out_dim', 'subgeometries'),
-        name='area',
-    )
+    else :
 
-    # Weight the regridding weights by the area of the destination polygon and sum over sub-geometries
-    out = (sub_weights * a).sum(dim='subgeometries')
+        sub_weights = weights.rename(out_dim='subgeometries')
 
-    # Renormalize weights along in_dim
-    wsum = out.sum('in_dim')
+        # Create a sparse DataArray with the mesh areas
+        # This ties the `out_dim` (the dimension for the original geometries) to the
+        # subgeometries dimension (the exploded polygon exteriors and interiors).
+        crds = np.stack([indexes, np.arange(len(indexes))])
+        a = xr.DataArray(
+            sps.COO(crds, areas, (indexes.max() + 1, len(indexes)), fill_value=0),
+            dims=('out_dim', 'subgeometries'),
+            name='area',
+        )
 
-    # Change the fill_value to 1
-    wsum = wsum.copy(
-        data=sps.COO(wsum.data.coords, wsum.data.data, shape=wsum.data.shape, fill_value=1)
-    )
+
+        # Weight the regridding weights by the area of the destination polygon and sum over sub-geometries
+        out = (sub_weights * a).sum(dim='subgeometries')
+
+        # Renormalize weights along in_dim
+        wsum = out.sum('in_dim')
+
+        # Change the fill_value to 1
+        wsum = wsum.copy(
+            data=sps.COO(wsum.data.coords, wsum.data.data, shape=wsum.data.shape, fill_value=1)
+        )
 
     return out / wsum
