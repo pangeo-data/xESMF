@@ -639,8 +639,8 @@ class BaseRegridder(object):
         """Save weights to disk as a netCDF file."""
         if filename is None:
             filename = self.filename
-        #w = self.weights.data
-        w=sps.COO.from_numpy( self.weights.data )
+        # w = self.weights.data
+        w = sps.COO.from_numpy(self.weights.data)
         dim = 'n_s'
         ds = xr.Dataset(
             {'S': (dim, w.data), 'col': (dim, w.coords[1, :] + 1), 'row': (dim, w.coords[0, :] + 1)}
