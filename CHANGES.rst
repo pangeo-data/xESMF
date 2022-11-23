@@ -4,6 +4,10 @@ What's new
 0.6.4 (unreleased)
 ------------------
 
+Bug fixes
+~~~~~~~~~
+- Fix bug in `util.grid_global` where grid centers could go beyond 180 degrees (:issue:`181`). By `David Huard <https://github.com/huard>`_
+
 Documentation
 ~~~~~~~~~~~~~
 - Fix API doc build (:pull:`194`). By `David Huard <https://github.com/huard>`_
