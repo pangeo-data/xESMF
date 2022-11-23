@@ -13,6 +13,12 @@ def test_grid_global():
     assert ds['lon_b'].values.shape == refshape_b
     assert ds['lat_b'].values.shape == refshape_b
 
+    ds = xe.util.grid_global(1.5, 1.5, lon1=180)
+    assert ds['lon_b'].isel(x_b=-1)[-1] == 180
+
+    ds = xe.util.grid_global(1.5, 1.5, lon1=360)
+    assert ds['lon_b'].isel(x_b=-1)[-1] == 360
+
 
 def test_grid_global_bad_resolution():
     with pytest.warns(UserWarning):

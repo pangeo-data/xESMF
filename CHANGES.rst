@@ -4,6 +4,10 @@ What's new
 0.6.4 (unreleased)
 ------------------
 
+New features
+~~~~~~~~~~~~
+- Support both [-180, 180] and [0, 360] conventions in `grid_global` (:issue:`149`). By `David Huard <https://github.com/huard>`_
+
 Documentation
 ~~~~~~~~~~~~~
 - Fix API doc build (:pull:`194`). By `David Huard <https://github.com/huard>`_
