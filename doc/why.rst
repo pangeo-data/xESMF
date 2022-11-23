@@ -1,5 +1,5 @@
-Why inventing a new regridding package
-======================================
+Why invent a new regridding package?
+====================================
 
 For scientific correctness
 --------------------------
@@ -41,10 +41,10 @@ For usability and simplicity
 :ref:`Current geospatial regridding tools <other_tools-label>` tend to have non-trivial learning curves.
 xESMF tries to be simple and intuitive.
 Instead of inventing a new data structure, it relies on well-established standards
-(numpy and xarray), so users don't need to learn a bunch of new syntaxes or even a new software stack.
+(numpy and xarray), so users don't need to learn a bunch of new syntax or even a new software stack.
 
 xESMF can track metadata in ``xarray.DataArray`` / ``xarray.Dataset``, and
 also work with basic ``numpy.ndarray``.
-This means any Python users can use it easily, even if being unfamiliar with xarray.
+This means any Python users can use it easily, even if unfamiliar with xarray.
 
 The choice of Python and Anaconda also makes xESMF :ref:`extremely easy to install <installation-label>`.
