@@ -1,6 +1,17 @@
 What's new
 ==========
 
+0.6.4 (unreleased)
+------------------
+
+Documentation
+~~~~~~~~~~~~~
+- Fix API doc build (:pull:`194`). By `David Huard <https://github.com/huard>`_
+- Include `conservative_normed` into the notebook comparing regridding algorithms. By `David Huard <https://github.com/huard>`_
+- Fix typos (:pull:`191`). By `Jemma Stachelek <https://github.com/jsta>`_
+- Copy-editing (:pull:`178`, :pull:`179`). By `RichardScottOZ <https://github.com/RichardScottOZ>`_
+
+
 0.6.3 (29-06-2022)
 ------------------
 
