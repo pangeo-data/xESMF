@@ -11,6 +11,10 @@ Documentation
 - Fix typos (:pull:`191`). By `Jemma Stachelek <https://github.com/jsta>`_
 - Copy-editing (:pull:`178`, :pull:`179`). By `RichardScottOZ <https://github.com/RichardScottOZ>`_
 
+Internal changes
+~~~~~~~~~~~~~~~~
+- Constrain `numba>=0.55.2`. See (:issue:`185`).
+
 
 0.6.3 (29-06-2022)
 ------------------
