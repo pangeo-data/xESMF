@@ -720,8 +720,8 @@ def test_compare_weights_from_poly_and_grid():
     )
 
     # Create polygon from tile corners
-    x1, x2 = tile.lon_bounds.values[0]
-    y1, y2 = tile.lat_bounds.values[0]
+    x1, x2 = tile.lon_bounds.isel(lon=0)
+    y1, y2 = tile.lat_bounds.isel(lat=0)
     poly = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
 
     # Regrid using two identical destination grids (in theory)
