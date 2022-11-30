@@ -1,12 +1,17 @@
 What's new
 ==========
 
-0.6.4 (unreleased)
+0.7.0 (unreleased)
 ------------------
 
 Bug fixes
 ~~~~~~~~~
 - Fix bug in `util.grid_global` where grid centers could go beyond 180 degrees (:issue:`181`). By `David Huard <https://github.com/huard>`_
+
+New features
+~~~~~~~~~~~~
+- Support both [-180, 180] and [0, 360] conventions in `grid_global` (:issue:`149`). By `David Huard <https://github.com/huard>`_
+
 
 Documentation
 ~~~~~~~~~~~~~

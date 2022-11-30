@@ -20,6 +20,12 @@ def test_grid_global():
     ds = xe.util.grid_global(d_lon, d_lat)
     assert ds.lon.max() <= 180
 
+    ds = xe.util.grid_global(1.5, 1.5, lon1=180)
+    assert ds['lon_b'].isel(x_b=-1)[-1] == 180
+
+    ds = xe.util.grid_global(1.5, 1.5, lon1=360)
+    assert ds['lon_b'].isel(x_b=-1)[-1] == 360
+
 
 def test_grid_global_bad_resolution():
     with pytest.warns(UserWarning):

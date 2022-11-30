@@ -126,7 +126,7 @@ def cf_grid_2d(lon0_b, lon1_b, d_lon, lat0_b, lat1_b, d_lat):
     return ds
 
 
-def grid_global(d_lon, d_lat, cf=False):
+def grid_global(d_lon, d_lat, cf=False, lon1=180):
     """
     Global 2D rectilinear grid centers and bounds
 
@@ -138,6 +138,9 @@ def grid_global(d_lon, d_lat, cf=False):
       Latitude step size, i.e. grid resolution
     cf : bool
       Return a CF compliant grid.
+    lon1 : {180, 360}
+      Right longitude bound. According to which convention is used longitudes will
+      vary from -180 to 180 or from 0 to 360.
 
     Returns
     -------
@@ -157,10 +160,12 @@ def grid_global(d_lon, d_lat, cf=False):
             'might not cover the globe uniformly'.format(d_lat)
         )
 
-    if cf:
-        return cf_grid_2d(-180, 180, d_lon, -90, 90, d_lat)
+    lon0 = lon1 - 360
 
-    return grid_2d(-180, 180, d_lon, -90, 90, d_lat)
+    if cf:
+        return cf_grid_2d(lon0, lon1, d_lon, -90, 90, d_lat)
+
+    return grid_2d(lon0, lon1, d_lon, -90, 90, d_lat)
 
 
 def _flatten_poly_list(polys):
