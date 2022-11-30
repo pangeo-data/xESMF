@@ -4,6 +4,7 @@ import xesmf as xe
 
 
 def test_grid_global():
+
     ds = xe.util.grid_global(1.5, 1.5)
     refshape = (120, 240)
     refshape_b = (121, 241)
@@ -12,6 +13,12 @@ def test_grid_global():
     assert ds['lat'].values.shape == refshape
     assert ds['lon_b'].values.shape == refshape_b
     assert ds['lat_b'].values.shape == refshape_b
+
+    # Issue #181 (https://github.com/pangeo-data/xESMF/issues/181)
+    d_lon = 360 / 4320
+    d_lat = 180 / 2160
+    ds = xe.util.grid_global(d_lon, d_lat)
+    assert ds.lon.max() <= 180
 
     ds = xe.util.grid_global(1.5, 1.5, lon1=180)
     assert ds['lon_b'].isel(x_b=-1)[-1] == 180

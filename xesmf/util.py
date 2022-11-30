@@ -27,7 +27,7 @@ def _grid_1d(start_b, end_b, step):
     bounds : 1D numpy array, with one more element than centers
     """
 
-    bounds = np.arange(start_b, end_b + step, step)
+    bounds = np.arange(start_b, end_b + step / 2, step)
     centers = (bounds[:-1] + bounds[1:]) / 2
 
     return centers, bounds
@@ -151,13 +151,13 @@ def grid_global(d_lon, d_lat, cf=False, lon1=180):
     if not np.isclose(360 / d_lon, 360 // d_lon):
         warnings.warn(
             '360 cannot be divided by d_lon = {}, '
-            'might not cover the globe uniformally'.format(d_lon)
+            'might not cover the globe uniformly'.format(d_lon)
         )
 
     if not np.isclose(180 / d_lat, 180 // d_lat):
         warnings.warn(
             '180 cannot be divided by d_lat = {}, '
-            'might not cover the globe uniformally'.format(d_lat)
+            'might not cover the globe uniformly'.format(d_lat)
         )
 
     lon0 = lon1 - 360
