@@ -27,7 +27,7 @@ def _grid_1d(start_b, end_b, step):
     bounds : 1D numpy array, with one more element than centers
     """
 
-    bounds = np.arange(start_b, end_b + step, step)
+    bounds = np.arange(start_b, end_b + step / 2, step)
     centers = (bounds[:-1] + bounds[1:]) / 2
 
     return centers, bounds
@@ -126,7 +126,7 @@ def cf_grid_2d(lon0_b, lon1_b, d_lon, lat0_b, lat1_b, d_lat):
     return ds
 
 
-def grid_global(d_lon, d_lat, cf=False):
+def grid_global(d_lon, d_lat, cf=False, lon1=180):
     """
     Global 2D rectilinear grid centers and bounds
 
@@ -138,6 +138,9 @@ def grid_global(d_lon, d_lat, cf=False):
       Latitude step size, i.e. grid resolution
     cf : bool
       Return a CF compliant grid.
+    lon1 : {180, 360}
+      Right longitude bound. According to which convention is used longitudes will
+      vary from -180 to 180 or from 0 to 360.
 
     Returns
     -------
@@ -148,19 +151,21 @@ def grid_global(d_lon, d_lat, cf=False):
     if not np.isclose(360 / d_lon, 360 // d_lon):
         warnings.warn(
             '360 cannot be divided by d_lon = {}, '
-            'might not cover the globe uniformally'.format(d_lon)
+            'might not cover the globe uniformly'.format(d_lon)
         )
 
     if not np.isclose(180 / d_lat, 180 // d_lat):
         warnings.warn(
             '180 cannot be divided by d_lat = {}, '
-            'might not cover the globe uniformally'.format(d_lat)
+            'might not cover the globe uniformly'.format(d_lat)
         )
 
-    if cf:
-        return cf_grid_2d(-180, 180, d_lon, -90, 90, d_lat)
+    lon0 = lon1 - 360
 
-    return grid_2d(-180, 180, d_lon, -90, 90, d_lat)
+    if cf:
+        return cf_grid_2d(lon0, lon1, d_lon, -90, 90, d_lat)
+
+    return grid_2d(lon0, lon1, d_lon, -90, 90, d_lat)
 
 
 def _flatten_poly_list(polys):

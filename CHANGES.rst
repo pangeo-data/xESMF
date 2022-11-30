@@ -1,6 +1,30 @@
 What's new
 ==========
 
+0.7.0 (unreleased)
+------------------
+
+Bug fixes
+~~~~~~~~~
+- Fix bug in `util.grid_global` where grid centers could go beyond 180 degrees (:issue:`181`). By `David Huard <https://github.com/huard>`_
+
+New features
+~~~~~~~~~~~~
+- Support both [-180, 180] and [0, 360] conventions in `grid_global` (:issue:`149`). By `David Huard <https://github.com/huard>`_
+
+
+Documentation
+~~~~~~~~~~~~~
+- Fix API doc build (:pull:`194`). By `David Huard <https://github.com/huard>`_
+- Include `conservative_normed` into the notebook comparing regridding algorithms. By `David Huard <https://github.com/huard>`_
+- Fix typos (:pull:`191`). By `Jemma Stachelek <https://github.com/jsta>`_
+- Copy-editing (:pull:`178`, :pull:`179`). By `RichardScottOZ <https://github.com/RichardScottOZ>`_
+
+Internal changes
+~~~~~~~~~~~~~~~~
+- Constrain `numba>=0.55.2`. See (:issue:`185`).
+
+
 0.6.3 (29-06-2022)
 ------------------
 

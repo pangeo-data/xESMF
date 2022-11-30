@@ -27,7 +27,7 @@ else:
         'shapely',
         'cf-xarray>=0.5.1',
         'sparse>=0.8.0',
-        'numba',
+        'numba >=0.55.2',
     ]
 
 CLASSIFIERS = [
