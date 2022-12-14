@@ -24,7 +24,7 @@ else:
         'esmpy>=8.0.0',
         'xarray>=0.16.2',
         'numpy>=1.16',
-        'shapely',
+        'shapely<2.0',
         'cf-xarray>=0.5.1',
         'sparse>=0.8.0',
         'numba >=0.55.2',

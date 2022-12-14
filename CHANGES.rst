@@ -23,6 +23,8 @@ Documentation
 Internal changes
 ~~~~~~~~~~~~~~~~
 - Constrain `numba>=0.55.2`. See (:issue:`185`).
+- Constrain `shapely<2.0`. See (:issue:`216`).
+- Add support for esmpy name change in import. See (:pull:`214`,:issue:`212`)
 
 
 0.6.3 (29-06-2022)
