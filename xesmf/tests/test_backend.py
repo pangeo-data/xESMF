@@ -2,7 +2,7 @@ import os
 
 try:
     import esmpy as ESMF
-except:
+except ImportError:
     import ESMF
 import numpy as np
 import pytest

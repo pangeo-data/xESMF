@@ -677,7 +677,7 @@ def test_regrid_dataset_from_locstream():
 def test_ds_to_ESMFlocstream():
     try:
         import esmpy as ESMF
-    except:
+    except ImportError:
         import ESMF
 
     from xesmf.frontend import ds_to_ESMFlocstream
@@ -760,7 +760,7 @@ def test_compare_weights_from_poly_and_grid():
 def test_polys_to_ESMFmesh():
     try:
         import esmpy as ESMF
-    except:
+    except ImportError:
         import ESMF
 
     from xesmf.frontend import polys_to_ESMFmesh
