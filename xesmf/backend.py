@@ -18,7 +18,10 @@ So it would be helpful to catch some common mistakes in Python level.
 import os
 import warnings
 
-import ESMF
+try:
+    import esmpy as ESMF
+except:
+    import ESMF
 import numpy as np
 import numpy.lib.recfunctions as nprec
 
