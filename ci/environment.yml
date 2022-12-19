@@ -1,4 +1,4 @@
-name: xesmf-shp2
+name: xesmf
 channels:
   - conda-forge
 dependencies:
