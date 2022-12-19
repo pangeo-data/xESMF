@@ -251,7 +251,7 @@ class Mesh(ESMF.Mesh):
         mesh : ESMF.Mesh
             A mesh where each polygon is represented as an Element.
         """
-        node_num = sum(e.exterior.coords.array_interface()['shape'][0] - 1 for e in polys)
+        node_num = sum(len(e.exterior.coords) - 1 for e in polys)
         elem_num = len(polys)
         # Pre alloc arrays. Special structure for coords makes the code faster.
         crd_dt = np.dtype([('x', np.float32), ('y', np.float32)])
