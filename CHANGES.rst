@@ -1,6 +1,13 @@
 What's new
 ==========
 
+0.7.1 (unreleased)
+------------------
+
+Bug fixes
+~~~~~~~~~
+- Fix ``Mesh.from_polygons`` to support ``shapely`` 2.0. By `Pascal Bourgault <https://github.com/aulemahal>`_.
+
 0.7.0 (2022-12-16)
 ------------------
 
