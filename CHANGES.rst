@@ -1,6 +1,11 @@
 What's new
 ==========
 
+0.8.9 (unreleased)
+------------------
+
+- New: Expose ESMF capability to use ``pole_kind`` to specify monopolar or bipolar grid types, useful for regridding tripolar ocean grids. By `Benjamin Cash <https://github.com/benjamin-cash>`_.
+
 0.8.8 (2024-11-01)
 ------------------
 * Fix ESMpy memory issues by explictly freeing the Grid memory upon garbage collection of ``Regridder`` objects. By `Pascal Bourgault <https://github.com/aulemahal>`_.
