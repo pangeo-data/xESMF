@@ -58,7 +58,7 @@ def warn_lat_range(lat):
 
 class Grid(ESMF.Grid):
     @classmethod
-    def from_xarray(cls, lon, lat, periodic=False, mask=None):
+    def from_xarray(cls, lon, lat, periodic=False, mask=None, pole_kind=None):
         """
         Create an ESMF.Grid object, for constructing ESMF.Field and ESMF.Regrid.
 
@@ -116,6 +116,7 @@ class Grid(ESMF.Grid):
             staggerloc=staggerloc,
             coord_sys=ESMF.CoordSys.SPH_DEG,
             num_peri_dims=num_peri_dims,
+            pole_kind=pole_kind,
         )
 
         # The grid object points to the underlying Fortran arrays in ESMF.

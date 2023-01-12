@@ -128,11 +128,18 @@ def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
     else:
         mask = None
 
+    if 'pole_kind' in ds: 
+        pole_kind = np.asarray(ds['pole_kind'])
+    else:
+        pole_kind=None
+
     # tranpose the arrays so they become Fortran-ordered
     if mask is not None:
-        grid = Grid.from_xarray(lon.T, lat.T, periodic=periodic, mask=mask.T)
+        grid = Grid.from_xarray(lon.T, lat.T, periodic=periodic, mask=mask.T, \
+                                pole_kind=pole_kind)
     else:
-        grid = Grid.from_xarray(lon.T, lat.T, periodic=periodic, mask=None)
+        grid = Grid.from_xarray(lon.T, lat.T, periodic=periodic, mask=None, \
+                                 pole_kind=pole_kind)
 
     if need_bounds:
         lon_b, lat_b = _get_lon_lat_bounds(ds)
