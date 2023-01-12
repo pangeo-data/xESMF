@@ -4,6 +4,10 @@ What's new
 0.7.1 (unreleased)
 ------------------
 
+New features
+~~~~~~~~~~~
+- Expose ESMF capability to use pole_kind to specify monopolar or bipolar grid types, useful for regridding tripolar ocean grids
+
 Bug fixes
 ~~~~~~~~~
 - Fix ``Mesh.from_polygons`` to support ``shapely`` 2.0. By `Pascal Bourgault <https://github.com/aulemahal>`_.
