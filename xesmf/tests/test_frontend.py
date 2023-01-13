@@ -856,7 +856,7 @@ def test_regrid_polekind():
     ds_in = xr.open_dataset("mom6_tripole_SST.nc")
 
     # Open input grid specification
-    ds_ingrid = xr.open_dataset('mom6_grid_spec.nc')
+    ds_ingrid = xr.open_dataset('grid_spec.nc')
     ds_sst_grid = ds_ingrid.rename({"geolat":"lat", "geolon":"lon"})
     ds_sst_grid["mask"] = ds_ingrid["wet"]
 
