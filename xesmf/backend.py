@@ -83,6 +83,17 @@ class Grid(ESMF.Grid):
             Shape should be ``(Nlon, Nlat)`` for rectilinear grid,
             or ``(Nx, Ny)`` for general quadrilateral grid.
 
+        pole_kind : [int, int] or None
+            Two item list which specifies the type of connection which occurs at the pole.
+            The first value specifies the connection that occurs at the minimum end of the
+            pole dimension. The second value specifies the connection that occurs at the
+            maximum end of the pole dimension. Options are 0 (no connections at pole),
+            1 (monopole, this edge is connected to itself. Given that the edge is n elements long,
+            then element i is connected to element i+n/2), and 2 (bipole, this edge is connected
+            to itself. Given that the edge is n elements long, element i is connected to element n-i-1.
+            If None, defaults to [1,1] for monopole connections. See :attr:`ESMF.api.constants.PoleKind`.
+            Requires ESMF >= 8.0.1
+
         Returns
         -------
         grid : ESMF.Grid object
@@ -111,13 +122,20 @@ class Grid(ESMF.Grid):
         # they will be set to default values (CENTER and SPH_DEG).
         # However, they actually need to be set explicitly,
         # otherwise grid._coord_sys and grid._staggerloc will still be None.
-        grid = cls(
-            np.array(lon.shape),
+        kwds = dict(
             staggerloc=staggerloc,
             coord_sys=ESMF.CoordSys.SPH_DEG,
             num_peri_dims=num_peri_dims,
             pole_kind=pole_kind,
         )
+
+        # `pole_kind` option supported since 8.0.1
+        if ESMF.__version__ < '8.0.1':
+            if pole_kind is not None:
+                raise ValueError('The `pole_kind` option requires esmpy >= 8.0.1')
+            kwds.pop('pole_kind')
+
+        grid = cls(np.array(lon.shape), **kwds)
 
         # The grid object points to the underlying Fortran arrays in ESMF.
         # To modify lat/lon coordinates, need to get pointers to them
