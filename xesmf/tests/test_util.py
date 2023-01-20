@@ -33,3 +33,20 @@ def test_grid_global_bad_resolution():
 
     with pytest.warns(UserWarning):
         xe.util.grid_global(1.23, 1.5)
+
+
+def test_simple_tripolar_grid():
+
+    lon, lat = simple_tripolar_grid(360, 180, lat_cap=60, lon_cut=-300.)
+
+    assert lon.min() >= -300.
+    assert lon.max() <= 360. -300.
+    assert lat.min() >= -90
+    assert lat.max() <= -90
+
+    lon, lat = simple_tripolar_grid(180, 90, lat_cap=60, lon_cut=-300.)
+
+    assert lon.min() >= -300.
+    assert lon.max() <= 360. -300.
+    assert lat.min() >= -90
+    assert lat.max() <= -90
