@@ -110,7 +110,6 @@ def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
     grid : ESMF.Grid object
 
     """
-
     # use np.asarray(dr) instead of dr.values, so it also works for dictionary
 
     lon, lat = _get_lon_lat(ds)
@@ -664,7 +663,7 @@ class Regridder(BaseRegridder):
 
         Parameters
         ----------
-        ds_in, ds_out : xarray DataSet, or dictionary
+        ds_in, ds_out : xarray Dataset, DataArray, or dictionary
             Contain input and output grid coordinates.
             All variables that the cf-xarray accessor understand are accepted.
             Otherwise, look for ``lon``, ``lat``,
@@ -683,6 +682,8 @@ class Regridder(BaseRegridder):
 
             If either dataset includes a 2d mask variable, that will also be
             used to inform the regridding.
+
+            If DataArrays are passed, the are simply converted to Datasets.
 
         method : str
             Regridding method. Options are
@@ -765,6 +766,12 @@ class Regridder(BaseRegridder):
             periodic = False  # bound shape will not be N+1 for periodic grid
         else:
             need_bounds = False
+
+        # Ensure we have Datasets and not DataArrays.
+        if isinstance(ds_in, xr.DataArray):
+            ds_in = ds_in._to_temp_dataset()
+        if isinstance(ds_out, xr.DataArray):
+            ds_out = ds_out._to_temp_dataset()
 
         # construct ESMF grid, with some shape checking
         if locstream_in:
@@ -877,6 +884,7 @@ class SpatialAverager(BaseRegridder):
             Shape can be 1D (n_lon,) and (n_lat,) for rectilinear grids,
             or 2D (n_y, n_x) for general curvilinear grids.
             Shape of bounds should be (n+1,) or (n_y+1, n_x+1).
+            DataArrays are converted to Datasets.
 
         polys : sequence of shapely Polygons and MultiPolygons
             Sequence of polygons (lon, lat) over which to average `ds_in`.
@@ -926,6 +934,10 @@ class SpatialAverager(BaseRegridder):
         self.ignore_holes = ignore_holes
         self.polys = polys
         self.geom_dim_name = geom_dim_name
+
+        # Ensure we have a Dataset
+        if isinstance(ds_in, xr.DataArray):
+            ds_in = ds_in._to_temp_dataset()
 
         grid_in, shape_in, input_dims = ds_to_ESMFgrid(ds_in, need_bounds=True, periodic=periodic)
 
