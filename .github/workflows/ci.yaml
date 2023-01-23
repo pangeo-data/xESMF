@@ -51,7 +51,7 @@ jobs:
 
       - name: Set up conda environment
         run: |
-          mamba install "esmpy==${{ matrix.esmf-version }}"
+          mamba install -c conda-forge "esmpy==${{ matrix.esmf-version }}"
           mamba env update -f ci/environment.yml
           python -m pip install --no-deps -e .
 
