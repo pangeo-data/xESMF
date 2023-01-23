@@ -303,10 +303,9 @@ def bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
     N_inv = 1 / N
     cos2phis = (np.cos(phis * PI_180)) ** 2
 
-    h_j_inv = (
-        cos2phis * alpha2 * (1 - alpha2) * beta2_inv * (1 + beta2_inv) * (rden**2)
-        + M_inv * M_inv * (1 - alpha2) * rden
-    )
+    h_j_inv_t1 = cos2phis * alpha2 * (1 - alpha2) * beta2_inv * (1 + beta2_inv) * (rden**2)
+    h_j_inv_t2 = M_inv * M_inv * (1 - alpha2) * rden
+    h_j_inv = h_j_inv_t1 + h_j_inv_t2
 
     # Deal with beta=0. Prove that cos2phis/alpha2 ---> 0 when alpha, beta  ---> 0
     h_j_inv = np.where(np.abs(beta2_inv) > HUGE, M_inv * M_inv, h_j_inv)
