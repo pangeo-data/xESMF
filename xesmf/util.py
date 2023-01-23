@@ -219,12 +219,18 @@ HUGE = 1.0e30
 
 
 def simple_tripolar_grid(nlons, nlats, lat_cap=60, lon_cut=-300):
-    """generate a simplistic tripolar grid, regular under lat_cap
+    """Generate a simple tripolar grid, regular under `lat_cap`.
 
-    nlons: number of longitude points (int)
-    nlats: number of latitude points (int)
-    lat_cap: latitude of the northern cap (bipole)
-    lon_cut: longitude of the periodic boundary
+    Parameters
+    ----------
+    nlons: int
+      Number of longitude points.
+    nlats: int
+      Number of latitude points.
+    lat_cap: float 
+      Latitude of the northern cap.
+    lon_cut: float 
+      Longitude of the periodic boundary.
 
     """
 
