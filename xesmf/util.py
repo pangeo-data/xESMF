@@ -237,7 +237,7 @@ def simple_tripolar_grid(nlons, nlats, lat_cap=60, lon_cut=-300):
     # first generate the bipolar cap for north poles
     nj_cap = np.rint(nlats * lat_cap / 180.0).astype('int')
 
-    lams, phis, _, _ = generate_bipolar_cap_mesh(
+    lams, phis, _, _ = _generate_bipolar_cap_mesh(
         nlons, nj_cap, lat_cap, lon_cut, ensure_nj_even=True
     )
 
@@ -258,7 +258,7 @@ def simple_tripolar_grid(nlons, nlats, lat_cap=60, lon_cut=-300):
 # rather than using the package as a dependency
 
 
-def bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
+def _bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
     """Makes a stereographic bipolar projection of the input coordinate mesh (lamg,phig)
     Returns the projected coordinate mesh and their metric coefficients (h^-1).
     The input mesh must be a regular spherical grid capping the pole with:
@@ -267,7 +267,7 @@ def bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
     """
     # symmetry meridian resolution fix
     phig = 90 - 2 * np.arctan(np.tan(0.5 * (90 - phig) * PI_180) / rp) / PI_180
-    tmp = mdist(lamg, lon_bp) * PI_180
+    tmp = _mdist(lamg, lon_bp) * PI_180
     sinla = np.sin(tmp)  # This makes phis symmetric
     sphig = np.sin(phig * PI_180)
     alpha2 = (np.cos(tmp)) ** 2  # This makes dy symmetric
@@ -328,7 +328,7 @@ def bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
         return h_i_inv, h_j_inv
 
 
-def generate_bipolar_cap_mesh(Ni, Nj_ncap, lat0_bp, lon_bp, ensure_nj_even=True):
+def _generate_bipolar_cap_mesh(Ni, Nj_ncap, lat0_bp, lon_bp, ensure_nj_even=True):
     # Define a (lon,lat) coordinate mesh on the Northern hemisphere of the globe sphere
     # such that the resolution of latg matches the desired resolution of the final grid along the symmetry meridian
     print('Generating bipolar grid bounded at latitude ', lat0_bp)
@@ -343,14 +343,14 @@ def generate_bipolar_cap_mesh(Ni, Nj_ncap, lat0_bp, lon_bp, ensure_nj_even=True)
     latg0_cap = lat0_bp + np.arange(Nj_ncap + 1) * (90 - lat0_bp) / float(Nj_ncap)
     phig = np.tile(latg0_cap.reshape((Nj_ncap + 1, 1)), (1, Ni + 1))
     rp = np.tan(0.5 * (90 - lat0_bp) * PI_180)
-    lams, phis, h_i_inv, h_j_inv = bipolar_projection(lamg, phig, lon_bp, rp)
+    lams, phis, h_i_inv, h_j_inv = _bipolar_projection(lamg, phig, lon_bp, rp)
     h_i_inv = h_i_inv[:, :-1] * 2 * np.pi / float(Ni)
     h_j_inv = h_j_inv[:-1, :] * PI_180 * (90 - lat0_bp) / float(Nj_ncap)
     print('   number of js=', phis.shape[0])
     return lams, phis, h_i_inv, h_j_inv
 
 
-def mdist(x1, x2):
+def _mdist(x1, x2):
     """Returns positive distance modulo 360."""
     return np.minimum(np.mod(x1 - x2, 360.0), np.mod(x2 - x1, 360.0))
 
