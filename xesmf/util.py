@@ -227,9 +227,9 @@ def simple_tripolar_grid(nlons, nlats, lat_cap=60, lon_cut=-300):
       Number of longitude points.
     nlats: int
       Number of latitude points.
-    lat_cap: float 
+    lat_cap: float
       Latitude of the northern cap.
-    lon_cut: float 
+    lon_cut: float
       Longitude of the periodic boundary.
 
     """
