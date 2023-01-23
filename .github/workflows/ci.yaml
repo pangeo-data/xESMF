@@ -1,9 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - '*'
   pull_request:
     branches:
       - '*'
@@ -27,10 +24,10 @@ jobs:
             esmf-version: 8.2
           - python-version: 3.9
             esmf-version: 8.3
-          - python-version: 3.10
+          - python-version: "3.10"
             esmf-version: 8.4
-          - python-version: 3.11
-            esmf-version: 8.4
+          # - python-version: 3.11  # Numba is incompatible with 3.11
+          #  esmf-version: 8.4
 
     steps:
       - name: Cancel previous runs
@@ -51,7 +48,7 @@ jobs:
 
       - name: Set up conda environment
         run: |
-          mamba install -c conda-forge "esmpy==${{ matrix.esmf-version }}"
+          mamba install -c conda-forge "esmpy=${{ matrix.esmf-version }}"
           mamba env update -f ci/environment.yml
           python -m pip install --no-deps -e .
 
