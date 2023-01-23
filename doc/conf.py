@@ -66,6 +66,7 @@ autodoc_mock_imports = [
     'xarray',
     'scipy',
     'ESMF',
+    'esmpy',
     'dask',
     'sparse',
     'numba',
