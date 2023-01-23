@@ -259,7 +259,7 @@ def bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
         latitudes between 2*arctan(rp) and 90  degrees
         longitude between lon_bp       and lonp+360
     """
-    ### symmetry meridian resolution fix
+    # symmetry meridian resolution fix
     phig = 90 - 2 * np.arctan(np.tan(0.5 * (90 - phig) * PI_180) / rp) / PI_180
     tmp = mdist(lamg, lon_bp) * PI_180
     sinla = np.sin(tmp)  # This makes phis symmetric
@@ -273,10 +273,10 @@ def bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
         # Deal with beta=0
         B = np.where(np.abs(beta2_inv) > HUGE, 0.0, B)
         lamc = np.arcsin(B) / PI_180
-        ##But this equation accepts 4 solutions for a given B, {l, 180-l, l+180, 360-l }
-        ##We have to pickup the "correct" root.
-        ##One way is simply to demand lamc to be continuous with lam on the equator phi=0
-        ##I am sure there is a more mathematically concrete way to do this.
+        # But this equation accepts 4 solutions for a given B, {l, 180-l, l+180, 360-l }
+        # We have to pickup the "correct" root.
+        # One way is simply to demand lamc to be continuous with lam on the equator phi=0
+        # I am sure there is a more mathematically concrete way to do this.
         lamc = np.where((lamg - lon_bp > 90) & (lamg - lon_bp <= 180), 180 - lamc, lamc)
         lamc = np.where((lamg - lon_bp > 180) & (lamg - lon_bp <= 270), 180 + lamc, lamc)
         lamc = np.where((lamg - lon_bp > 270), 360 - lamc, lamc)
@@ -289,15 +289,14 @@ def bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
         )  # Along symmetry meridian choose lamc=270-lon_bp
         lams = lamc + lon_bp
 
-    ##Project back onto the larger (true) sphere so that the projected equator shrinks to latitude \phi_P=lat0_tp
-    ##then we have tan(\phi_s'/2)=tan(\phi_p'/2)tan(\phi_c'/2)
+    # Project back onto the larger (true) sphere so that the projected equator shrinks to latitude \phi_P=lat0_tp
+    # then we have tan(\phi_s'/2)=tan(\phi_p'/2)tan(\phi_c'/2)
     A = sinla * sphig
     chic = np.arccos(A)
     phis = 90 - 2 * np.arctan(rp * np.tan(chic / 2)) / PI_180
-    ##Calculate the Metrics
+    # Calculate the Metrics
     rden2 = 1.0 / (1 + (rp * np.tan(chic / 2)) ** 2)
     M_inv = rp * (1 + (np.tan(chic / 2)) ** 2) * rden2
-    M = 1 / M_inv
     chig = (90 - phig) * PI_180
     rden2 = 1.0 / (1 + (rp * np.tan(chig / 2)) ** 2)
     N = rp * (1 + (np.tan(chig / 2)) ** 2) * rden2
@@ -308,6 +307,7 @@ def bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
         cos2phis * alpha2 * (1 - alpha2) * beta2_inv * (1 + beta2_inv) * (rden**2)
         + M_inv * M_inv * (1 - alpha2) * rden
     )
+
     # Deal with beta=0. Prove that cos2phis/alpha2 ---> 0 when alpha, beta  ---> 0
     h_j_inv = np.where(np.abs(beta2_inv) > HUGE, M_inv * M_inv, h_j_inv)
     h_j_inv = np.sqrt(h_j_inv) * N_inv
@@ -350,4 +350,4 @@ def mdist(x1, x2):
     return np.minimum(np.mod(x1 - x2, 360.0), np.mod(x2 - x1, 360.0))
 
 
-## end code from https://github.com/NOAA-GFDL/ocean_model_grid_generator
+# end code from https://github.com/NOAA-GFDL/ocean_model_grid_generator
