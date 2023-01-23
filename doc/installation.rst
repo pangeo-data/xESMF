@@ -11,13 +11,13 @@ The `Binder project <https://mybinder.readthedocs.io>`_ provides pre-configured 
 Install on local machine with Conda
 -----------------------------------
 
-xESMF requires Python>=3.6. The major dependencies are xarray and ESMPy. The best way to install them is using Conda_.
+xESMF requires Python>=3.7. The major dependencies are xarray and ESMPy. The best way to install them is using Conda_.
 
 First, `install miniconda <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_. Then, we recommend creating a new, clean environment:
 
 .. code-block:: bash
 
-    $ conda create -n xesmf_env python=3.7
+    $ conda create -n xesmf_env
     $ conda activate xesmf_env
 
 Getting xESMF is as simple as:
@@ -25,10 +25,6 @@ Getting xESMF is as simple as:
 .. code-block:: bash
 
     $ conda install -c conda-forge xesmf
-
-.. warning::
-
-    One some platforms you might get :code:`ImportError: Regrid(filename) requires PIO and does not work if ESMF has not been built with MPI support`. (see `this comment <https://github.com/JiaweiZhuang/xESMF/issues/47#issuecomment-582421822>`_). A quick workaround is to constrain ESMPy version :code:`conda install -c conda-forge xesmf esmpy=8.0.0`.
 
 We also highly recommend those extra packages for full functionality:
 
@@ -41,16 +37,20 @@ We also highly recommend those extra packages for full functionality:
     $ conda install -c conda-forge matplotlib cartopy jupyterlab
 
 
-
 Alternatively, you can first install dependencies, and then use ``pip`` to install xESMF:
 
 .. code-block:: bash
 
-    $ conda install -c conda-forge esmpy xarray scipy dask netCDF4
+    $ conda install -c conda-forge esmpy xarray numpy shapely cf_xarray sparse numba
     $ pip install git+https://github.com/pangeo-data/xesmf.git
 
-This will install the latest version from the github repo. To install a specific release, append the version tag to the url (e.g. `@v0.5.0`). Note that `pip install xesmf` can only be used to install versions up to 0.3.0.
+This will install the latest version from the github repo. To install a specific release, append the version tag to the url (e.g. `@v0.5.0`).
 
+Notes about ESMpy
+-----------------
+
+* ESMpy 8.4 is only compatible with xESMF >= 0.7.
+* When installing ESMpy 8.4 through conda, the environment must be _activated_ before the package is used, which often means deactivating and re-activating it. See this `xESMF issue <https://github.com/pangeo-data/xESMF/issues/224>`_ and the related `ESMpy issue <https://github.com/conda-forge/esmf-feedstock/issues/91>`_.
 
 Testing your installation
 -------------------------
