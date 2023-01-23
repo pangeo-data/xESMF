@@ -42,11 +42,11 @@ def test_simple_tripolar_grid():
     assert lon.min() >= -300.0
     assert lon.max() <= 360.0 - 300.0
     assert lat.min() >= -90
-    assert lat.max() <= -90
+    assert lat.max() <= 90
 
     lon, lat = xe.util.simple_tripolar_grid(180, 90, lat_cap=60, lon_cut=-300.0)
 
     assert lon.min() >= -300.0
     assert lon.max() <= 360.0 - 300.0
     assert lat.min() >= -90
-    assert lat.max() <= -90
+    assert lat.max() <= 90
