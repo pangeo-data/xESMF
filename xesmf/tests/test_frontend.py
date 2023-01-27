@@ -431,6 +431,11 @@ def test_regrid_dataarray_endianess(use_dask):
     assert out.dtype == '>f8'
 
 
+def test_regrid_from_dataarray():
+    # Check that creating Regridder from DataArrays doesn't fail
+    xe.Regridder(ds_in['data'], ds_out['data_ref'], 'bilinear')
+
+
 def test_regrid_dataarray_to_locstream():
     # xarray.DataArray containing in-memory numpy array
 
