@@ -210,3 +210,149 @@ def split_polygons_and_holes(polys):
         i_hol.extend([i] * len(poly.interiors))
 
     return exteriors, holes, i_ext, i_hol
+
+
+# Constants
+PI_180 = np.pi / 180.0
+_default_Re = 6371.0e3  # MIDAS
+HUGE = 1.0e30
+
+
+def simple_tripolar_grid(nlons, nlats, lat_cap=60, lon_cut=-300):
+    """Generate a simple tripolar grid, regular under `lat_cap`.
+
+    Parameters
+    ----------
+    nlons: int
+      Number of longitude points.
+    nlats: int
+      Number of latitude points.
+    lat_cap: float
+      Latitude of the northern cap.
+    lon_cut: float
+      Longitude of the periodic boundary.
+
+    """
+
+    # first generate the bipolar cap for north poles
+    nj_cap = np.rint(nlats * lat_cap / 180.0).astype('int')
+
+    lams, phis, _, _ = _generate_bipolar_cap_mesh(
+        nlons, nj_cap, lat_cap, lon_cut, ensure_nj_even=True
+    )
+
+    # then extend south
+    lams_south_1d = lams[0, :]
+    phis_south_1d = np.linspace(-90, lat_cap, nlats - nj_cap + 1)[:-1]
+
+    lams_south, phis_south = np.meshgrid(lams_south_1d, phis_south_1d)
+
+    # concatenate the 2 parts
+    lon = np.concatenate([lams_south, lams], axis=0)
+    lat = np.concatenate([phis_south, phis], axis=0)
+
+    return lon, lat
+
+
+# these functions are copied from https://github.com/NOAA-GFDL/ocean_model_grid_generator
+# rather than using the package as a dependency
+
+
+def _bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
+    """Makes a stereographic bipolar projection of the input coordinate mesh (lamg,phig)
+    Returns the projected coordinate mesh and their metric coefficients (h^-1).
+    The input mesh must be a regular spherical grid capping the pole with:
+        latitudes between 2*arctan(rp) and 90  degrees
+        longitude between lon_bp       and lonp+360
+    """
+    # symmetry meridian resolution fix
+    phig = 90 - 2 * np.arctan(np.tan(0.5 * (90 - phig) * PI_180) / rp) / PI_180
+    tmp = _mdist(lamg, lon_bp) * PI_180
+    sinla = np.sin(tmp)  # This makes phis symmetric
+    sphig = np.sin(phig * PI_180)
+    alpha2 = (np.cos(tmp)) ** 2  # This makes dy symmetric
+    beta2_inv = (np.tan(phig * PI_180)) ** 2
+    rden = 1.0 / (1.0 + alpha2 * beta2_inv)
+
+    if not metrics_only:
+        B = sinla * np.sqrt(rden)  # Actually two equations  +- |B|
+        # Deal with beta=0
+        B = np.where(np.abs(beta2_inv) > HUGE, 0.0, B)
+        lamc = np.arcsin(B) / PI_180
+        # But this equation accepts 4 solutions for a given B, {l, 180-l, l+180, 360-l }
+        # We have to pickup the "correct" root.
+        # One way is simply to demand lamc to be continuous with lam on the equator phi=0
+        # I am sure there is a more mathematically concrete way to do this.
+        lamc = np.where((lamg - lon_bp > 90) & (lamg - lon_bp <= 180), 180 - lamc, lamc)
+        lamc = np.where((lamg - lon_bp > 180) & (lamg - lon_bp <= 270), 180 + lamc, lamc)
+        lamc = np.where((lamg - lon_bp > 270), 360 - lamc, lamc)
+        # Along symmetry meridian choose lamc
+        lamc = np.where(
+            (lamg - lon_bp == 90), 90, lamc
+        )  # Along symmetry meridian choose lamc=90-lon_bp
+        lamc = np.where(
+            (lamg - lon_bp == 270), 270, lamc
+        )  # Along symmetry meridian choose lamc=270-lon_bp
+        lams = lamc + lon_bp
+
+    # Project back onto the larger (true) sphere so that the projected equator shrinks to latitude \phi_P=lat0_tp
+    # then we have tan(\phi_s'/2)=tan(\phi_p'/2)tan(\phi_c'/2)
+    A = sinla * sphig
+    chic = np.arccos(A)
+    phis = 90 - 2 * np.arctan(rp * np.tan(chic / 2)) / PI_180
+    # Calculate the Metrics
+    rden2 = 1.0 / (1 + (rp * np.tan(chic / 2)) ** 2)
+    M_inv = rp * (1 + (np.tan(chic / 2)) ** 2) * rden2
+    chig = (90 - phig) * PI_180
+    rden2 = 1.0 / (1 + (rp * np.tan(chig / 2)) ** 2)
+    N = rp * (1 + (np.tan(chig / 2)) ** 2) * rden2
+    N_inv = 1 / N
+    cos2phis = (np.cos(phis * PI_180)) ** 2
+
+    h_j_inv_t1 = cos2phis * alpha2 * (1 - alpha2) * beta2_inv * (1 + beta2_inv) * (rden**2)
+    h_j_inv_t2 = M_inv * M_inv * (1 - alpha2) * rden
+    h_j_inv = h_j_inv_t1 + h_j_inv_t2
+
+    # Deal with beta=0. Prove that cos2phis/alpha2 ---> 0 when alpha, beta  ---> 0
+    h_j_inv = np.where(np.abs(beta2_inv) > HUGE, M_inv * M_inv, h_j_inv)
+    h_j_inv = np.sqrt(h_j_inv) * N_inv
+
+    h_i_inv = cos2phis * (1 + beta2_inv) * (rden**2) + M_inv * M_inv * alpha2 * beta2_inv * rden
+    # Deal with beta=0
+    h_i_inv = np.where(np.abs(beta2_inv) > HUGE, M_inv * M_inv, h_i_inv)
+    h_i_inv = np.sqrt(h_i_inv)
+
+    if not metrics_only:
+        return lams, phis, h_i_inv, h_j_inv
+    else:
+        return h_i_inv, h_j_inv
+
+
+def _generate_bipolar_cap_mesh(Ni, Nj_ncap, lat0_bp, lon_bp, ensure_nj_even=True):
+    # Define a (lon,lat) coordinate mesh on the Northern hemisphere of the globe sphere
+    # such that the resolution of latg matches the desired resolution of the final grid along the symmetry meridian
+    print('Generating bipolar grid bounded at latitude ', lat0_bp)
+    if Nj_ncap % 2 != 0 and ensure_nj_even:
+        print('   Supergrid has an odd number of area cells!')
+        if ensure_nj_even:
+            print("   The number of j's is not even. Fixing this by cutting one row.")
+            Nj_ncap = Nj_ncap - 1
+
+    lon_g = lon_bp + np.arange(Ni + 1) * 360.0 / float(Ni)
+    lamg = np.tile(lon_g, (Nj_ncap + 1, 1))
+    latg0_cap = lat0_bp + np.arange(Nj_ncap + 1) * (90 - lat0_bp) / float(Nj_ncap)
+    phig = np.tile(latg0_cap.reshape((Nj_ncap + 1, 1)), (1, Ni + 1))
+    rp = np.tan(0.5 * (90 - lat0_bp) * PI_180)
+    lams, phis, h_i_inv, h_j_inv = _bipolar_projection(lamg, phig, lon_bp, rp)
+    h_i_inv = h_i_inv[:, :-1] * 2 * np.pi / float(Ni)
+    h_j_inv = h_j_inv[:-1, :] * PI_180 * (90 - lat0_bp) / float(Nj_ncap)
+    print('   number of js=', phis.shape[0])
+    return lams, phis, h_i_inv, h_j_inv
+
+
+def _mdist(x1, x2):
+    """Returns positive distance modulo 360."""
+    return np.minimum(np.mod(x1 - x2, 360.0), np.mod(x2 - x1, 360.0))
+
+
+# end code from https://github.com/NOAA-GFDL/ocean_model_grid_generator
