@@ -26,7 +26,7 @@ For new users, I also recommend reading `How to ask for help <https://xesmf.read
 .. |conda| image:: https://anaconda.org/conda-forge/xesmf/badges/version.svg
    :target: https://anaconda.org/conda-forge/xesmf/
 
-.. |Build Status| image:: https://img.shields.io/github/workflow/status/pangeo-data/xESMF/CI?logo=github
+.. |Build Status| image:: https://img.shields.io/github/actions/workflow/status/pangeo-data/xESMF/ci.yaml?branch=master
    :target: https://github.com/pangeo-data/xESMF/actions
    :alt: github-ci build status
 
