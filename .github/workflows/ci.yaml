@@ -21,18 +21,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Warning : numbers below are read as numbers. 3.10 < 3.2
-          - python-version: 3.7
+          # Warning: Unless in quotations, numbers below are read as floats. 3.10 < 3.2
+          - python-version: '3.7'
             esmf-version: 8.1
-          - python-version: 3.8
+          - python-version: '3.8'
             esmf-version: 8.2
-          - python-version: 3.9
+          - python-version: '3.9'
             esmf-version: 8.3
           - python-version: '3.10'
             esmf-version: 8.4
           # - python-version: 3.11  # Numba is incompatible with 3.11
           #  esmf-version: 8.4
-
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.11.0
@@ -40,31 +39,25 @@ jobs:
           access_token: ${{ github.token }}
       - name: Checkout source
         uses: actions/checkout@v3
-
-      - name: Conda setup
-        uses: conda-incubator/setup-miniconda@v2
+      - name: Create conda environment
+        uses: mamba-org/provision-with-micromamba@main
         with:
-          channels: conda-forge
-          miniforge-variant: Mambaforge
-          python-version: ${{ matrix.python-version }}
-          activate-environment: xesmf
-          auto-activate-base: false
-
-      - name: Set up conda environment
+          cache-downloads: true
+          micromamba-version: 'latest'
+          environment-file: ci/environment.yml
+          extra-specs: |
+            python=${{ matrix.python-version }}
+            esmpy=${{ matrix.esmf-version }}
+      - name: Install Xesmf (editable)
         run: |
-          mamba env update -f ci/environment.yml
-          mamba install -c conda-forge "esmpy=${{ matrix.esmf-version }}"
           python -m pip install --no-deps -e .
-
       - name: Conda list information
         run: |
           conda env list
           conda list
-
       - name: Run tests
         run: |
           python -m pytest --cov=./ --cov-report=xml --verbose
-
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3.1.1
         with:
@@ -83,18 +76,17 @@ jobs:
         with:
           access_token: ${{ github.token }}
       - uses: actions/checkout@v3
-      - uses: conda-incubator/setup-miniconda@v2
+      - name: Create conda environment
+        uses: mamba-org/provision-with-micromamba@main
         with:
-          channels: conda-forge
-          miniforge-variant: Mambaforge
-          activate-environment: xesmf
-          auto-update-conda: false
-          python-version: '3.10'
-      - name: Set up conda environment
+          cache-downloads: true
+          micromamba-version: 'latest'
+          environment-file: ci/environment-upstream-dev.yml
+          extra-specs: |
+            python=3.10
+      - name: Install Xesmf (editable)
         run: |
-          mamba env update -f ci/environment-upstream-dev.yml
           python -m pip install -e .
-
       - name: Conda list information
         run: |
           conda env list
