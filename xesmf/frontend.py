@@ -2,9 +2,9 @@
 Frontend for xESMF, exposed to users.
 """
 
+import os
 import warnings
 
-import os
 import cf_xarray as cfxr
 import numpy as np
 import xarray as xr
