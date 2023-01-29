@@ -4,6 +4,7 @@ Frontend for xESMF, exposed to users.
 
 import warnings
 
+import os
 import cf_xarray as cfxr
 import numpy as np
 import xarray as xr
@@ -319,11 +320,31 @@ class BaseRegridder(object):
         if reuse_weights and (filename is None) and (weights is None):
             raise ValueError('To reuse weights, you need to provide either filename or weights.')
 
+        # Apparent use rules:
+        # if reuse_weights is False, use weights if provided, else compute
+        # if reuse_weights is True, filename is optional, prefer use of
+        #   weights argument.  The difference is, if a filename is passed
+        #   to weights it MUST exist.  If a filename is passed to filename,
+        #   if it does not exist, this will allow weights to be computed
+        #   in the first iteration.  If weights and filename are specified,
+        #   filename will override the weights argument.
         if not reuse_weights and weights is None:
             weights = self._compute_weights()  # Dictionary of weights
         else:
-            weights = filename if filename is not None else weights
+            # If a filename is specified, override the weights argument
+            # otherwise, the weights argument is ultimately used.  If
+            # the filename does not exist, allow it to be created on
+            # first pass.
+            if filename:
+                if os.path.isfile(filename):
+                    weights = filename
+                else:
+                    weights = self._compute_weights()  # Dictionary of weights
+                    # Temporarily change this to False to trigger saving weights
+                    reuse_weights = False
 
+        # The weights have to be computed, specified as a filename,
+        # or provided by a defined weights argument.
         assert weights is not None
 
         # Convert weights, whatever their format, to a sparse coo matrix
