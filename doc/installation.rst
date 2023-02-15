@@ -50,6 +50,7 @@ Notes about ESMpy
 -----------------
 
 * ESMpy 8.4 is only compatible with xESMF >= 0.7.
+* ESMpy must be installed through Conda or compiled manually; it is not available through PyPI.  When installing xESMF with pip, the ESMpy package must be manually installed first.
 * When installing ESMpy 8.4 through conda, the environment must be _activated_ before the package is used, which often means deactivating and re-activating it. See this `xESMF issue <https://github.com/pangeo-data/xESMF/issues/224>`_ and the related `ESMpy issue <https://github.com/conda-forge/esmf-feedstock/issues/91>`_.
 
 Testing your installation
