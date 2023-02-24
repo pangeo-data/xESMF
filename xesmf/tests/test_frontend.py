@@ -854,3 +854,49 @@ def test_spatial_averager_mask():
     savg = xe.SpatialAverager(dsm, [poly], geom_dim_name='my_geom')
     out = savg(dsm.abc)
     assert_allclose(out, 2, rtol=1e-3)
+
+
+def test_regrid_polekind():
+
+    # Open tripole SST file
+    ds_in = xr.open_dataset('mom6_tripole_SST.nc')
+
+    # Open input grid specification
+    ds_ingrid = xr.open_dataset('grid_spec.nc')
+    ds_sst_grid = ds_ingrid.rename({'geolat': 'lat', 'geolon': 'lon'})
+    ds_sst_grid['mask'] = ds_ingrid['wet']
+
+    # Get MOM6 mask
+    ds_ingrid['mask'] = ds_ingrid['wet']
+
+    # Open output grid specification
+    ds_outgrid = xr.open_dataset('C384_gaussian_grid.nc')
+
+    # Get C384 land-sea mask
+    ds_outgrid['mask'] = 1 - ds_outgrid['land'].where(ds_outgrid['land'] < 2.0).squeeze()
+
+    # Create regridder without specifying pole kind
+    base_regrid = xe.Regridder(ds_sst_grid, ds_outgrid, 'bilinear', periodic=True)
+    base_result = base_regrid(ds_in['SST'])
+
+    # Add monopole grid information. 1 denotes monopole, 2 bipole
+    ds_sst_grid['pole_kind'] = np.array([1, 1])
+    ds_outgrid['pole_kind'] = np.array([1, 1])
+
+    monopole_regrid = xe.Regridder(ds_sst_grid, ds_outgrid, 'bilinear', periodic=True)
+    monopole_result = monopole_regrid(ds_in['SST'])
+
+    # Check behavior unchanged
+    assert monopole_result.equals(base_result)
+
+    # Add bipole grid information
+    ds_sst_grid['pole_kind'] = np.array([1, 2], np.int32)
+    bipole_regrid = xe.Regridder(ds_sst_grid, ds_outgrid, 'bilinear', periodic=True)
+    bipole_result = bipole_regrid(ds_in['SST'])
+
+    # Confirm results have changed
+    assert not bipole_result.equals(monopole_result)
+
+    # Confirm results match saved values
+    verif_in = xr.open_dataset('verify_bipole_regrid_SST.nc')['SST']
+    assert bipole_result.equals(verif_in)
