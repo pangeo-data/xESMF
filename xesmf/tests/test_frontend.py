@@ -821,7 +821,6 @@ def test_non_cf_latlon():
     ],
 )
 def test_locstream_dim_name(var_renamer, dim_out):
-
     ds_locs_renamed = ds_locs.copy()
     for var, renamer in var_renamer.items():
         ds_locs_renamed[var] = ds_locs_renamed[var].rename(renamer)

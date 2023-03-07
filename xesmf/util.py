@@ -203,7 +203,7 @@ def split_polygons_and_holes(polys):
     holes = []
     i_ext = []
     i_hol = []
-    for (i, poly) in _flatten_poly_list(polys):
+    for i, poly in _flatten_poly_list(polys):
         exteriors.append(Polygon(poly.exterior))
         i_ext.append(i)
         holes.extend(map(Polygon, poly.interiors))
