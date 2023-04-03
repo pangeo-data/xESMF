@@ -1,12 +1,29 @@
 What's new
 ==========
 
-0.7.1 (unreleased)
+0.7.1 (2023-04-03)
 ------------------
 
 Bug fixes
 ~~~~~~~~~
-- Fix ``Mesh.from_polygons`` to support ``shapely`` 2.0. By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Fix ``Mesh.from_polygons`` and unpin Shapely to add support for Shapely 2.0 (:pull:`219`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Implement workaround for setup conda problem (:pull:`229`). By `Raphael Dussin <https://github.com/raphaeldussin>`_
+* Update CI and doc - fix for DataArrays (:pull:`230`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Fix ci/cd badge for build status (:pull:`231`). By `Pierre Manchon <https://github.com/pierre-manchon>`_.
+* Update CI for Micromamba environments (:pull:`233`). By `Trevor James Smith <https://github.com/Zeitsperre>`_.
+
+New features
+~~~~~~~~~~~~
+* Add util to build tripolar grid (:pull:`228`). By `Raphael Dussin <https://github.com/raphaeldussin>`_
+
+Documentation
+~~~~~~~~~~~~~
+* Document installation options for ESMpy (:pull:`241`). By `Matthew Plough <https://github.com/mplough-kobold>`_
+
+Internal changes
+~~~~~~~~~~~~~~~~
+* Modernize the package configuration / publish to PyPI (:pull:`248`). By `Filipe Fernandes <https://github.com/ocefpaf>`_
+
 
 0.7.0 (2022-12-16)
 ------------------
