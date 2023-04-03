@@ -10,3 +10,16 @@ requires = [
 line-length = 100
 target-version = ['py38']
 skip-string-normalization = true
+
+[tool.isort]
+known_first_party = "xesmf"
+known_third_party =  ["cf_xarray", "cftime", "dask", "numba", "numpy", "pytest", "setuptools", "shapely", "sparse", "xarray"]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+combine_as_imports = true
+line_length = 100
+skip = [
+    "setup.py",
+	"doc/conf.py",
+]
