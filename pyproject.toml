@@ -9,7 +9,7 @@ requires = [
 [project]
 name = "xesmf"
 description = "Universal Regridder for Geospatial Data"
-license = {file = "LICENSE", text = "MIT"}
+license = {text = "MIT"}
 authors = [
     {name = "Jiawei Zhuang", email = "jiaweizhuang@g.harvard.edu"},
 ]
@@ -40,6 +40,7 @@ repository = "https://github.com/pangeo-data/xESMF"
 
 [tool.setuptools]
 packages = ["xesmf"]
+license-files = ["LICENSE"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
