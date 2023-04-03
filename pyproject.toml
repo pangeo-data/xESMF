@@ -6,6 +6,49 @@ requires = [
   "wheel",
 ]
 
+[project]
+name = "xesmf"
+description = "Universal Regridder for Geospatial Data"
+license = {file = "LICENSE", text = "MIT"}
+authors = [
+    {name = "Jiawei Zhuang", email = "jiaweizhuang@g.harvard.edu"},
+]
+requires-python = ">=3.8"
+classifiers = [
+    'Development Status :: 4 - Beta',
+    'License :: OSI Approved :: MIT License',
+    'Operating System :: OS Independent',
+    'Intended Audience :: Science/Research',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Topic :: Scientific/Engineering',
+]
+dynamic = [
+  "dependencies",
+  "readme",
+  "version",
+]
+[project.urls]
+documentation = "https://xesmf.readthedocs.io/en/latest/"
+homepage = "https://github.com/pangeo-data/xESMF"
+repository = "https://github.com/pangeo-data/xESMF"
+
+[tool.setuptools]
+packages = ["xesmf"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+readme = {file = "README.rst", ontent-type = "text/x-rst"}
+
+[tool.setuptools_scm]
+write_to = "xesmf/_version.py"
+write_to_template = "__version__ = '{version}'"
+
 [tool.black]
 line-length = 100
 target-version = ['py38']
@@ -13,7 +56,7 @@ skip-string-normalization = true
 
 [tool.isort]
 known_first_party = "xesmf"
-known_third_party =  ["cf_xarray", "cftime", "dask", "numba", "numpy", "pytest", "setuptools", "shapely", "sparse", "xarray"]
+known_third_party =  ["cf_xarray", "cftime", "dask", "numba", "numpy", "pytest", "shapely", "sparse", "xarray"]
 multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
