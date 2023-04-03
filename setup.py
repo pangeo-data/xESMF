@@ -8,7 +8,7 @@ AUTHOR = 'Jiawei Zhuang'
 AUTHOR_EMAIL = 'jiaweizhuang@g.harvard.edu'
 URL = 'https://github.com/pangeo-data/xESMF'
 LICENSE = 'MIT'
-PYTHON_REQUIRES = '>=3.6'
+PYTHON_REQUIRES = '>=3.8'
 USE_SCM_VERSION = {
     'write_to': 'xesmf/_version.py',
     'write_to_template': '__version__ = "{version}"',
@@ -37,9 +37,11 @@ CLASSIFIERS = [
     'Intended Audience :: Science/Research',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
     'Topic :: Scientific/Engineering',
 ]
 
