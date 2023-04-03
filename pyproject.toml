@@ -39,7 +39,7 @@ homepage = "https://github.com/pangeo-data/xESMF"
 repository = "https://github.com/pangeo-data/xESMF"
 
 [tool.setuptools]
-packages = ["xesmf"]
+packages = ["xesmf", "xesmf.tests"]
 license-files = ["LICENSE"]
 
 [tool.setuptools.dynamic]
