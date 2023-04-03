@@ -22,8 +22,6 @@ jobs:
       matrix:
         include:
           # Warning: Unless in quotations, numbers below are read as floats. 3.10 < 3.2
-          - python-version: '3.7'
-            esmf-version: 8.1
           - python-version: '3.8'
             esmf-version: 8.2
           - python-version: '3.9'
@@ -77,7 +75,7 @@ jobs:
           access_token: ${{ github.token }}
       - uses: actions/checkout@v3
       - name: Create conda environment
-        uses: mamba-org/provision-with-micromamba@main
+        uses: mamba-org/provision-with-micromamba@v15
         with:
           cache-downloads: true
           micromamba-version: 'latest'

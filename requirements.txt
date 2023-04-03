@@ -1,0 +1,8 @@
+cf-xarray>=0.5.1
+# We cannot list this  here b/c it is not on PyPI.
+#esmpy>=8.0.0
+numba >=0.55.2
+numpy>=1.16
+shapely
+sparse>=0.8.0
+xarray>=0.16.2

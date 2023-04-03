@@ -1,48 +1,55 @@
-name: Upload xesmf to PyPI
+name: Publish to PyPI
 
 on:
+  pull_request:
+  push:
+    branches:
+      - main
   release:
     types:
       - published
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  deploy:
+  packages:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Get tags
-        run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
-        shell: bash
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install setuptools setuptools-scm wheel twine check-manifest
+      - name: Get tags
+        run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
 
-      - name: Build tarball and wheels
+      - name: Install build tools
         run: |
-          python setup.py sdist
-          python -m pip wheel . -w dist --no-deps
+          python -m pip install --upgrade build
 
-      - name: Test the artifacts
+      - name: Build binary wheel
+        run: python -m build --sdist --wheel . --outdir dist
+
+      - name: CheckFiles
         run: |
-          python -m check_manifest --verbose
+          ls dist
+          python -m pip install --upgrade check-manifest
+          check-manifest --verbose
+
+      - name: Test wheels
+        run: |
+          # We cannot run this step b/c esmpy is not available on PyPI
+          # cd dist && python -m pip install *.whl && cd ..
+          python -m pip install --upgrade build twine
           python -m twine check dist/*
 
-      # FIXME: failing at the moment b/c we don't have PyPI ownership
-      # - name: Publish
-      #   env:
-      #     TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-      #     TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-      #   run: |
-      #     python -m twine upload dist/*
-
-      - name: upload artifacs
-        uses: actions/upload-artifact@v3
+      - name: Publish a Python distribution to PyPI
+        if: success() && github.event_name == 'release'
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          path: dist/*
+          user: __token__
+          password: ${{ secrets.PYPI_TOKEN }}

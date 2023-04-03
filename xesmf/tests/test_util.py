@@ -4,7 +4,6 @@ import xesmf as xe
 
 
 def test_grid_global():
-
     ds = xe.util.grid_global(1.5, 1.5)
     refshape = (120, 240)
     refshape_b = (121, 241)
@@ -36,7 +35,6 @@ def test_grid_global_bad_resolution():
 
 
 def test_simple_tripolar_grid():
-
     lon, lat = xe.util.simple_tripolar_grid(360, 180, lat_cap=60, lon_cut=-300.0)
 
     assert lon.min() >= -300.0
