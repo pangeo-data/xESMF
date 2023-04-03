@@ -29,7 +29,6 @@ except ImportError:
 
 
 def as_2d_mesh(lon, lat):
-
     if (lon.ndim, lat.ndim) == (2, 2):
         assert lon.shape == lat.shape, 'lon and lat should have same shape'
     elif (lon.ndim, lat.ndim) == (1, 1):

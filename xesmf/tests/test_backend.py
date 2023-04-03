@@ -72,7 +72,6 @@ def test_warn_lat_range():
 
 
 def test_esmf_grid_with_corner():
-
     # only center coordinate, no corners
     # remember to pass transpose (F-ordered) to backend
     grid = Grid.from_xarray(lon.T, lat.T)
@@ -106,7 +105,6 @@ def test_esmf_grid_with_corner():
 
 
 def test_esmf_build_bilinear():
-
     grid_in = Grid.from_xarray(lon_in.T, lat_in.T)
     grid_out = Grid.from_xarray(lon_out.T, lat_out.T)
 
@@ -122,7 +120,6 @@ def test_esmf_build_bilinear():
 
 
 def test_esmf_extrapolation():
-
     grid_in = Grid.from_xarray(lon_in.T, lat_in.T)
     grid_out = Grid.from_xarray(lon_out.T, lat_out.T)
 
@@ -145,7 +142,6 @@ def test_esmf_extrapolation():
 
 
 def test_regrid():
-
     # use conservative regridding as an example,
     # since it is the most well-tested studied one in papers
 
@@ -200,7 +196,6 @@ def test_regrid():
 
 
 def test_regrid_periodic_wrong():
-
     # not using periodic grid
     grid_in = Grid.from_xarray(lon_in.T, lat_in.T)
     grid_out = Grid.from_xarray(lon_out.T, lat_out.T)
@@ -219,7 +214,6 @@ def test_regrid_periodic_wrong():
 
 
 def test_regrid_periodic_correct():
-
     # only need to specific periodic for input grid
     grid_in = Grid.from_xarray(lon_in.T, lat_in.T, periodic=True)
     grid_out = Grid.from_xarray(lon_out.T, lat_out.T)
