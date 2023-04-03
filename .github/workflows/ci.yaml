@@ -22,8 +22,6 @@ jobs:
       matrix:
         include:
           # Warning: Unless in quotations, numbers below are read as floats. 3.10 < 3.2
-          - python-version: '3.7'
-            esmf-version: 8.1
           - python-version: '3.8'
             esmf-version: 8.2
           - python-version: '3.9'
