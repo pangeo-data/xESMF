@@ -43,7 +43,7 @@ packages = ["xesmf"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
-readme = {file = "README.rst", ontent-type = "text/x-rst"}
+readme = {file = "README.rst", content-type = "text/x-rst"}
 
 [tool.setuptools_scm]
 write_to = "xesmf/_version.py"
