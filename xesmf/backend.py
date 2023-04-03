@@ -439,7 +439,6 @@ def esmf_regrid_build(
 
     # conservative regridding needs cell corner information
     if method in ['conservative', 'conservative_normed']:
-
         if not isinstance(sourcegrid, ESMF.Mesh) and not sourcegrid.has_corners:
             raise ValueError(
                 'source grid has no corner information. ' 'cannot use conservative regridding.'

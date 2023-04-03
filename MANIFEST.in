@@ -3,14 +3,16 @@ include *.rst
 
 graft xesmf
 
-prune doc
-prune ci
-prune binder
+prune .github
 prune *.egg-info
+prune binder
+prune ci
+prune doc
 
-exclude *.yml
 exclude *.yaml
-exclude .*.toml
+exclude *.yml
 exclude .*.txt
 exclude .gitignore
+exclude .pre-commit-config.yaml
+exclude .prettierrc.toml
 exclude xesmf/_version.py
