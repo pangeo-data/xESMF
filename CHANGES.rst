@@ -1,12 +1,8 @@
 What's new
 ==========
 
-0.8.0 (unreleased)
+0.7.1 (2023-04-03)
 ------------------
-
-New features
-~~~~~~~~~~~
-- Expose ESMF capability to use ``pole_kind`` to specify monopolar or bipolar grid types, useful for regridding tripolar ocean grids. By `Benjamin Cash <https://github.com/benjamin-cash>`_.
 
 Bug fixes
 ~~~~~~~~~
