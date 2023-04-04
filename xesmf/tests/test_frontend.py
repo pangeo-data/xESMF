@@ -755,9 +755,9 @@ def test_compare_weights_from_poly_and_grid():
     # plt.show()
 
     # Check that source area affects weights
-    i = ds.indexes['lon'].get_loc(-55, method='nearest')
-    j1 = ds.indexes['lat'].get_loc(12, method='nearest')
-    j2 = ds.indexes['lat'].get_loc(72, method='nearest')
+    i = ds.indexes['lon'].get_indexer([-55], method='nearest')[0]
+    j1 = ds.indexes['lat'].get_indexer([12], method='nearest')[0]
+    j2 = ds.indexes['lat'].get_indexer([72], method='nearest')[0]
     assert ds.wg.isel(lon=i, lat=j1) > ds.wg.isel(lon=i, lat=j2)
     assert ds.wp.isel(lon=i, lat=j1).data > ds.wp.isel(lon=i, lat=j2).data  # Fails
 
