@@ -6,11 +6,12 @@ What's new
 
 Bug fixes
 ~~~~~~~~~
-* Fix ``Mesh.from_polygons`` and unpin Shapely to add support for Shapely 2.0 (:pull:`219`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Fix ``Mesh.from_polygons`` and unpin Shapely to add support for Shapely 2.0 (:pull:`219`). By `Pascal Bourgault <https://github.com/aulemahal>`_
 * Implement workaround for setup conda problem (:pull:`229`). By `Raphael Dussin <https://github.com/raphaeldussin>`_
-* Update CI and doc - fix for DataArrays (:pull:`230`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
-* Fix ci/cd badge for build status (:pull:`231`). By `Pierre Manchon <https://github.com/pierre-manchon>`_.
-* Update CI for Micromamba environments (:pull:`233`). By `Trevor James Smith <https://github.com/Zeitsperre>`_.
+* Update CI and doc - fix for DataArrays (:pull:`230`). By `Pascal Bourgault <https://github.com/aulemahal>`_
+* Fix ci/cd badge for build status (:pull:`231`). By `Pierre Manchon <https://github.com/pierre-manchon>`_
+* Update CI for Micromamba environments (:pull:`233`). By `Trevor James Smith <https://github.com/Zeitsperre>`_
+* Fix error in test with Shapely 2.0 (:pull:`251`). By `David Huard <https://github.com/huard>`_
 
 New features
 ~~~~~~~~~~~~
