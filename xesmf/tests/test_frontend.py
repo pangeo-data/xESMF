@@ -363,8 +363,8 @@ def test_regrid_cfbounds():
 def test_regrid_dataarray(use_cfxr):
     # xarray.DataArray containing in-memory numpy array
     if use_cfxr:
-        ds_in2 = ds_in.rename(lat='Latitude', lon='Longitude')
-        ds_out2 = ds_out.rename(lat='Latitude', lon='Longitude')
+        ds_in2 = ds_in.rename(lat='latitude', lon='longitude')
+        ds_out2 = ds_out.rename(lat='latitude', lon='longitude')
     else:
         ds_in2 = ds_in
         ds_out2 = ds_out
@@ -382,8 +382,8 @@ def test_regrid_dataarray(use_cfxr):
     assert np.max(np.abs(rel_err)) < 0.05
 
     # check metadata
-    lat_name = 'Latitude' if use_cfxr else 'lat'
-    lon_name = 'Longitude' if use_cfxr else 'lon'
+    lat_name = 'latitude' if use_cfxr else 'lat'
+    lon_name = 'longitude' if use_cfxr else 'lon'
     xr.testing.assert_identical(dr_out[lat_name], ds_out2[lat_name])
     xr.testing.assert_identical(dr_out[lon_name], ds_out2[lon_name])
 
