@@ -64,7 +64,7 @@ that works for more grid types.
 - `Regridder in NCO <http://nco.sourceforge.net/nco.html#Regridding>`_
   (*command line tool*)
 
-- `Regridder in Iris <http://scitools.org.uk/iris/docs/v1.10.0/userguide/interpolation_and_regridding.html>`_
+- `Regridder in Iris <https://scitools-iris.readthedocs.io/en/v3.4.1/userguide/interpolation_and_regridding.html>`_
   (*Python package*)
 
 - `Regridder in UV-CDAT <https://uvcdat.llnl.gov/documentation/cdms/cdms_4.html>`_
