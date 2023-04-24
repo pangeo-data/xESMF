@@ -858,44 +858,44 @@ def test_spatial_averager_mask():
 def test_regrid_polekind():
 
     # Open tripole SST file
-    ds_in = xr.open_dataset('mom6_tripole_SST.nc')
-
-    # Open input grid specification
-    ds_ingrid = xr.open_dataset('grid_spec.nc')
-    ds_sst_grid = ds_ingrid.rename({'geolat': 'lat', 'geolon': 'lon'})
-    ds_sst_grid['mask'] = ds_ingrid['wet']
-
-    # Get MOM6 mask
-    ds_ingrid['mask'] = ds_ingrid['wet']
+    lon, lat = xe.util.simple_tripolar_grid(180, 90, lat_cap=60, lon_cut=-300.0)
+    ds_in = xr.Dataset()
+    ds_in["lon"] = xr.DataArray(lon, dims=("yh", "xh"))
+    ds_in["lat"] = xr.DataArray(lat, dims=("yh", "xh"))
+    SST0 = 28. ; pert = 2.
+    SST = SST0 * np.cos(np.pi * lat / 180.) + pert * np.sin(3*np.pi * lon / 180)
+    ds_in["SST"] = xr.DataArray(SST, dims=("yh", "xh"))
 
     # Open output grid specification
-    ds_outgrid = xr.open_dataset('C384_gaussian_grid.nc')
-
-    # Get C384 land-sea mask
-    ds_outgrid['mask'] = 1 - ds_outgrid['land'].where(ds_outgrid['land'] < 2.0).squeeze()
+    ds_out = xe.util.grid_global(1, 1, cf=False, lon1=180)
 
     # Create regridder without specifying pole kind
-    base_regrid = xe.Regridder(ds_sst_grid, ds_outgrid, 'bilinear', periodic=True)
+    base_regrid = xe.Regridder(ds_in, ds_out, 'bilinear', periodic=True)
     base_result = base_regrid(ds_in['SST'])
 
     # Add monopole grid information. 1 denotes monopole, 2 bipole
-    ds_sst_grid['pole_kind'] = np.array([1, 1])
-    ds_outgrid['pole_kind'] = np.array([1, 1])
+    ds_in['pole_kind'] = np.array([1, 1])
+    ds_out['pole_kind'] = np.array([1, 1])
 
-    monopole_regrid = xe.Regridder(ds_sst_grid, ds_outgrid, 'bilinear', periodic=True)
+    monopole_regrid = xe.Regridder(ds_in, ds_out, 'bilinear', periodic=True)
     monopole_result = monopole_regrid(ds_in['SST'])
 
     # Check behavior unchanged
     assert monopole_result.equals(base_result)
 
     # Add bipole grid information
-    ds_sst_grid['pole_kind'] = np.array([1, 2], np.int32)
-    bipole_regrid = xe.Regridder(ds_sst_grid, ds_outgrid, 'bilinear', periodic=True)
+    ds_in['pole_kind'] = np.array([1, 2], np.int32)
+    bipole_regrid = xe.Regridder(ds_in, ds_out, 'bilinear', periodic=True)
     bipole_result = bipole_regrid(ds_in['SST'])
 
     # Confirm results have changed
     assert not bipole_result.equals(monopole_result)
 
-    # Confirm results match saved values
-    verif_in = xr.open_dataset('verify_bipole_regrid_SST.nc')['SST']
-    assert bipole_result.equals(verif_in)
+    # Confirm results are better with bipolar option
+    expected_sst = (SST0 * np.cos(np.pi * ds_out["lat"] / 180.) +
+                    pert * np.sin(3*np.pi * ds_out["lon"] / 180))
+
+    err_monopole = np.var(monopole_result-expected_sst)
+    err_bipole = np.var(bipole_result-expected_sst)
+
+    assert err_monopole >= err_bipole
