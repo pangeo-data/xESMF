@@ -75,7 +75,7 @@ jobs:
           access_token: ${{ github.token }}
       - uses: actions/checkout@v3
       - name: Create conda environment
-        uses: mamba-org/provision-with-micromamba@v15
+        uses: mamba-org/provision-with-micromamba@v16
         with:
           cache-downloads: true
           micromamba-version: 'latest'
