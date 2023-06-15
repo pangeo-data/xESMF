@@ -1,6 +1,16 @@
 What's new
 ==========
 
+0.7.2 (unreleased)
+------------------
+
+Internal changes
+~~~~~~~~~~~~~~~~
+* Pin sphinx < 7.0 since it's not supported by `sphinx_rtd_theme`
+* Remove Python 3.7 from the project classifiers
+* Build docs using Python 3.9
+
+
 0.7.1 (2023-04-03)
 ------------------
 
