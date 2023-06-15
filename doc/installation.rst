@@ -11,7 +11,8 @@ The `Binder project <https://mybinder.readthedocs.io>`_ provides pre-configured 
 Install on local machine with Conda
 -----------------------------------
 
-xESMF requires Python>=3.7. The major dependencies are xarray and ESMPy. The best way to install them is using Conda_.
+xESMF requires Python>=3.8. The major dependencies are xarray and ESMPy, and the best way to install them is using Conda_.
+Note that the latest xarray releases require Python 3.9 or later.
 
 First, `install miniconda <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_. Then, we recommend creating a new, clean environment:
 
