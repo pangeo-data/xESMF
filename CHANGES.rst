@@ -4,6 +4,11 @@ What's new
 0.7.2 (unreleased)
 ------------------
 
+New features
+~~~~~~~~~~~~
+* Added a `w` property to the `Regridder` and `SpatialAverager` classes, returning the weights reshaped according to
+  the input and output grid dimensions. This is mostly intended for debugging and visualisation purposes. By `David Huard <https://github.com/huard>`_
+
 Internal changes
 ~~~~~~~~~~~~~~~~
 * Pin sphinx < 7.0 since it's not supported by `sphinx_rtd_theme`
