@@ -202,9 +202,8 @@ def test_regridder_w():
 
     regridder_cf = xe.Regridder(ds_in_cf, ds_out_cf, method='bilinear')
     w_cf = regridder_cf.w
-    assert (
-        w_cf.shape
-        == ds_out_cf.lat.shape + ds_out_cf.lon.shape + ds_in_cf.lat.shape + ds_in_cf.lon.shape
+    assert w_cf.shape == (
+        ds_out_cf.lat.shape + ds_out_cf.lon.shape + ds_in_cf.lat.shape + ds_in_cf.lon.shape
     )
 
     averager = xe.SpatialAverager(ds_in_cf, [p, p])
