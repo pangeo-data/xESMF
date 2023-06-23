@@ -106,7 +106,12 @@ def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
 
     Returns
     -------
-    grid : ESMF.Grid object
+    grid
+        ESMF.Grid object
+    shape
+        Shape of the grid
+    dim_names
+        Dimension names of the grid
 
     """
     # use np.asarray(dr) instead of dr.values, so it also works for dictionary
@@ -353,6 +358,20 @@ class BaseRegridder(object):
         # Also print to make sure users notice this.
         print(message)
         return self.weights
+
+    @property
+    def w(self) -> xr.DataArray:
+        """Return weights as a 4D DataArray with dimensions (y_out, x_out, y_in, x_in).
+
+        ESMF stores the weights in a 2D array with dimensions (out_dim, in_dim), the size of the output and input
+        grids respectively (ny x nx). This property returns the weights reshaped as a 4D array to simplify
+        comparisons with the original grids.
+        """
+        # TODO: Add coords ?
+        s = self.shape_out + self.shape_in
+        data = self.weights.data.reshape(s)
+        dims = 'y_out', 'x_out', 'y_in', 'x_in'
+        return xr.DataArray(data, dims=dims)
 
     def _get_default_filename(self):
         # e.g. bilinear_400x600_300x400.nc
@@ -877,7 +896,7 @@ class SpatialAverager(BaseRegridder):
             Contain input and output grid coordinates. Look for variables
             ``lon``, ``lat``, ``lon_b`` and ``lat_b``.
 
-            Optionaly looks for ``mask``, in which case  the ESMF convention is used,
+            Optionally looks for ``mask``, in which case  the ESMF convention is used,
             where masked values are identified by 0, and non-masked values by 1.
 
             Shape can be 1D (n_lon,) and (n_lat,) for rectilinear grids,
@@ -1037,6 +1056,19 @@ class SpatialAverager(BaseRegridder):
 
         # Combine weights for all the subgeometries belonging to the same geometry
         return _combine_weight_multipoly(w, area, geom_indices).T
+
+    @property
+    def w(self) -> xr.DataArray:
+        """Return weights as a 3D DataArray with dimensions (geom, y_in, x_in).
+
+        ESMF stores the weights in a 2D array with dimensions (out_dim, in_dim), the size of the output and input
+        grids respectively (ny x nx). This property returns the weights reshaped as a 3D array to simplify
+        comparisons with the original grids.
+        """
+        s = self.shape_out[1:2] + self.shape_in
+        data = self.weights.data.reshape(s)
+        dims = self.geom_dim_name, 'y_in', 'x_in'
+        return xr.DataArray(data, dims=dims)
 
     def _get_default_filename(self):
         # e.g. bilinear_400x600_300x400.nc

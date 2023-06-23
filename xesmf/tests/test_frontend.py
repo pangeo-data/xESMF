@@ -179,13 +179,35 @@ def test_existing_weights():
 
     # check fails on non-existent file
     with pytest.raises(OSError):
-        regridder_reuse = xe.Regridder(
-            ds_in, ds_out, method, reuse_weights=True, filename='fakewgts.nc'
-        )
+        xe.Regridder(ds_in, ds_out, method, reuse_weights=True, filename='fakewgts.nc')
 
     # check fails if no weights are provided
     with pytest.raises(ValueError):
-        regridder_reuse = xe.Regridder(ds_in, ds_out, method, reuse_weights=True)
+        xe.Regridder(ds_in, ds_out, method, reuse_weights=True)
+
+
+def test_regridder_w():
+    """Check that the `w` property for dimensioned weights works."""
+    regridder = xe.Regridder(ds_in, ds_out, method='bilinear')
+    w = regridder.w
+    assert w.shape == ds_out.lon.shape + ds_in.lon.shape
+
+    p = Polygon([(-10, -10), (10, -10), (10, 10), (-10, 10)])
+
+    averager = xe.SpatialAverager(ds_in, [p])
+    assert averager.w.shape == (1,) + ds_in.lon.shape
+
+    ds_in_cf = xe.util.grid_global(15, 15, cf=True)
+    ds_out_cf = xe.util.grid_global(30, 30, cf=True)
+
+    regridder_cf = xe.Regridder(ds_in_cf, ds_out_cf, method='bilinear')
+    w_cf = regridder_cf.w
+    assert w_cf.shape == (
+        ds_out_cf.lat.shape + ds_out_cf.lon.shape + ds_in_cf.lat.shape + ds_in_cf.lon.shape
+    )
+
+    averager = xe.SpatialAverager(ds_in_cf, [p, p])
+    assert averager.w.shape == (2,) + ds_in_cf.lat.shape + ds_in_cf.lon.shape
 
 
 def test_to_netcdf(tmp_path):
@@ -711,6 +733,27 @@ def test_spatial_averager(poly, exp):
     assert_allclose(out, exp, rtol=1e-3)
 
     assert 'my_geom' in out.dims
+
+
+@pytest.mark.xfail
+def test_spatial_averager_with_zonal_region():
+    # We expect the spatial average for all regions to be one
+    zonal_south = Polygon([(0, -90), (10, 0), (0, 0)])
+    zonal_north = Polygon([(0, 90), (10, 0), (0, 0)])
+    zonal_short = Polygon([(0, -10), (10, -10), (10, 10), (0, 10)])
+    zonal_full = Polygon([(0, -90), (10, 0), (0, 90), (0, 0)])  # This yields 0... why?
+
+    polys = [zonal_south, zonal_north, zonal_short, zonal_full]
+
+    # Create field of ones on a global grid
+    ds = xe.util.grid_global(20, 12, cf=True)
+    ds['a'] = xr.DataArray(
+        np.ones((ds.lon.size, ds.lat.size)),
+        coords={'lat': ds.lat, 'lon': ds.lon},
+        dims=('lon', 'lat'),
+    )
+    out = xe.SpatialAverager(ds, polys)(ds.a)
+    assert_allclose(out, 1, rtol=1e-3)
 
 
 def test_compare_weights_from_poly_and_grid():
