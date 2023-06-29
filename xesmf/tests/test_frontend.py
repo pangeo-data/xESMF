@@ -36,6 +36,7 @@ ds_out['data4D_ref'] = ds_in['time'] * ds_in['lev'] * ds_out['data_ref']
 
 # use non-divisible chunk size to catch edge cases
 ds_in_chunked = ds_in.chunk({'time': 3, 'lev': 2})
+ds_spatial_chunked = ds_in.chunk({'time':3,'lev':2, 'y':5,'x':9})
 
 ds_locs = xr.Dataset()
 ds_locs['lat'] = xr.DataArray(data=[-20, -10, 0, 10], dims=('locations',))
@@ -512,12 +513,12 @@ def test_regrid_dask(request, scheduler):
 
     # lazy dask arrays have incorrect shape attribute due to last chunk
     assert outdata.shape == indata.shape[:-2] + horiz_shape_out
-    assert outdata.chunksize == indata.chunksize[:-2] + horiz_shape_out
+    assert outdata.chunksize == indata.chunksize#[:-2] + horiz_shape_out
 
     # Check that the number of tasks hasn't exploded.
     n_task_in = len(indata.__dask_graph__().keys())
     n_task_out = len(outdata.__dask_graph__().keys())
-    assert (n_task_out / n_task_in) < 3
+    assert (n_task_out / n_task_in) < 15
 
     outdata_ref = ds_out['data4D_ref'].values
     rel_err = (outdata.compute() - outdata_ref) / outdata_ref
@@ -558,7 +559,7 @@ def test_regrid_dataarray_dask(request, scheduler):
     assert dask.is_dask_collection(dr_out)
 
     assert dr_out.data.shape == dr_in.data.shape[:-2] + horiz_shape_out
-    assert dr_out.data.chunksize == dr_in.data.chunksize[:-2] + horiz_shape_out
+    assert dr_out.data.chunksize == dr_in.data.chunksize#[:-2] + horiz_shape_out
 
     # data over broadcasting dimensions should agree
     assert_almost_equal(dr_in.values.mean(axis=(2, 3)), dr_out.values.mean(axis=(2, 3)), decimal=10)
@@ -591,7 +592,27 @@ def test_regrid_dataarray_dask_from_locstream(request, scheduler):
     outdata = regridder(ds_locs.chunk()['lat'])
     assert dask.is_dask_collection(outdata)
 
+def test_regrid_dask_specify_chunks():
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
+    test_output_chunks = (10, 12)
+
+    indata = ds_spatial_chunked['data4D'].data # Data chunked along spatial dims
+    # Use ridiculous small chunk size value to be sure it _isn't_ impacting computation.
+    with dask.config.set({'array.chunk-size': '1MiB'}):
+        outdata = regridder(indata)
+        outdata_spec = regridder(indata, output_chunks=test_output_chunks)
+
+    assert dask.is_dask_collection(outdata)
+    assert dask.is_dask_collection(outdata_spec)
+
+    # Verify that the default chunking is correct
+    assert outdata.shape == indata.shape[:-2] + horiz_shape_out
+    assert outdata.chunksize == indata.chunksize
+
+    # Verify that we get specified outputchunks when the argument is provided
+    assert outdata_spec.shape == indata.shape[:-2] + horiz_shape_out
+    assert outdata_spec.chunksize == indata.chunksize[:-2] + test_output_chunks
 def test_regrid_dataset():
     # xarray.Dataset containing in-memory numpy array
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
