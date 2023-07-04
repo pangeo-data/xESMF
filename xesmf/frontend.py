@@ -453,13 +453,12 @@ class BaseRegridder(object):
 
         output_chunks: tuple, optional
             If indata is a dask_array_type, the desired chunks to have on the
-            output data. Default behavior is to havethe outdata chunks be like
-            the indata chunks. The default behavior insures that the chunksize
-            of both indata and outdata remains the same, not requiring more
-            memory usage than anticipated by the chunking of indata. output_chunks
-            has to be a tuple of same length as len(self.shape_out), i.e. the
-            chunks specified in output_chunks are associated with the spatial
-            dimensions of outdata. TODO add more info about the logic and format of output_chunks
+            output data along the spatial axes. Other none spatial axes inherit
+            the same chunks as indata as those are not affected by the application
+            of the weights.Default behavior is to have the outdata chunks be like
+            the indata chunks. The default behavior is for output chunks to be
+            identical to input chunks, unless specified. Chunks have to be specified
+            for all spatial dimensions of the output data otherwise regridding will fail.
 
         Returns
         -------
@@ -533,9 +532,10 @@ class BaseRegridder(object):
             elif output_chunks is not None:
                 if len(output_chunks) != len(self.shape_out):
                     raise ValueError(
-                        f'output_chunks size must match output size, len(output_chunks) = {len(output_chunks)} does not match '
-                        f'len(shape_out) = {len(self.shape_out)}'
-                        )  # TODO write better error message
+                        f'output_chunks must have same dimension as ds_out,'
+                        f' output_chunks dimension ({len(output_chunks)}) does not '
+                        f'match ds_out dimension ({len(self.shape_out)})'
+                        )
                 weights = da.from_array(self.w.data, chunks=(output_chunks + indata.chunksize[-2:]))
 
             outdata = self._regrid(indata, weights, **kwargs)

@@ -513,7 +513,7 @@ def test_regrid_dask(request, scheduler):
 
     # lazy dask arrays have incorrect shape attribute due to last chunk
     assert outdata.shape == indata.shape[:-2] + horiz_shape_out
-    assert outdata.chunksize == indata.chunksize#[:-2] + horiz_shape_out
+    assert outdata.chunksize == indata.chunksize
 
     # Check that the number of tasks hasn't exploded.
     n_task_in = len(indata.__dask_graph__().keys())
@@ -559,7 +559,7 @@ def test_regrid_dataarray_dask(request, scheduler):
     assert dask.is_dask_collection(dr_out)
 
     assert dr_out.data.shape == dr_in.data.shape[:-2] + horiz_shape_out
-    assert dr_out.data.chunksize == dr_in.data.chunksize#[:-2] + horiz_shape_out
+    assert dr_out.data.chunksize == dr_in.data.chunksize
 
     # data over broadcasting dimensions should agree
     assert_almost_equal(dr_in.values.mean(axis=(2, 3)), dr_out.values.mean(axis=(2, 3)), decimal=10)
@@ -592,7 +592,7 @@ def test_regrid_dataarray_dask_from_locstream(request, scheduler):
     outdata = regridder(ds_locs.chunk()['lat'])
     assert dask.is_dask_collection(outdata)
 
-def test_regrid_dask_specify_chunks():
+def test_dask_output_chunks():
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
     test_output_chunks = (10, 12)
