@@ -176,7 +176,7 @@ def test_regrid():
     weights = read_weights(filename, lon_in.size, lon_out.size).data
     shape_in = lon_in.shape
     shape_out = lon_out.shape
-    w = weights.reshape(shape_out + shape_in) # 4D weights
+    w = weights.reshape(shape_out + shape_in)  # 4D weights
     data_out_scipy = apply_weights(w, data_in, shape_in, shape_out)
 
     # must be almost exactly the same as esmpy's result!

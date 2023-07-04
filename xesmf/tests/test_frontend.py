@@ -36,7 +36,7 @@ ds_out['data4D_ref'] = ds_in['time'] * ds_in['lev'] * ds_out['data_ref']
 
 # use non-divisible chunk size to catch edge cases
 ds_in_chunked = ds_in.chunk({'time': 3, 'lev': 2})
-ds_spatial_chunked = ds_in.chunk({'time':3,'lev':2, 'y':5,'x':9})
+ds_spatial_chunked = ds_in.chunk({'time': 3, 'lev': 2, 'y': 5, 'x': 9})
 
 ds_locs = xr.Dataset()
 ds_locs['lat'] = xr.DataArray(data=[-20, -10, 0, 10], dims=('locations',))
@@ -592,12 +592,13 @@ def test_regrid_dataarray_dask_from_locstream(request, scheduler):
     outdata = regridder(ds_locs.chunk()['lat'])
     assert dask.is_dask_collection(outdata)
 
+
 def test_dask_output_chunks():
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
     test_output_chunks = (10, 12)
 
-    indata = ds_spatial_chunked['data4D'].data # Data chunked along spatial dims
+    indata = ds_spatial_chunked['data4D'].data  # Data chunked along spatial dims
     # Use ridiculous small chunk size value to be sure it _isn't_ impacting computation.
     with dask.config.set({'array.chunk-size': '1MiB'}):
         outdata = regridder(indata)
@@ -613,6 +614,8 @@ def test_dask_output_chunks():
     # Verify that we get specified outputchunks when the argument is provided
     assert outdata_spec.shape == indata.shape[:-2] + horiz_shape_out
     assert outdata_spec.chunksize == indata.chunksize[:-2] + test_output_chunks
+
+
 def test_regrid_dataset():
     # xarray.Dataset containing in-memory numpy array
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')

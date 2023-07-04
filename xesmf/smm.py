@@ -183,10 +183,14 @@ def apply_weights(weights, indata, shape_in, shape_out):
         nb.from_dtype(indata.dtype)
         nb.from_dtype(weights.dtype)
     except (NotImplementedError, nb.core.errors.NumbaError):
-        indata = indata.astype('<f8') # On the fly conversion
+        indata = indata.astype('<f8')  # On the fly conversion
 
     # Dot product
-    outdata = np.tensordot(indata, weights, axes=((indata.ndim-2,indata.ndim-1),(weights.ndim-2,weights.ndim-1)))
+    outdata = np.tensordot(
+        indata,
+        weights,
+        axes=((indata.ndim - 2, indata.ndim - 1), (weights.ndim - 2, weights.ndim - 1)),
+    )
 
     # Ensure same dtype as the input.
     outdata = outdata.astype(indata_dtype)
