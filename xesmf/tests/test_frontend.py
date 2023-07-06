@@ -596,24 +596,29 @@ def test_regrid_dataarray_dask_from_locstream(request, scheduler):
 def test_dask_output_chunks():
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
-    test_output_chunks = (10, 12)
-
+    test_output_chunks_tuple = (10, 12)
+    test_output_chunks_dict = {'y':10,'x':12}
     indata = ds_spatial_chunked['data4D'].data  # Data chunked along spatial dims
     # Use ridiculous small chunk size value to be sure it _isn't_ impacting computation.
     with dask.config.set({'array.chunk-size': '1MiB'}):
         outdata = regridder(indata)
-        outdata_spec = regridder(indata, output_chunks=test_output_chunks)
+        outdata_spec_tuple = regridder(indata, output_chunks=test_output_chunks_tuple)
+        outdata_spec_dict = regridder(indata, output_chunks=test_output_chunks_dict)
 
     assert dask.is_dask_collection(outdata)
-    assert dask.is_dask_collection(outdata_spec)
+    assert dask.is_dask_collection(outdata_spec_tuple)
+    assert dask.is_dask_collection(outdata_spec_dict)
 
     # Verify that the default chunking is correct
     assert outdata.shape == indata.shape[:-2] + horiz_shape_out
     assert outdata.chunksize == indata.chunksize
 
     # Verify that we get specified outputchunks when the argument is provided
-    assert outdata_spec.shape == indata.shape[:-2] + horiz_shape_out
-    assert outdata_spec.chunksize == indata.chunksize[:-2] + test_output_chunks
+    assert outdata_spec_tuple.shape == indata.shape[:-2] + horiz_shape_out
+    assert outdata_spec_tuple.chunksize == indata.chunksize[:-2] + test_output_chunks_tuple
+
+    assert outdata_spec_dict.shape == indata.shape[:-2] + horiz_shape_out
+    assert outdata_spec_dict.chunksize == indata.chunksize[:-2] + test_output_chunks_tuple # dict should've been converted to tuple
 
 
 def test_regrid_dataset():
