@@ -451,14 +451,16 @@ class BaseRegridder(object):
             if `na_thres` is set to 1, all input values must be missing to
             mask the output value.
 
-        output_chunks: tuple, optional
+        output_chunks: dict or tuple, optional
             If indata is a dask_array_type, the desired chunks to have on the
-            output data along the spatial axes. Other none spatial axes inherit
+            output data along the spatial axes. Other non-spatial axes inherit
             the same chunks as indata as those are not affected by the application
-            of the weights.Default behavior is to have the outdata chunks be like
-            the indata chunks. The default behavior is for output chunks to be
-            identical to input chunks, unless specified. Chunks have to be specified
-            for all spatial dimensions of the output data otherwise regridding will fail.
+            of the weights. Default behavior is to have the outdata chunks be like
+            the indata chunks. Chunks have to be specified for all spatial dimensions
+            of the output data otherwise regridding will fail. output_chunks can
+            either be a tuple the same size as the spatial axes of outdata or it
+            can be a dict with defined dims. If output_chunks is a dict, the
+            keys must match the dims of indata, e.g. {'lat':10,'lon':10}.
 
         Returns
         -------
@@ -530,6 +532,12 @@ class BaseRegridder(object):
         if self.sequence_in:
             indata = np.reshape(indata, (*indata.shape[:-1], 1, indata.shape[-1]))
 
+        # If output_chunk is dict, order output chunks to match order of input_horiz_dims and convert to tuple
+        if isinstance(output_chunks,dict):
+            chunks = []
+            for key in self.in_horiz_dims:
+                chunks.append(output_chunks.get(key))
+            output_chunks = tuple(chunks)
         kwargs = {
             'shape_in': self.shape_in,
             'shape_out': self.shape_out,
