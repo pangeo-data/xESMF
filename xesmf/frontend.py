@@ -533,7 +533,7 @@ class BaseRegridder(object):
             indata = np.reshape(indata, (*indata.shape[:-1], 1, indata.shape[-1]))
 
         # If output_chunk is dict, order output chunks to match order of input_horiz_dims and convert to tuple
-        if isinstance(output_chunks,dict):
+        if isinstance(output_chunks, dict):
             chunks = []
             for key in self.in_horiz_dims:
                 chunks.append(output_chunks.get(key))

@@ -597,7 +597,7 @@ def test_dask_output_chunks():
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
     test_output_chunks_tuple = (10, 12)
-    test_output_chunks_dict = {'y':10,'x':12}
+    test_output_chunks_dict = {'y': 10, 'x': 12}
     indata = ds_spatial_chunked['data4D'].data  # Data chunked along spatial dims
     # Use ridiculous small chunk size value to be sure it _isn't_ impacting computation.
     with dask.config.set({'array.chunk-size': '1MiB'}):
@@ -618,7 +618,9 @@ def test_dask_output_chunks():
     assert outdata_spec_tuple.chunksize == indata.chunksize[:-2] + test_output_chunks_tuple
 
     assert outdata_spec_dict.shape == indata.shape[:-2] + horiz_shape_out
-    assert outdata_spec_dict.chunksize == indata.chunksize[:-2] + test_output_chunks_tuple # dict should've been converted to tuple
+    assert (
+        outdata_spec_dict.chunksize == indata.chunksize[:-2] + test_output_chunks_tuple
+    )  # dict should've been converted to tuple
 
 
 def test_regrid_dataset():
