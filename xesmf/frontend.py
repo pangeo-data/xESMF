@@ -219,7 +219,6 @@ class BaseRegridder(object):
         weights=None,
         ignore_degenerate=None,
         input_dims=None,
-        output_dims=None,
         unmapped_to_nan=False,
     ):
         """
@@ -286,11 +285,6 @@ class BaseRegridder(object):
             If not given or if those are not found on the regridded object, regridding
             uses the two last dimensions of the object (or the last one for input LocStreams and Meshes).
 
-        output_dims : tuple of str, optional
-            A tuple of dimension names to look for when regridding DataArrays or Datasets.
-            If not given or if those are not found on the regridded object, regridding
-            uses the two last dimensions of the object (or the last one for output LocStreams and Meshes)
-
         unmapped_to_nan: boolean, optional
             Set values of unmapped points to `np.nan` instead of zero (ESMF default). This is useful for
             target cells lying outside of the source domain when no output mask is defined.
@@ -317,10 +311,6 @@ class BaseRegridder(object):
         if input_dims is not None and len(input_dims) != int(not self.sequence_in) + 1:
             raise ValueError(f'Wrong number of dimension names in `input_dims` ({len(input_dims)}.')
         self.in_horiz_dims = input_dims
-
-        if output_dims is not None and len(output_dims) != int(not self.sequence_out) +1:
-            raise ValueError(f'Wrong number of dimension names in `output dims` ({len(output_dims)}.')
-        self.out_horiz_dims = output_dims
 
         # record grid shape information
         # We need to invert Grid shapes to respect xESMF's convention (y, x).
@@ -542,10 +532,10 @@ class BaseRegridder(object):
         if self.sequence_in:
             indata = np.reshape(indata, (*indata.shape[:-1], 1, indata.shape[-1]))
 
-        # If output_chunk is dict, order output chunks to match order of out_horiz_dims and convert to tuple
-        if isinstance(output_chunks,dict):
+        # If output_chunk is dict, order output chunks to match order of input_horiz_dims and convert to tuple
+        if isinstance(output_chunks, dict):
             chunks = []
-            for key in self.out_horiz_dims:
+            for key in self.in_horiz_dims:
                 chunks.append(output_chunks.get(key))
             output_chunks = tuple(chunks)
         kwargs = {
@@ -559,7 +549,9 @@ class BaseRegridder(object):
 
         if isinstance(indata, dask_array_type):  # dask
             if output_chunks is None:
-                output_chunks = indata.chunksize[-2:]
+                weights = da.from_array(
+                    self.w.data, chunks=(indata.chunksize[-2:] + indata.chunksize[-2:])
+                )
             elif output_chunks is not None:
                 if len(output_chunks) != len(self.shape_out):
                     raise ValueError(
@@ -567,7 +559,7 @@ class BaseRegridder(object):
                         f' output_chunks dimension ({len(output_chunks)}) does not '
                         f'match ds_out dimension ({len(self.shape_out)})'
                     )
-            weights = da.from_array(self.w.data, chunks=(output_chunks + indata.chunksize[-2:]))
+                weights = da.from_array(self.w.data, chunks=(output_chunks + indata.chunksize[-2:]))
 
             outdata = self._regrid(indata, weights, **kwargs)
         else:  # numpy
@@ -845,12 +837,12 @@ class Regridder(BaseRegridder):
                 ds_in, need_bounds=need_bounds, periodic=periodic
             )
         if locstream_out:
-            grid_out, shape_out, output_dims = ds_to_ESMFlocstream(ds_out)
+            grid_out, shape_out, _ = ds_to_ESMFlocstream(ds_out)
         else:
-            grid_out, shape_out, output_dims = ds_to_ESMFgrid(ds_out, need_bounds=need_bounds)
+            grid_out, shape_out, _ = ds_to_ESMFgrid(ds_out, need_bounds=need_bounds)
 
         # Create the BaseRegridder
-        super().__init__(grid_in, grid_out, method, input_dims=input_dims, output_dims=output_dims, **kwargs)
+        super().__init__(grid_in, grid_out, method, input_dims=input_dims, **kwargs)
 
         # record output grid and metadata
         lon_out, lat_out = _get_lon_lat(ds_out)
