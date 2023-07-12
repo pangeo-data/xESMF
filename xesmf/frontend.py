@@ -549,9 +549,7 @@ class BaseRegridder(object):
 
         if isinstance(indata, dask_array_type):  # dask
             if output_chunks is None:
-                weights = da.from_array(
-                    self.w.data, chunks=(indata.chunksize[-2:] + indata.chunksize[-2:])
-                )
+                output_chunks = indata.chunksize[-2:]
             elif output_chunks is not None:
                 if len(output_chunks) != len(self.shape_out):
                     raise ValueError(
@@ -559,7 +557,7 @@ class BaseRegridder(object):
                         f' output_chunks dimension ({len(output_chunks)}) does not '
                         f'match ds_out dimension ({len(self.shape_out)})'
                     )
-                weights = da.from_array(self.w.data, chunks=(output_chunks + indata.chunksize[-2:]))
+            weights = da.from_array(self.w.data, chunks=(output_chunks + indata.chunksize[-2:]))
 
             outdata = self._regrid(indata, weights, **kwargs)
         else:  # numpy
