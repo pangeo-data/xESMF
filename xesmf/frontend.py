@@ -319,7 +319,9 @@ class BaseRegridder(object):
         self.in_horiz_dims = input_dims
 
         if output_dims is not None and len(output_dims) != int(not self.sequence_out) + 1:
-            raise ValueError(f'Wrong number of dimension names in `output dims` ({len(output_dims)}.')
+            raise ValueError(
+                f'Wrong number of dimension names in `output dims` ({len(output_dims)}.'
+            )
         self.out_horiz_dims = output_dims
 
         # record grid shape information
@@ -848,7 +850,9 @@ class Regridder(BaseRegridder):
             grid_out, shape_out, output_dims = ds_to_ESMFgrid(ds_out, need_bounds=need_bounds)
 
         # Create the BaseRegridder
-        super().__init__(grid_in, grid_out, method, input_dims=input_dims, output_dims=output_dims, **kwargs)
+        super().__init__(
+            grid_in, grid_out, method, input_dims=input_dims, output_dims=output_dims, **kwargs
+        )
 
         # record output grid and metadata
         lon_out, lat_out = _get_lon_lat(ds_out)
