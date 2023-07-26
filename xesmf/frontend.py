@@ -472,7 +472,7 @@ class BaseRegridder(object):
             of the output data otherwise regridding will fail. output_chunks can
             either be a tuple the same size as the spatial axes of outdata or it
             can be a dict with defined dims. If output_chunks is a dict, the
-            keys must match the dims of indata, e.g. {'lat':10,'lon':10}.
+            keys must match the dims of the output grid passed when initializing this Regridder.
 
         Returns
         -------
