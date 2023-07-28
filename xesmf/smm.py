@@ -166,7 +166,7 @@ def apply_weights(weights, indata, shape_in, shape_out):
     indata : numpy array of shape ``(..., n_lat, n_lon)`` or ``(..., n_y, n_x)``.
         Should be C-ordered. Will be then tranposed to F-ordered.
     shape_in, shape_out : tuple of two integers
-        Input/output data shape for unflatten operation.
+        Input/output data shape.
         For rectilinear grid, it is just ``(n_lat, n_lon)``.
 
     Returns
@@ -177,24 +177,26 @@ def apply_weights(weights, indata, shape_in, shape_out):
     """
     extra_shape = indata.shape[0:-2]
 
-    # use flattened array for dot operation
-    indata_flat = indata.reshape(-1, shape_in[0] * shape_in[1])
-
     # Limitation from numba : some big-endian dtypes are not supported.
+    indata_dtype = indata.dtype
     try:
         nb.from_dtype(indata.dtype)
         nb.from_dtype(weights.dtype)
     except (NotImplementedError, nb.core.errors.NumbaError):
-        weights = weights.to_scipy_sparse()
+        indata = indata.astype('<f8')  # On the fly conversion
 
     # Dot product
-    outdata_flat = weights.dot(indata_flat.T).T
+    outdata = np.tensordot(
+        indata,
+        weights,
+        axes=((indata.ndim - 2, indata.ndim - 1), (weights.ndim - 2, weights.ndim - 1)),
+    )
 
     # Ensure same dtype as the input.
-    outdata_flat = outdata_flat.astype(indata.dtype)
+    outdata = outdata.astype(indata_dtype)
 
-    # unflattened output array
-    outdata = outdata_flat.reshape(*extra_shape, shape_out[0], shape_out[1])
+    # Ensure output shape is what is expected
+    outdata = outdata.reshape(*extra_shape, shape_out[0], shape_out[1])
     return outdata
 
 

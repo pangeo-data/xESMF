@@ -219,6 +219,7 @@ class BaseRegridder(object):
         weights=None,
         ignore_degenerate=None,
         input_dims=None,
+        output_dims=None,
         unmapped_to_nan=False,
     ):
         """
@@ -285,6 +286,11 @@ class BaseRegridder(object):
             If not given or if those are not found on the regridded object, regridding
             uses the two last dimensions of the object (or the last one for input LocStreams and Meshes).
 
+        output_dims : tuple of str, optional
+            A tuple of dimension names to look for when regridding DataArrays or Datasets.
+            If not given or if those are not found on the regridded object, regridding
+            uses the two last dimensions of the object (or the last one for output LocStreams and Meshes)
+
         unmapped_to_nan: boolean, optional
             Set values of unmapped points to `np.nan` instead of zero (ESMF default). This is useful for
             target cells lying outside of the source domain when no output mask is defined.
@@ -311,6 +317,12 @@ class BaseRegridder(object):
         if input_dims is not None and len(input_dims) != int(not self.sequence_in) + 1:
             raise ValueError(f'Wrong number of dimension names in `input_dims` ({len(input_dims)}.')
         self.in_horiz_dims = input_dims
+
+        if output_dims is not None and len(output_dims) != int(not self.sequence_out) + 1:
+            raise ValueError(
+                f'Wrong number of dimension names in `output dims` ({len(output_dims)}.'
+            )
+        self.out_horiz_dims = output_dims
 
         # record grid shape information
         # We need to invert Grid shapes to respect xESMF's convention (y, x).
@@ -405,7 +417,7 @@ class BaseRegridder(object):
         esmf_regrid_finalize(regrid)  # only need weights, not regrid object
         return w
 
-    def __call__(self, indata, keep_attrs=False, skipna=False, na_thres=1.0):
+    def __call__(self, indata, keep_attrs=False, skipna=False, na_thres=1.0, output_chunks=None):
         """
         Apply regridding to input data.
 
@@ -451,6 +463,17 @@ class BaseRegridder(object):
             if `na_thres` is set to 1, all input values must be missing to
             mask the output value.
 
+        output_chunks: dict or tuple, optional
+            If indata is a dask_array_type, the desired chunks to have on the
+            output data along the spatial axes. Other non-spatial axes inherit
+            the same chunks as indata as those are not affected by the application
+            of the weights. Default behavior is to have the outdata chunks be like
+            the indata chunks. Chunks have to be specified for all spatial dimensions
+            of the output data otherwise regridding will fail. output_chunks can
+            either be a tuple the same size as the spatial axes of outdata or it
+            can be a dict with defined dims. If output_chunks is a dict, the
+            keys must match the dims of the output grid passed when initializing this Regridder.
+
         Returns
         -------
         outdata : Data type is the same as input data type, except for datasets.
@@ -470,14 +493,28 @@ class BaseRegridder(object):
 
         """
         if isinstance(indata, dask_array_type + (np.ndarray,)):
-            return self.regrid_array(indata, self.weights.data, skipna=skipna, na_thres=na_thres)
+            return self.regrid_array(
+                indata,
+                self.weights.data,
+                skipna=skipna,
+                na_thres=na_thres,
+                output_chunks=output_chunks,
+            )
         elif isinstance(indata, xr.DataArray):
             return self.regrid_dataarray(
-                indata, keep_attrs=keep_attrs, skipna=skipna, na_thres=na_thres
+                indata,
+                keep_attrs=keep_attrs,
+                skipna=skipna,
+                na_thres=na_thres,
+                output_chunks=output_chunks,
             )
         elif isinstance(indata, xr.Dataset):
             return self.regrid_dataset(
-                indata, keep_attrs=keep_attrs, skipna=skipna, na_thres=na_thres
+                indata,
+                keep_attrs=keep_attrs,
+                skipna=skipna,
+                na_thres=na_thres,
+                output_chunks=output_chunks,
             )
         else:
             raise TypeError('input must be numpy array, dask array, xarray DataArray or Dataset!')
@@ -502,10 +539,14 @@ class BaseRegridder(object):
 
         return outdata
 
-    def regrid_array(self, indata, weights, skipna=False, na_thres=1.0):
+    def regrid_array(self, indata, weights, skipna=False, na_thres=1.0, output_chunks=None):
         """See __call__()."""
         if self.sequence_in:
             indata = np.reshape(indata, (*indata.shape[:-1], 1, indata.shape[-1]))
+
+        # If output_chunk is dict, order output chunks to match order of out_horiz_dims and convert to tuple
+        if isinstance(output_chunks, dict):
+            output_chunks = tuple([output_chunks.get(key) for key in self.out_horiz_dims])
 
         kwargs = {
             'shape_in': self.shape_in,
@@ -517,19 +558,20 @@ class BaseRegridder(object):
         kwargs.update(skipna=skipna, na_thres=na_thres)
 
         if isinstance(indata, dask_array_type):  # dask
-            weights = da.from_array(weights, chunks=weights.shape)
-            output_chunks = indata.chunks[:-2] + ((self.shape_out[0],), (self.shape_out[1],))
+            if output_chunks is None:
+                output_chunks = indata.chunksize[-2:]
+            elif output_chunks is not None:
+                if len(output_chunks) != len(self.shape_out):
+                    raise ValueError(
+                        f'output_chunks must have same dimension as ds_out,'
+                        f' output_chunks dimension ({len(output_chunks)}) does not '
+                        f'match ds_out dimension ({len(self.shape_out)})'
+                    )
+            weights = da.from_array(self.w.data, chunks=(output_chunks + indata.chunksize[-2:]))
 
-            outdata = da.map_blocks(
-                self._regrid,
-                indata,
-                weights,
-                dtype=indata.dtype,
-                chunks=output_chunks,
-                meta=np.array((), dtype=indata.dtype),
-                **kwargs,
-            )
+            outdata = self._regrid(indata, weights, **kwargs)
         else:  # numpy
+            weights = self.w.data  # 4D weights
             outdata = self._regrid(indata, weights, **kwargs)
         return outdata
 
@@ -547,11 +589,13 @@ class BaseRegridder(object):
         )
         return self.regrid_array(indata, self.weights.data, **kwargs)
 
-    def regrid_dataarray(self, dr_in, keep_attrs=False, skipna=False, na_thres=1.0):
+    def regrid_dataarray(
+        self, dr_in, keep_attrs=False, skipna=False, na_thres=1.0, output_chunks=None
+    ):
         """See __call__()."""
 
         input_horiz_dims, temp_horiz_dims = self._parse_xrinput(dr_in)
-        kwargs = dict(skipna=skipna, na_thres=na_thres)
+        kwargs = dict(skipna=skipna, na_thres=na_thres, output_chunks=output_chunks)
         dr_out = xr.apply_ufunc(
             self.regrid_array,
             dr_in,
@@ -565,13 +609,15 @@ class BaseRegridder(object):
 
         return self._format_xroutput(dr_out, temp_horiz_dims)
 
-    def regrid_dataset(self, ds_in, keep_attrs=False, skipna=False, na_thres=1.0):
+    def regrid_dataset(
+        self, ds_in, keep_attrs=False, skipna=False, na_thres=1.0, output_chunks=None
+    ):
         """See __call__()."""
 
         # get the first data variable to infer input_core_dims
         input_horiz_dims, temp_horiz_dims = self._parse_xrinput(ds_in)
 
-        kwargs = dict(skipna=skipna, na_thres=na_thres)
+        kwargs = dict(skipna=skipna, na_thres=na_thres, output_chunks=output_chunks)
 
         non_regriddable = [
             name
@@ -799,12 +845,14 @@ class Regridder(BaseRegridder):
                 ds_in, need_bounds=need_bounds, periodic=periodic
             )
         if locstream_out:
-            grid_out, shape_out, _ = ds_to_ESMFlocstream(ds_out)
+            grid_out, shape_out, output_dims = ds_to_ESMFlocstream(ds_out)
         else:
-            grid_out, shape_out, _ = ds_to_ESMFgrid(ds_out, need_bounds=need_bounds)
+            grid_out, shape_out, output_dims = ds_to_ESMFgrid(ds_out, need_bounds=need_bounds)
 
         # Create the BaseRegridder
-        super().__init__(grid_in, grid_out, method, input_dims=input_dims, **kwargs)
+        super().__init__(
+            grid_in, grid_out, method, input_dims=input_dims, output_dims=output_dims, **kwargs
+        )
 
         # record output grid and metadata
         lon_out, lat_out = _get_lon_lat(ds_out)

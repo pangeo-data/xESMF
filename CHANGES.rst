@@ -6,6 +6,9 @@ What's new
 
 New features
 ~~~~~~~~~~~~
+* Added the ability to chunk over horizontal/core dimensions. Added a `output_chunks` argument to the  `Regridder`
+  that allows the user to specify the chunking of the output data. By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
+
 * Added a `w` property to the `Regridder` and `SpatialAverager` classes, returning the weights reshaped according to
   the input and output grid dimensions. This is mostly intended for debugging and visualisation purposes. By `David Huard <https://github.com/huard>`_
 
