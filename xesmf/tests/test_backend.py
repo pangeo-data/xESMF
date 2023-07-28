@@ -176,7 +176,8 @@ def test_regrid():
     weights = read_weights(filename, lon_in.size, lon_out.size).data
     shape_in = lon_in.shape
     shape_out = lon_out.shape
-    data_out_scipy = apply_weights(weights, data_in, shape_in, shape_out)
+    w = weights.reshape(shape_out + shape_in)  # 4D weights
+    data_out_scipy = apply_weights(w, data_in, shape_in, shape_out)
 
     # must be almost exactly the same as esmpy's result!
     assert_almost_equal(data_out_scipy, data_out_esmpy)
@@ -185,7 +186,7 @@ def test_regrid():
     # TODO: need to test broadcasting with ESMPy backend?
     # We only use Scipy in frontend, and ESMPy is just for backend benchmark
     # However, it is useful to compare performance and show scipy is 3x faster
-    data4D_out = apply_weights(weights, data4D_in, shape_in, shape_out)
+    data4D_out = apply_weights(w, data4D_in, shape_in, shape_out)
 
     # data over broadcasting dimensions should agree
     assert_almost_equal(data4D_in.mean(axis=(2, 3)), data4D_out.mean(axis=(2, 3)), decimal=10)
