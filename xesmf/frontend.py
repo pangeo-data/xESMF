@@ -6,6 +6,7 @@ import warnings
 
 import cf_xarray as cfxr
 import numpy as np
+import sparse as sps
 import xarray as xr
 from xarray import DataArray, Dataset
 
@@ -27,7 +28,20 @@ try:
 except ImportError:
     dask_array_type = ()
 
-
+def subset_regridder(ds_out, ds_in, method, in_dims, out_dims,locstream_in,locstream_out,periodic,**kwargs):
+    """Compute subset of weights"""
+    kwargs.pop('filename',None)     # Don't save subset of weights
+    kwargs.pop('reuse_weights',None)
+    if locstream_in:
+        ds_in = ds_in.rename({'x_in':in_dims[0]})
+    else:
+        ds_in = ds_in.rename({'y_in': in_dims[0], 'x_in': in_dims[1]})
+    if locstream_out:
+        ds_out = ds_out.rename({'x_out':out_dims[1]})
+    else:
+        ds_out = ds_out.rename({'y_out':out_dims[0],'x_out':out_dims[1]})
+    regridder = Regridder(ds_in, ds_out, method,locstream_in,locstream_out,periodic,parallel=False,**kwargs)
+    return regridder.w
 def as_2d_mesh(lon, lat):
     if (lon.ndim, lat.ndim) == (2, 2):
         assert lon.shape == lat.shape, 'lon and lat should have same shape'
@@ -221,6 +235,7 @@ class BaseRegridder(object):
         input_dims=None,
         output_dims=None,
         unmapped_to_nan=False,
+        parallel=False
     ):
         """
         Base xESMF regridding class supporting ESMF objects: `Grid`, `Mesh` and `LocStream`.
@@ -297,6 +312,11 @@ class BaseRegridder(object):
             If an output mask is defined, or regridding method is `nearest_s2d` or `nearest_d2s`,
             this option has no effect.
 
+        parallel: bool, optional
+            Are the weights generated in parallel with Dask. Default is False. When True, the weight
+            generation in the BaseRegridder is skipped and weights are generated in paralell in the
+            subsest_regridder instead.
+
         Returns
         -------
         baseregridder : xESMF BaseRegridder object
@@ -313,6 +333,9 @@ class BaseRegridder(object):
         self.periodic = getattr(self.grid_in, 'periodic_dim', None) is not None
         self.sequence_in = isinstance(self.grid_in, (LocStream, Mesh))
         self.sequence_out = isinstance(self.grid_out, (LocStream, Mesh))
+
+        if parallel and reuse_weights or weights is not None:
+            raise ValueError('Cannot use parallel=True when reuse_weights=True')
 
         if input_dims is not None and len(input_dims) != int(not self.sequence_in) + 1:
             raise ValueError(f'Wrong number of dimension names in `input_dims` ({len(input_dims)}.')
@@ -335,28 +358,29 @@ class BaseRegridder(object):
         if reuse_weights and (filename is None) and (weights is None):
             raise ValueError('To reuse weights, you need to provide either filename or weights.')
 
-        if not reuse_weights and weights is None:
-            weights = self._compute_weights()  # Dictionary of weights
-        else:
-            weights = filename if filename is not None else weights
+        if not parallel:
+            if not reuse_weights and weights is None:
+                weights = self._compute_weights()  # Dictionary of weights
+            else:
+                weights = filename if filename is not None else weights
 
-        assert weights is not None
+            assert weights is not None
 
-        # Convert weights, whatever their format, to a sparse coo matrix
-        self.weights = read_weights(weights, self.n_in, self.n_out)
+            # Convert weights, whatever their format, to a sparse coo matrix
+            self.weights = read_weights(weights, self.n_in, self.n_out)
 
-        # replace zeros by NaN for weight matrix entries of unmapped target cells if specified or a mask is present
-        if (
-            (self.grid_out.mask is not None) and (self.grid_out.mask[0] is not None)
-        ) or unmapped_to_nan is True:
-            self.weights = add_nans_to_weights(self.weights)
+            # replace zeros by NaN for weight matrix entries of unmapped target cells if specified or a mask is present
+            if (
+                (self.grid_out.mask is not None) and (self.grid_out.mask[0] is not None)
+            ) or unmapped_to_nan is True:
+                self.weights = add_nans_to_weights(self.weights)
 
-        # follows legacy logic of writing weights if filename is provided
-        if filename is not None and not reuse_weights:
-            self.to_netcdf(filename=filename)
+            # follows legacy logic of writing weights if filename is provided
+            if filename is not None and not reuse_weights:
+                self.to_netcdf(filename=filename)
 
-        # set default weights filename if none given
-        self.filename = self._get_default_filename() if filename is None else filename
+            # set default weights filename if none given
+            self.filename = self._get_default_filename() if filename is None else filename
 
     @property
     def A(self):
@@ -720,6 +744,7 @@ class Regridder(BaseRegridder):
         locstream_in=False,
         locstream_out=False,
         periodic=False,
+        parallel=False,
         **kwargs,
     ):
         """
@@ -763,6 +788,11 @@ class Regridder(BaseRegridder):
             Periodic in longitude? Default to False.
             Only useful for global grids with non-conservative regridding.
             Will be forced to False for conservative regridding.
+
+        parallel : bool, optional
+            Compute the weights in parallel with Dask. Default to False.
+            If True, weights are computed on subsets of the output grid using
+            chunks listed in the output grid.
 
         filename : str, optional
             Name for the weight file. The default naming scheme is::
@@ -851,7 +881,7 @@ class Regridder(BaseRegridder):
 
         # Create the BaseRegridder
         super().__init__(
-            grid_in, grid_out, method, input_dims=input_dims, output_dims=output_dims, **kwargs
+            grid_in, grid_out, method, input_dims=input_dims, output_dims=output_dims, parallel=parallel, **kwargs
         )
 
         # record output grid and metadata
@@ -894,6 +924,63 @@ class Regridder(BaseRegridder):
                 self.out_coords.update({gm: ds_out[gm] for gm in grid_mapping if gm in ds_out})
         else:
             self.out_coords = {lat_out.name: lat_out, lon_out.name: lon_out}
+
+        if parallel:
+            # Ensure ds_in is not dask-backed
+            if xr.core.pycompat.is_dask_collection(ds_in):
+                ds_in = ds_in.compute()
+
+            if 'filename' in kwargs:
+                filename = kwargs['filename']
+            else:
+                filename = None
+
+            # Drop unecessary variables in ds_in to save memory
+            if not locstream_in:
+                ds_in_coords = list(ds_in.coords.variables)
+                ds_in_variables = list(ds_in.variables)
+                ds_in_drop = set(ds_in_variables).difference(ds_in_coords)
+                ds_in = ds_in.drop_vars(ds_in_drop)
+
+            # rename and rechunk dims in ds for map_blocks template
+            if locstream_in:
+                ds_in = ds_in.rename({self.in_horiz_dims[0]: 'x_in'})
+            else:
+                ds_in = ds_in.rename({self.in_horiz_dims[0]: 'y_in', self.in_horiz_dims[1]: 'x_in'})
+            if locstream_out:
+                ds_out = ds_out.rename({self.out_horiz_dims[1]: 'x_out'})
+                out_chunks = ds_out.chunks.get('x_out')
+            else:
+                ds_out = ds_out.rename({self.out_horiz_dims[0]: 'y_out', self.out_horiz_dims[1]: 'x_out'})
+                out_chunks = [ds_out.chunks.get(k) for k in ['y_out', 'x_out']]
+
+            weights_dims = ('y_out', 'x_out', 'y_in', 'x_in')
+            templ = sps.zeros((shape_out + shape_in))
+            w_templ = xr.DataArray(templ, dims=weights_dims).chunk(out_chunks)
+
+            out = xr.map_blocks(subset_regridder,
+                                ds_out,
+                                args=[ds_in,
+                                      method,
+                                      self.in_horiz_dims,
+                                      self.out_horiz_dims,
+                                      locstream_in,
+                                      locstream_out,
+                                      periodic],
+                                kwargs=kwargs,
+                                template=w_templ)
+            w = out.compute(scheduler='processes')
+            weights = w.stack(out_dim=weights_dims[:2], in_dim=weights_dims[2:])
+            weights.name = 'weights'
+            self.weights = weights
+
+            # follows legacy logic of writing weights if filename is provided
+            if filename is not None and not self.reuse_weights:
+                self.to_netcdf(filename=filename)
+
+            # set default weights filename if none given
+            self.filename = self._get_default_filename() if filename is None else filename
+            super().__repr__()
 
     def _format_xroutput(self, out, new_dims=None):
         if new_dims is not None:
