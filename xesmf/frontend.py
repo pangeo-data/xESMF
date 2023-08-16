@@ -32,14 +32,26 @@ def subset_regridder(ds_out, ds_in, method, in_dims, out_dims,locstream_in,locst
     """Compute subset of weights"""
     kwargs.pop('filename',None)     # Don't save subset of weights
     kwargs.pop('reuse_weights',None)
+
+    # Renaming dims for the subset regridding
     if locstream_in:
         ds_in = ds_in.rename({'x_in':in_dims[0]})
     else:
         ds_in = ds_in.rename({'y_in': in_dims[0], 'x_in': in_dims[1]})
+        if 'x_b_in' in ds_in.dims:
+            ds_in = ds_in.rename({'x_b_in':'x_b'})
+        if 'y_b_in' in ds_in.dims:
+            ds_in = ds_in.rename({'y_b_in':'y_b'})
+
     if locstream_out:
         ds_out = ds_out.rename({'x_out':out_dims[1]})
     else:
         ds_out = ds_out.rename({'y_out':out_dims[0],'x_out':out_dims[1]})
+        if 'x_b_out' in ds_out.dims:
+            ds_out = ds_out.rename({'x_b_out':'x_b'})
+        if 'y_b_out' in ds_out.dims:
+            ds_out = ds_out.rename({'y_b_out':'y_b'})
+
     regridder = Regridder(ds_in, ds_out, method,locstream_in,locstream_out,periodic,parallel=False,**kwargs)
     return regridder.w
 def as_2d_mesh(lon, lat):
@@ -334,8 +346,8 @@ class BaseRegridder(object):
         self.sequence_in = isinstance(self.grid_in, (LocStream, Mesh))
         self.sequence_out = isinstance(self.grid_out, (LocStream, Mesh))
 
-        if parallel and reuse_weights or weights is not None:
-            raise ValueError('Cannot use parallel=True when reuse_weights=True')
+        if parallel and (reuse_weights or weights is not None):
+            raise ValueError('Cannot use parallel=True when reuse_weights=True or when weights is not None')
 
         if input_dims is not None and len(input_dims) != int(not self.sequence_in) + 1:
             raise ValueError(f'Wrong number of dimension names in `input_dims` ({len(input_dims)}.')
@@ -947,18 +959,26 @@ class Regridder(BaseRegridder):
                 ds_in = ds_in.rename({self.in_horiz_dims[0]: 'x_in'})
             else:
                 ds_in = ds_in.rename({self.in_horiz_dims[0]: 'y_in', self.in_horiz_dims[1]: 'x_in'})
+                if 'x_b' in ds_in.dims:
+                    ds_in = ds_in.rename({'x_b':'x_b_in'})
+                if 'y_b' in ds_in.dims:
+                    ds_in = ds_in.rename({'y_b':'y_b_in'})
             if locstream_out:
                 ds_out = ds_out.rename({self.out_horiz_dims[1]: 'x_out'})
                 out_chunks = ds_out.chunks.get('x_out')
             else:
                 ds_out = ds_out.rename({self.out_horiz_dims[0]: 'y_out', self.out_horiz_dims[1]: 'x_out'})
                 out_chunks = [ds_out.chunks.get(k) for k in ['y_out', 'x_out']]
+                if 'x_b' in ds_out.dims:
+                    ds_out = ds_out.rename({'x_b':'x_b_out'})
+                if 'y_b' in ds_out.dims:
+                    ds_out = ds_out.rename({'y_b':'y_b_out'})
 
             weights_dims = ('y_out', 'x_out', 'y_in', 'x_in')
             templ = sps.zeros((shape_out + shape_in))
             w_templ = xr.DataArray(templ, dims=weights_dims).chunk(out_chunks)
 
-            out = xr.map_blocks(subset_regridder,
+            w = xr.map_blocks(subset_regridder,
                                 ds_out,
                                 args=[ds_in,
                                       method,
@@ -969,7 +989,7 @@ class Regridder(BaseRegridder):
                                       periodic],
                                 kwargs=kwargs,
                                 template=w_templ)
-            w = out.compute(scheduler='processes')
+            w = w.compute(scheduler='processes')
             weights = w.stack(out_dim=weights_dims[:2], in_dim=weights_dims[2:])
             weights.name = 'weights'
             self.weights = weights
