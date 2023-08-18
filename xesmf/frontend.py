@@ -28,6 +28,7 @@ try:
 except ImportError:
     dask_array_type = ()
 
+
 def subset_regridder(ds_out, ds_in, method, in_dims, out_dims,locstream_in,locstream_out,periodic,**kwargs):
     """Compute subset of weights"""
     kwargs.pop('filename',None)     # Don't save subset of weights
@@ -35,24 +36,16 @@ def subset_regridder(ds_out, ds_in, method, in_dims, out_dims,locstream_in,locst
 
     # Renaming dims for the subset regridding
     if locstream_in:
-        ds_in = ds_in.rename({'x_in':in_dims[0]})
+        ds_in = ds_in.rename({'x_in': in_dims[0]})
     else:
         ds_in = ds_in.rename({'y_in': in_dims[0], 'x_in': in_dims[1]})
-        if 'x_b_in' in ds_in.dims:
-            ds_in = ds_in.rename({'x_b_in':'x_b'})
-        if 'y_b_in' in ds_in.dims:
-            ds_in = ds_in.rename({'y_b_in':'y_b'})
 
     if locstream_out:
-        ds_out = ds_out.rename({'x_out':out_dims[1]})
+        ds_out = ds_out.rename({'x_out': out_dims[1]})
     else:
-        ds_out = ds_out.rename({'y_out':out_dims[0],'x_out':out_dims[1]})
-        if 'x_b_out' in ds_out.dims:
-            ds_out = ds_out.rename({'x_b_out':'x_b'})
-        if 'y_b_out' in ds_out.dims:
-            ds_out = ds_out.rename({'y_b_out':'y_b'})
+        ds_out = ds_out.rename({'y_out': out_dims[0], 'x_out': out_dims[1]})
 
-    regridder = Regridder(ds_in, ds_out, method,locstream_in,locstream_out,periodic,parallel=False,**kwargs)
+    regridder = Regridder(ds_in, ds_out, method, locstream_in, locstream_out, periodic, parallel=False, **kwargs)
     return regridder.w
 def as_2d_mesh(lon, lat):
     if (lon.ndim, lat.ndim) == (2, 2):
@@ -345,9 +338,6 @@ class BaseRegridder(object):
         self.periodic = getattr(self.grid_in, 'periodic_dim', None) is not None
         self.sequence_in = isinstance(self.grid_in, (LocStream, Mesh))
         self.sequence_out = isinstance(self.grid_out, (LocStream, Mesh))
-
-        if parallel and (reuse_weights or weights is not None):
-            raise ValueError('Cannot use parallel=True when reuse_weights=True or when weights is not None')
 
         if input_dims is not None and len(input_dims) != int(not self.sequence_in) + 1:
             raise ValueError(f'Wrong number of dimension names in `input_dims` ({len(input_dims)}.')
@@ -803,8 +793,8 @@ class Regridder(BaseRegridder):
 
         parallel : bool, optional
             Compute the weights in parallel with Dask. Default to False.
-            If True, weights are computed on subsets of the output grid using
-            chunks listed in the output grid.
+            If True, weights are computed in parallel with Dask on subsets of the output grid using
+            chunks of the output grid.
 
         filename : str, optional
             Name for the weight file. The default naming scheme is::
@@ -865,6 +855,18 @@ class Regridder(BaseRegridder):
             raise ValueError(
                 f'locstream output is only available for method in {methods_avail_ls_out}'
             )
+
+        if 'reuse_weights' in kwargs:
+            reuse_weights = kwargs['reuse_weights']
+        else:
+            reuse_weights = False
+        if 'weights' in kwargs:
+            weights = kwargs['weights']
+        else:
+            weights = None
+        if parallel and (reuse_weights or weights is not None):
+            parallel = False
+            warnings.warn('Cannot use parallel=True when reuse_weights=True or when weights is not None. Switching to serial weights gen.')
 
         # record basic switches
         if method in ['conservative', 'conservative_normed']:
@@ -942,37 +944,32 @@ class Regridder(BaseRegridder):
             if xr.core.pycompat.is_dask_collection(ds_in):
                 ds_in = ds_in.compute()
 
-            if 'filename' in kwargs:
-                filename = kwargs['filename']
-            else:
-                filename = None
-
-            # Drop unecessary variables in ds_in to save memory
+            # Drop unnecessary variables in ds_in to save memory
             if not locstream_in:
                 ds_in_coords = list(ds_in.coords.variables)
                 ds_in_variables = list(ds_in.variables)
                 ds_in_drop = set(ds_in_variables).difference(ds_in_coords)
                 ds_in = ds_in.drop_vars(ds_in_drop)
 
+            # if bounds in ds_out, we switch to cf bounds for map_blocks
+            if 'x_b' in ds_out.dims:
+                lon_name = ds_out.cf['longitude'].name
+                lat_name = ds_out.cf['latitude'].name
+                ds_out = ds_out.cf.add_bounds([lon_name, lat_name])
+                ds_out = ds_out.drop_dims(['x_b', 'y_b'])
+
             # rename and rechunk dims in ds for map_blocks template
             if locstream_in:
                 ds_in = ds_in.rename({self.in_horiz_dims[0]: 'x_in'})
             else:
                 ds_in = ds_in.rename({self.in_horiz_dims[0]: 'y_in', self.in_horiz_dims[1]: 'x_in'})
-                if 'x_b' in ds_in.dims:
-                    ds_in = ds_in.rename({'x_b':'x_b_in'})
-                if 'y_b' in ds_in.dims:
-                    ds_in = ds_in.rename({'y_b':'y_b_in'})
+
             if locstream_out:
                 ds_out = ds_out.rename({self.out_horiz_dims[1]: 'x_out'})
                 out_chunks = ds_out.chunks.get('x_out')
             else:
                 ds_out = ds_out.rename({self.out_horiz_dims[0]: 'y_out', self.out_horiz_dims[1]: 'x_out'})
                 out_chunks = [ds_out.chunks.get(k) for k in ['y_out', 'x_out']]
-                if 'x_b' in ds_out.dims:
-                    ds_out = ds_out.rename({'x_b':'x_b_out'})
-                if 'y_b' in ds_out.dims:
-                    ds_out = ds_out.rename({'y_b':'y_b_out'})
 
             weights_dims = ('y_out', 'x_out', 'y_in', 'x_in')
             templ = sps.zeros((shape_out + shape_in))
@@ -995,6 +992,10 @@ class Regridder(BaseRegridder):
             self.weights = weights
 
             # follows legacy logic of writing weights if filename is provided
+            if 'filename' in kwargs:
+                filename = kwargs['filename']
+            else:
+                filename = None
             if filename is not None and not self.reuse_weights:
                 self.to_netcdf(filename=filename)
 
