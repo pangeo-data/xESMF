@@ -36,7 +36,7 @@ def subset_regridder(
     kwargs.pop('filename', None)  # Don't save subset of weights
     kwargs.pop('reuse_weights', None)
 
-    # Renaming dims for the subset regridding
+    # Renaming dims to original names for the subset regridding
     if locstream_in:
         ds_in = ds_in.rename({'x_in': in_dims[0]})
     else:

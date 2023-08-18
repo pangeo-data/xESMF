@@ -628,19 +628,19 @@ def test_dask_output_chunks():
 def test_para_weight_gen():
     # Generating weights in serial
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
-    para_regridder = xe.Regridder(ds_in, ds_out_chunked, 'conservative')
+    para_regridder = xe.Regridder(ds_in, ds_out_chunked, 'conservative',parallel=True)
 
     # weights should be identical between serial and parallel
     assert all(regridder.w.data.data == para_regridder.w.data.data)
 
     # Ensure para weight gen works with locstream_in as well
     reggrider_locs = xe.Regridder(ds_locs, ds_out_chunked, 'nearest_s2d', locstream_in=True)
-    para_regridder_locs = xe.Regridder(ds_locs, ds_out_chunked, 'nearest_s2d', locstream_in=True)
+    para_regridder_locs = xe.Regridder(ds_locs, ds_out_chunked, 'nearest_s2d',parallel=True, locstream_in=True)
     assert all(reggrider_locs.w.data.data == para_regridder_locs.w.data.data)
 
     # Same as above with locstream_out
     regridder_locs = xe.Regridder(ds_in, ds_locs, 'nearest_s2d', locstream_out=True)
-    para_regridder_locs = xe.Regridder(ds_in, ds_locs_chunked, 'nearest_s2d', locstream_out=True)
+    para_regridder_locs = xe.Regridder(ds_in, ds_locs_chunked, 'nearest_s2d', parallel=True, locstream_out=True)
     assert all(regridder_locs.w.data.data == para_regridder_locs.w.data.data)
 
 
