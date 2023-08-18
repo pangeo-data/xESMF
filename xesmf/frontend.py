@@ -29,10 +29,12 @@ except ImportError:
     dask_array_type = ()
 
 
-def subset_regridder(ds_out, ds_in, method, in_dims, out_dims,locstream_in,locstream_out,periodic,**kwargs):
+def subset_regridder(
+    ds_out, ds_in, method, in_dims, out_dims, locstream_in, locstream_out, periodic, **kwargs
+):
     """Compute subset of weights"""
-    kwargs.pop('filename',None)     # Don't save subset of weights
-    kwargs.pop('reuse_weights',None)
+    kwargs.pop('filename', None)  # Don't save subset of weights
+    kwargs.pop('reuse_weights', None)
 
     # Renaming dims for the subset regridding
     if locstream_in:
@@ -45,8 +47,12 @@ def subset_regridder(ds_out, ds_in, method, in_dims, out_dims,locstream_in,locst
     else:
         ds_out = ds_out.rename({'y_out': out_dims[0], 'x_out': out_dims[1]})
 
-    regridder = Regridder(ds_in, ds_out, method, locstream_in, locstream_out, periodic, parallel=False, **kwargs)
+    regridder = Regridder(
+        ds_in, ds_out, method, locstream_in, locstream_out, periodic, parallel=False, **kwargs
+    )
     return regridder.w
+
+
 def as_2d_mesh(lon, lat):
     if (lon.ndim, lat.ndim) == (2, 2):
         assert lon.shape == lat.shape, 'lon and lat should have same shape'
@@ -240,7 +246,7 @@ class BaseRegridder(object):
         input_dims=None,
         output_dims=None,
         unmapped_to_nan=False,
-        parallel=False
+        parallel=False,
     ):
         """
         Base xESMF regridding class supporting ESMF objects: `Grid`, `Mesh` and `LocStream`.
@@ -866,7 +872,9 @@ class Regridder(BaseRegridder):
             weights = None
         if parallel and (reuse_weights or weights is not None):
             parallel = False
-            warnings.warn('Cannot use parallel=True when reuse_weights=True or when weights is not None. Switching to serial weights gen.')
+            warnings.warn(
+                'Cannot use parallel=True when reuse_weights=True or when weights is not None. Switching to serial weights gen.'
+            )
 
         # record basic switches
         if method in ['conservative', 'conservative_normed']:
@@ -895,7 +903,13 @@ class Regridder(BaseRegridder):
 
         # Create the BaseRegridder
         super().__init__(
-            grid_in, grid_out, method, input_dims=input_dims, output_dims=output_dims, parallel=parallel, **kwargs
+            grid_in,
+            grid_out,
+            method,
+            input_dims=input_dims,
+            output_dims=output_dims,
+            parallel=parallel,
+            **kwargs,
         )
 
         # record output grid and metadata
@@ -968,24 +982,30 @@ class Regridder(BaseRegridder):
                 ds_out = ds_out.rename({self.out_horiz_dims[1]: 'x_out'})
                 out_chunks = ds_out.chunks.get('x_out')
             else:
-                ds_out = ds_out.rename({self.out_horiz_dims[0]: 'y_out', self.out_horiz_dims[1]: 'x_out'})
+                ds_out = ds_out.rename(
+                    {self.out_horiz_dims[0]: 'y_out', self.out_horiz_dims[1]: 'x_out'}
+                )
                 out_chunks = [ds_out.chunks.get(k) for k in ['y_out', 'x_out']]
 
             weights_dims = ('y_out', 'x_out', 'y_in', 'x_in')
             templ = sps.zeros((shape_out + shape_in))
             w_templ = xr.DataArray(templ, dims=weights_dims).chunk(out_chunks)
 
-            w = xr.map_blocks(subset_regridder,
-                                ds_out,
-                                args=[ds_in,
-                                      method,
-                                      self.in_horiz_dims,
-                                      self.out_horiz_dims,
-                                      locstream_in,
-                                      locstream_out,
-                                      periodic],
-                                kwargs=kwargs,
-                                template=w_templ)
+            w = xr.map_blocks(
+                subset_regridder,
+                ds_out,
+                args=[
+                    ds_in,
+                    method,
+                    self.in_horiz_dims,
+                    self.out_horiz_dims,
+                    locstream_in,
+                    locstream_out,
+                    periodic,
+                ],
+                kwargs=kwargs,
+                template=w_templ,
+            )
             w = w.compute(scheduler='processes')
             weights = w.stack(out_dim=weights_dims[:2], in_dim=weights_dims[2:])
             weights.name = 'weights'
