@@ -960,10 +960,15 @@ class Regridder(BaseRegridder):
 
             # Drop unnecessary variables in ds_in to save memory
             if not locstream_in:
+                # Drop unnecessary dims
+                ds_in_dims_drop = set(ds_in.cf.coordinates.keys()).difference(['longitude', 'latitude'])
+                ds_in = ds_in.cf.drop_dims(ds_in_dims_drop)
+
+                # Drop unnecessary vars
                 ds_in_coords = list(ds_in.coords.variables)
                 ds_in_variables = list(ds_in.variables)
-                ds_in_drop = set(ds_in_variables).difference(ds_in_coords)
-                ds_in = ds_in.drop_vars(ds_in_drop)
+                ds_in_vars_drop = set(ds_in_variables).difference(ds_in_coords)
+                ds_in = ds_in.drop_vars(ds_in_vars_drop)
 
             # if bounds in ds_out, we switch to cf bounds for map_blocks
             if 'x_b' in ds_out.dims:
@@ -972,7 +977,7 @@ class Regridder(BaseRegridder):
                 ds_out = ds_out.cf.add_bounds([lon_name, lat_name])
                 ds_out = ds_out.drop_dims(['x_b', 'y_b'])
 
-            # rename and rechunk dims in ds for map_blocks template
+            # rename dims to avoid map_blocks confusing ds_in and ds_out dims.
             if locstream_in:
                 ds_in = ds_in.rename({self.in_horiz_dims[0]: 'x_in'})
             else:
@@ -989,7 +994,7 @@ class Regridder(BaseRegridder):
 
             weights_dims = ('y_out', 'x_out', 'y_in', 'x_in')
             templ = sps.zeros((shape_out + shape_in))
-            w_templ = xr.DataArray(templ, dims=weights_dims).chunk(out_chunks)
+            w_templ = xr.DataArray(templ, dims=weights_dims).chunk(out_chunks) # template has same chunks as ds_out
 
             w = xr.map_blocks(
                 subset_regridder,
