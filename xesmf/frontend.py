@@ -961,7 +961,9 @@ class Regridder(BaseRegridder):
             # Drop unnecessary variables in ds_in to save memory
             if not locstream_in:
                 # Drop unnecessary dims
-                ds_in_dims_drop = set(ds_in.cf.coordinates.keys()).difference(['longitude', 'latitude'])
+                ds_in_dims_drop = set(ds_in.cf.coordinates.keys()).difference(
+                    ['longitude', 'latitude']
+                )
                 ds_in = ds_in.cf.drop_dims(ds_in_dims_drop)
 
                 # Drop unnecessary vars
@@ -994,7 +996,9 @@ class Regridder(BaseRegridder):
 
             weights_dims = ('y_out', 'x_out', 'y_in', 'x_in')
             templ = sps.zeros((shape_out + shape_in))
-            w_templ = xr.DataArray(templ, dims=weights_dims).chunk(out_chunks) # template has same chunks as ds_out
+            w_templ = xr.DataArray(templ, dims=weights_dims).chunk(
+                out_chunks
+            )  # template has same chunks as ds_out
 
             w = xr.map_blocks(
                 subset_regridder,
