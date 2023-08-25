@@ -873,7 +873,7 @@ class Regridder(BaseRegridder):
         if parallel and (reuse_weights or weights is not None):
             parallel = False
             warnings.warn(
-                'Cannot use parallel=True when reuse_weights=True or when weights is not None. Switching to serial weights gen.'
+                'Cannot use parallel=True when reuse_weights=True or when weights is not None. Building Regridder normally.'
             )
 
         # record basic switches
@@ -954,9 +954,33 @@ class Regridder(BaseRegridder):
             self.out_coords = {lat_out.name: lat_out, lon_out.name: lon_out}
 
         if parallel:
-            # Ensure ds_in is not dask-backed
-            if xr.core.pycompat.is_dask_collection(ds_in):
-                ds_in = ds_in.compute()
+            # Check if we have bounds as variable and not coords, and add them to coords in both datasets
+            if 'lon_b' in ds_out.variables and 'lon_b' not in ds_out.coords.variables:
+                ds_out = ds_out.assign_coords(
+                    lon_b=ds_out.lon_b,
+                    lat_b=ds_out.lat_b
+                )
+            if 'lon_b' in ds_in.variables and 'lon_b' not in ds_in.coords.variables:
+                ds_in = ds_in.assign_coords(
+                    lon_b=ds_in.lon_b,
+                    lat_b=ds_in.lat_b
+                )
+            # Drop everything in ds_out except mask or create mask if None. This is to prevent map_blocks loading unnecessary large data
+            if not locstream_out:
+                if 'mask' in ds_out:
+                    mask = ds_out.mask
+                    ds_out = ds_out.coords.to_dataset()
+                    ds_out['mask'] = mask
+                else:
+                    ds_out_chunks = tuple([ds_out.chunksizes[i] for i in output_dims])
+                    ds_out = ds_out.coords.to_dataset()
+                    mask = da.ones(shape_out,dtype=bool,chunks=ds_out_chunks)
+                    ds_out['mask'] = (output_dims,mask)
+
+                    ds_out_dims_drop = set(ds_out.cf.coordinates.keys()).difference(
+                        ['longitude', 'latitude']
+                    )
+                    ds_out = ds_out.cf.drop_dims(ds_out_dims_drop)
 
             # Drop unnecessary variables in ds_in to save memory
             if not locstream_in:
@@ -967,18 +991,22 @@ class Regridder(BaseRegridder):
                 ds_in = ds_in.cf.drop_dims(ds_in_dims_drop)
 
                 # Drop unnecessary vars
-                ds_in_coords = list(ds_in.coords.variables)
-                ds_in_variables = list(ds_in.variables)
-                ds_in_vars_drop = set(ds_in_variables).difference(ds_in_coords)
-                ds_in = ds_in.drop_vars(ds_in_vars_drop)
+                ds_in = ds_in.coords.to_dataset()
+
+            # Ensure ds_in is not dask-backed
+            if xr.core.pycompat.is_dask_collection(ds_in):
+                ds_in = ds_in.compute()
 
             # if bounds in ds_out, we switch to cf bounds for map_blocks
-            if 'x_b' in ds_out.dims:
-                lon_name = ds_out.cf['longitude'].name
-                lat_name = ds_out.cf['latitude'].name
-                ds_out = ds_out.cf.add_bounds([lon_name, lat_name])
-                ds_out = ds_out.drop_dims(['x_b', 'y_b'])
-
+            if 'lon_b' in ds_out and (ds_out.lon_b.ndim == ds_out.cf['longitude'].ndim):
+                ds_out = ds_out.assign_coords(
+                    lon_bounds=cfxr.vertices_to_bounds(ds_out.lon_b, ('bounds', *ds_out.cf['longitude'].dims)),
+                    lat_bounds=cfxr.vertices_to_bounds(ds_out.lat_b, ('bounds', *ds_out.cf['latitude'].dims))
+                )
+                # Make cf-xarray aware of the new bounds
+                ds_out[ds_out.cf['longitude'].name].attrs['bounds'] = 'lon_bounds'
+                ds_out[ds_out.cf['latitude'].name].attrs['bounds'] = 'lat_bounds'
+                ds_out = ds_out.drop_dims(ds_out.lon_b.dims + ds_out.lat_b.dims)
             # rename dims to avoid map_blocks confusing ds_in and ds_out dims.
             if locstream_in:
                 ds_in = ds_in.rename({self.in_horiz_dims[0]: 'x_in'})
@@ -1030,7 +1058,6 @@ class Regridder(BaseRegridder):
 
             # set default weights filename if none given
             self.filename = self._get_default_filename() if filename is None else filename
-            super().__repr__()
 
     def _format_xroutput(self, out, new_dims=None):
         if new_dims is not None:
