@@ -955,12 +955,15 @@ class Regridder(BaseRegridder):
 
         if parallel:
             # Check if we have bounds as variable and not coords, and add them to coords in both datasets
-            if 'lon_b' in ds_out.variables and 'lon_b' not in ds_out.coords.variables:
-                ds_out = ds_out.assign_coords(lon_b=ds_out.lon_b, lat_b=ds_out.lat_b)
-            if 'lon_b' in ds_in.variables and 'lon_b' not in ds_in.coords.variables:
-                ds_in = ds_in.assign_coords(lon_b=ds_in.lon_b, lat_b=ds_in.lat_b)
+            if 'lon_b' in ds_out.data_vars:
+                ds_out = ds_out.set_coords(['lon_b', 'lat_b'])
+            if 'lon_b' in ds_in.data_vars:
+                ds_in = ds_in.set_coords(['lon_b', 'lat_b'])
             # Drop everything in ds_out except mask or create mask if None. This is to prevent map_blocks loading unnecessary large data
-            if not locstream_out:
+            if locstream_out:
+                ds_out_dims_drop = set(ds_out.variables).difference(ds_out.data_vars)
+                ds_out = ds_out.drop_dims(ds_out_dims_drop)
+            else:
                 if 'mask' in ds_out:
                     mask = ds_out.mask
                     ds_out = ds_out.coords.to_dataset()
@@ -971,10 +974,10 @@ class Regridder(BaseRegridder):
                     mask = da.ones(shape_out, dtype=bool, chunks=ds_out_chunks)
                     ds_out['mask'] = (output_dims, mask)
 
-                    ds_out_dims_drop = set(ds_out.cf.coordinates.keys()).difference(
-                        ['longitude', 'latitude']
-                    )
-                    ds_out = ds_out.cf.drop_dims(ds_out_dims_drop)
+                ds_out_dims_drop = set(ds_out.cf.coordinates.keys()).difference(
+                    ['longitude', 'latitude']
+                )
+                ds_out = ds_out.cf.drop_dims(ds_out_dims_drop)
 
             # Drop unnecessary variables in ds_in to save memory
             if not locstream_in:
