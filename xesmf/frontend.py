@@ -956,15 +956,9 @@ class Regridder(BaseRegridder):
         if parallel:
             # Check if we have bounds as variable and not coords, and add them to coords in both datasets
             if 'lon_b' in ds_out.variables and 'lon_b' not in ds_out.coords.variables:
-                ds_out = ds_out.assign_coords(
-                    lon_b=ds_out.lon_b,
-                    lat_b=ds_out.lat_b
-                )
+                ds_out = ds_out.assign_coords(lon_b=ds_out.lon_b, lat_b=ds_out.lat_b)
             if 'lon_b' in ds_in.variables and 'lon_b' not in ds_in.coords.variables:
-                ds_in = ds_in.assign_coords(
-                    lon_b=ds_in.lon_b,
-                    lat_b=ds_in.lat_b
-                )
+                ds_in = ds_in.assign_coords(lon_b=ds_in.lon_b, lat_b=ds_in.lat_b)
             # Drop everything in ds_out except mask or create mask if None. This is to prevent map_blocks loading unnecessary large data
             if not locstream_out:
                 if 'mask' in ds_out:
@@ -974,8 +968,8 @@ class Regridder(BaseRegridder):
                 else:
                     ds_out_chunks = tuple([ds_out.chunksizes[i] for i in output_dims])
                     ds_out = ds_out.coords.to_dataset()
-                    mask = da.ones(shape_out,dtype=bool,chunks=ds_out_chunks)
-                    ds_out['mask'] = (output_dims,mask)
+                    mask = da.ones(shape_out, dtype=bool, chunks=ds_out_chunks)
+                    ds_out['mask'] = (output_dims, mask)
 
                     ds_out_dims_drop = set(ds_out.cf.coordinates.keys()).difference(
                         ['longitude', 'latitude']
@@ -1000,8 +994,12 @@ class Regridder(BaseRegridder):
             # if bounds in ds_out, we switch to cf bounds for map_blocks
             if 'lon_b' in ds_out and (ds_out.lon_b.ndim == ds_out.cf['longitude'].ndim):
                 ds_out = ds_out.assign_coords(
-                    lon_bounds=cfxr.vertices_to_bounds(ds_out.lon_b, ('bounds', *ds_out.cf['longitude'].dims)),
-                    lat_bounds=cfxr.vertices_to_bounds(ds_out.lat_b, ('bounds', *ds_out.cf['latitude'].dims))
+                    lon_bounds=cfxr.vertices_to_bounds(
+                        ds_out.lon_b, ('bounds', *ds_out.cf['longitude'].dims)
+                    ),
+                    lat_bounds=cfxr.vertices_to_bounds(
+                        ds_out.lat_b, ('bounds', *ds_out.cf['latitude'].dims)
+                    ),
                 )
                 # Make cf-xarray aware of the new bounds
                 ds_out[ds_out.cf['longitude'].name].attrs['bounds'] = 'lon_bounds'
