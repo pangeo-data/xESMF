@@ -8,6 +8,7 @@ import cf_xarray as cfxr
 import numpy as np
 import xarray as xr
 from shapely import LineString, Polygon, MultiPolygon,MultiLineString
+from shapely import LineString, MultiLineString, MultiPoint, MultiPolygon, Polygon
 from xarray import DataArray, Dataset
 
 from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
