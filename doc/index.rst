@@ -6,15 +6,15 @@ xESMF is a Python package for
 It is
 
 - **Powerful**: It uses ESMF_/ESMPy_ as backend and can regrid between **general curvilinear grids**
-  with all `ESMF regridding algorithms <https://www.earthsystemcog.org/projects/esmf/regridding>`_,
+  with all `ESMF regridding algorithms <https://earthsystemmodeling.org/regrid/#regridding-methods>`_,
   such as **bilinear**, **conservative** and **nearest neighbour**.
 - **Easy-to-use**: It abstracts away ESMF's complicated infrastructure
   and provides a simple, high-level API, compatible with xarray_ as well as basic numpy arrays.
 - **Fast**: It is :doc:`faster than <./notebooks/Backend>` ESMPy's original Fortran regridding engine in the serial case, and also supports dask_ for `out-of-core, parallel computation <http://xarray.pydata.org/en/stable/dask.html>`_.
 
 
-.. _ESMF: https://www.earthsystemcog.org/projects/esmf/
-.. _ESMPy: https://www.earthsystemcog.org/projects/esmpy/
+.. _ESMF: https://earthsystemmodeling.org/
+.. _ESMPy: http://earthsystemmodeling.org/esmpy/
 .. _xarray: http://xarray.pydata.org
 .. _dask: https://dask.org/
 
