@@ -98,7 +98,7 @@ Developers can track source code change::
     $ pip install -e .
 
 .. _xarray: http://xarray.pydata.org
-.. _ESMPy: https://www.earthsystemcog.org/projects/esmpy/
+.. _ESMPy: http://earthsystemmodeling.org/esmpy/
 .. _Conda: https://docs.conda.io/
 .. _PyPI: https://pypi.python.org/pypi
 .. _NESII: https://www.esrl.noaa.gov/gsd/nesii/

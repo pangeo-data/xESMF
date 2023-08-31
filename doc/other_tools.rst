@@ -8,7 +8,7 @@ Here is a brief overview of other regridding tools that the authors are aware of
 They are all great tools and have helped the author a lot in both scientific research
 and xESMF development. Check them out if xESMF cannot suit your needs.
 
-- `ESMF <https://www.earthsystemcog.org/projects/esmf/>`_ (*Fortran package*)
+- `ESMF <https://earthsystemmodeling.org/docs/release/latest/ESMF_refdoc/>`_ (*Fortran package*)
 
 Although its name "Earth System Modeling Framework" doesn't indicate a regridding
 functionality, it actually contains a very powerful regridding engine.
@@ -16,12 +16,11 @@ It is widely used in Earth System Models (ESMs), serving as both the software in
 and the regridder for transforming data between the atmosphere, ocean, and land components.
 It can deal with general irregular meshes, in either 2D or 3D.
 
-ESMF is a huge beast, containing
-`one million lines of source code <https://www.earthsystemcog.org/projects/esmf/sloc_annual>`_.
+ESMF is a huge beast, containing one million lines of source code.
 Even just compiling it requires some effort.
 It is more for building ESMs than for data analysis.
 
-- `ESMPy <https://www.earthsystemcog.org/projects/esmpy/>`_ (*Python interface to ESMF*)
+- `ESMPy <http://earthsystemmodeling.org/esmpy/>`_ (*Python interface to ESMF*)
 
 ESMPy provides a much simpler way to use ESMF's regridding functionality.
 The greatest thing is, it is pre-compiled as a
