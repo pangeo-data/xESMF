@@ -7,7 +7,6 @@ import warnings
 import cf_xarray as cfxr
 import numpy as np
 import xarray as xr
-from shapely import LineString, Polygon, MultiPolygon,MultiLineString
 from shapely import LineString, MultiLineString, MultiPoint, MultiPolygon, Polygon
 from xarray import DataArray, Dataset
 
@@ -88,10 +87,10 @@ def _get_lon_lat_bounds(ds):
 
 
 def _densify(coarse_poly, max_length):
-    """ Takes a single polygon without holes and return its densified version"""
+    """Takes a single polygon without holes and return its densified version"""
     b = coarse_poly.boundary.coords
     # Identify segments to conserve corners of poly
-    segments = [LineString(b[k:k + 2]) for k in range(len(b) - 1)]
+    segments = [LineString(b[k : k + 2]) for k in range(len(b) - 1)]
     pointlist = []
     # Densify each segment
     for segment in segments:
@@ -1037,23 +1036,26 @@ class SpatialAverager(BaseRegridder):
 
         # Check length of polys segments, issue warning if too long
         polys_warn = []
-        for poly in polys: # Convert Multipolygons into list of polys for segment length check
-            if isinstance(poly,MultiPolygon):
+        for poly in polys:  # Convert Multipolygons into list of polys for segment length check
+            if isinstance(poly, MultiPolygon):
                 polys_warn.extend(list(poly.geoms))
             else:
                 polys_warn.append(poly)
         for poly in polys_warn:
             poly_segments = []
-            if isinstance(poly.boundary,MultiLineString): # Poly has holes
+            if isinstance(poly.boundary, MultiLineString):  # Poly has holes
                 b = [ipoly.coords for ipoly in list(poly.boundary.geoms)]
-                for i in range(0,len(b)):
-                    poly_segments.extend([LineString(b[i][k:k+2]).length for k in range(len(b[i]) - 1)])
-            else: # No holes
+                for i in range(0, len(b)):
+                    poly_segments.extend(
+                        [LineString(b[i][k : k + 2]).length for k in range(len(b[i]) - 1)]
+                    )
+            else:  # No holes
                 b = poly.boundary.coords
-                poly_segments.extend([LineString(b[k:k + 2]).length for k in range(len(b) - 1)])
-            if np.any(np.array(poly_segments)> 1.0):
+                poly_segments.extend([LineString(b[k : k + 2]).length for k in range(len(b) - 1)])
+            if np.any(np.array(poly_segments) > 1.0):
                 warnings.warn(
-                    'Polys contain large (>1deg) segments. This could lead to unsuspected errors. To prevent errors over large region, please densify your polys using the densify_poly function',UserWarning
+                    'Polys contain large (>1deg) segments. This could lead to unsuspected errors. To prevent errors over large region, please densify your polys using the densify_poly function',
+                    UserWarning,
                 )
 
         poly_centers = [poly.centroid.xy for poly in polys]
@@ -1232,18 +1234,20 @@ class SpatialAverager(BaseRegridder):
                             holes_dense.append(poly_hole_dense)
 
                         # Create densified poly with densified holes
-                        dense_poly = Polygon(poly_ext_dense.exterior.coords,
-                                             [inner.exterior.coords for inner in holes_dense])
+                        dense_poly = Polygon(
+                            poly_ext_dense.exterior.coords,
+                            [inner.exterior.coords for inner in holes_dense],
+                        )
                         list_polys_dense.append(dense_poly)
-                    else: # No holes
+                    else:  # No holes
                         dense_poly = _densify(ipoly, max_length=max_length)
                         list_polys_dense.append(dense_poly)
                 # Recreate the multipoly with the densified polys
                 dense_multipoly = MultiPolygon(list_polys_dense)
                 dense_polys.append(dense_multipoly)
 
-            else: # Single poly
-                if isinstance(poly.boundary, MultiLineString): # Poly has holes
+            else:  # Single poly
+                if isinstance(poly.boundary, MultiLineString):  # Poly has holes
                     contours = list(poly.boundary.geoms)
                     poly_ext = Polygon(contours[0])
                     holes = contours[1:]
@@ -1258,8 +1262,10 @@ class SpatialAverager(BaseRegridder):
                         holes_dense.append(poly_hole_dense)
 
                     # Create densified poly with densified holes
-                    dense_poly = Polygon(poly_ext_dense.exterior.coords,
-                                         [inner.exterior.coords for inner in holes_dense])
+                    dense_poly = Polygon(
+                        poly_ext_dense.exterior.coords,
+                        [inner.exterior.coords for inner in holes_dense],
+                    )
                     dense_polys.append(dense_poly)
                 else:
                     dense_poly = _densify(poly, max_length=max_length)
