@@ -985,9 +985,7 @@ class Regridder(BaseRegridder):
         # Drop unnecessary variables in ds_in to save memory
         if not self.sequence_in:
             # Drop unnecessary dims
-            ds_in_dims_drop = set(ds_in.cf.coordinates.keys()).difference(
-                ['longitude', 'latitude']
-            )
+            ds_in_dims_drop = set(ds_in.cf.coordinates.keys()).difference(['longitude', 'latitude'])
             ds_in = ds_in.cf.drop_dims(ds_in_dims_drop)
 
             # Drop unnecessary vars
