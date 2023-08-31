@@ -928,8 +928,9 @@ def test_spatial_averager_mask():
     out = savg(dsm.abc)
     assert_allclose(out, 2, rtol=1e-3)
 
+
 def test_densify_polys():
-    poly = Polygon([(-80, -40), (80, -40), (80, 40), (-80, 40)]) # Large poly
+    poly = Polygon([(-80, -40), (80, -40), (80, 40), (-80, 40)])  # Large poly
     dense_poly = xe.SpatialAverager.densify_polys([poly])
 
     assert_almost_equal(dense_poly[0].area, poly.area)
