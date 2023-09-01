@@ -212,31 +212,6 @@ def split_polygons_and_holes(polys):
     return exteriors, holes, i_ext, i_hol
 
 
-def densify_polys(polys, max_length=1.0):
-    """
-    Takes in a list of polygons and densifies each of the polygons' segments by adding equidistant points
-    between the two endpoints of each segment such that the maximum length of a segment is max_length.
-    max_length is set to 1.0 degree in lon/lat space by default.
-
-    Parameters
-    ----------
-    polys : list, List of polygons to densify
-
-    max_length : float, Maximum desired length of a segment. The default is 1 degree in lat/lon space.
-                        Each side of the polygon is then split into equidistant segments of length max_length
-
-    Returns
-    -------
-    List of densified polygons
-
-    """
-    dense_polys = []  # Densified polys
-    for poly in polys:
-        dense_poly = poly.segmentize(max_segment_length=max_length)
-        dense_polys.append(dense_poly)
-    return dense_polys
-
-
 # Constants
 PI_180 = np.pi / 180.0
 _default_Re = 6371.0e3  # MIDAS
