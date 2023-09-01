@@ -1221,9 +1221,9 @@ class SpatialAverager(BaseRegridder):
             poly_segments.extend([LineString(b[k : k + 2]).length for k in range(len(b) - 1)])
         if np.any(np.array(poly_segments) > threshold):
             warnings.warn(
-               f"`polys` contains large (> {threshold}°) segments. This could lead to errors over large regions. For a more accurate average, segmentize (densify) your shapes with  `shapely.segmentize(polys, {threshold})`",
+                f'`polys` contains large (> {threshold}°) segments. This could lead to errors over large regions. For a more accurate average, segmentize (densify) your shapes with  `shapely.segmentize(polys, {threshold})`',
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
 
     def _compute_weights_and_area(self, mesh_out):
