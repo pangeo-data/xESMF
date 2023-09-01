@@ -37,10 +37,12 @@ ds_out['data4D_ref'] = ds_in['time'] * ds_in['lev'] * ds_out['data_ref']
 # use non-divisible chunk size to catch edge cases
 ds_in_chunked = ds_in.chunk({'time': 3, 'lev': 2})
 ds_spatial_chunked = ds_in.chunk({'time': 3, 'lev': 2, 'y': 5, 'x': 9})
+ds_out_chunked = ds_out.chunk({'y': 5, 'x': 5})
 
 ds_locs = xr.Dataset()
 ds_locs['lat'] = xr.DataArray(data=[-20, -10, 0, 10], dims=('locations',))
 ds_locs['lon'] = xr.DataArray(data=[0, 5, 10, 15], dims=('locations',))
+ds_locs_chunked = ds_locs.chunk(2)
 
 
 # For polygon handling and spatial average
@@ -621,6 +623,29 @@ def test_dask_output_chunks():
     assert (
         outdata_spec_dict.chunksize == indata.chunksize[:-2] + test_output_chunks_tuple
     )  # dict should've been converted to tuple
+
+
+def test_para_weight_gen():
+    # Generating weights in serial and parallel
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
+    para_regridder = xe.Regridder(ds_in, ds_out_chunked, 'conservative', parallel=True)
+
+    # weights should be identical between serial and parallel
+    assert all(regridder.w.data.data == para_regridder.w.data.data)
+
+    # Ensure para weight gen works with locstream_in as well
+    reggrider_locs = xe.Regridder(ds_locs, ds_out_chunked, 'nearest_s2d', locstream_in=True)
+    para_regridder_locs = xe.Regridder(
+        ds_locs, ds_out_chunked, 'nearest_s2d', parallel=True, locstream_in=True
+    )
+    assert all(reggrider_locs.w.data.data == para_regridder_locs.w.data.data)
+
+    # Same as above with locstream_out
+    regridder_locs = xe.Regridder(ds_in, ds_locs, 'nearest_s2d', locstream_out=True)
+    para_regridder_locs = xe.Regridder(
+        ds_in, ds_locs_chunked, 'nearest_s2d', parallel=True, locstream_out=True
+    )
+    assert all(regridder_locs.w.data.data == para_regridder_locs.w.data.data)
 
 
 def test_regrid_dataset():
