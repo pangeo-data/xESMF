@@ -6,6 +6,7 @@ What's new
 
 New features
 ~~~~~~~~~~~~
+* Added a check in SpatialAverager that warns user if they are using large polys that could cause errors. By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
 * Added the ability to generate regridding weights in parallel. By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
 * Added the ability to chunk over horizontal/core dimensions. Added a `output_chunks` argument to the  `Regridder`
   that allows the user to specify the chunking of the output data. By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
