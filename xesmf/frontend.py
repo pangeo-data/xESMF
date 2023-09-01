@@ -1218,13 +1218,14 @@ class SpatialAverager(BaseRegridder):
         for check_poly in check_polys:
             b = check_poly.boundary.coords
             poly_segments.extend(
-                [LineString(b[k: k + 2]).length for k in range(len(b) - 1)]
+                [LineString(b[k : k + 2]).length for k in range(len(b) - 1)]
             )  # Length of each segment
         if np.any(np.array(poly_segments) > 1.0):
             warnings.warn(
                 'Polys contain large (>1deg) segments. This could lead to unsuspected errors. To prevent errors over large region, please segmentize your polys.',
                 UserWarning,
             )
+
     def _compute_weights_and_area(self, mesh_out):
         """Return the weights and the area of the destination mesh cells."""
 
