@@ -2,7 +2,7 @@ import warnings
 
 import numpy as np
 import xarray as xr
-from shapely.geometry import MultiPolygon, Polygon, LineString, MultiLineString
+from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon
 
 LON_CF_ATTRS = {'standard_name': 'longitude', 'units': 'degrees_east'}
 LAT_CF_ATTRS = {'standard_name': 'latitude', 'units': 'degrees_north'}
@@ -235,6 +235,7 @@ def densify_polys(polys, max_length=1.0):
         dense_poly = poly.segmentize(max_segment_length=max_length)
         dense_polys.append(dense_poly)
     return dense_polys
+
 
 # Constants
 PI_180 = np.pi / 180.0
