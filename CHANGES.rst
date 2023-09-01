@@ -11,6 +11,7 @@ These new features are the outcome of `Charles Gauthier <https://github.com/char
 
 New features
 ~~~~~~~~~~~~
+* Added a check in SpatialAverager that warns user if they are using polygons with long segments that could cause errors (:pull:`293`). By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
 * Add an option (``parallel``) to generate regridding weights in parallel using dask (:pull:`290`). By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
 * Add the ability to apply weights using dask on chunked horizontal/core dimensions. The ``output_chunks`` argument to the  `Regridder` class
   allows setting the chunk sizes of the output data (:pull:`280`). By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
@@ -25,7 +26,6 @@ Internal changes
 ~~~~~~~~~~~~~~~~
 * Remove Python 3.7 from the project classifiers
 * Build docs using Python 3.9
-
 
 
 0.7.1 (2023-04-03)
