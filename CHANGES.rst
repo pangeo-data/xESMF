@@ -1,23 +1,26 @@
 What's new
 ==========
 
-0.7.2 (unreleased)
+0.8.0 (2023-09-01)
 ------------------
 
 New features
 ~~~~~~~~~~~~
-* Added the ability to generate regridding weights in parallel. By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
-* Added the ability to chunk over horizontal/core dimensions. Added a `output_chunks` argument to the  `Regridder`
-  that allows the user to specify the chunking of the output data. By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
-
+* Add an option (``parallel``) to generate regridding weights in parallel using dask (:pull:`290`). By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
+* Add the ability to apply weights using dask on chunked horizontal/core dimensions. The ``output_chunks`` argument to the  `Regridder` class
+  allows setting the chunk sizes of the output data (:pull:`280`). By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
 * Added a `w` property to the `Regridder` and `SpatialAverager` classes, returning the weights reshaped according to
-  the input and output grid dimensions. This is mostly intended for debugging and visualisation purposes. By `David Huard <https://github.com/huard>`_
+  the input and output grid dimensions. This is mostly intended for debugging and visualisation purposes (:pull:`276`). By `David Huard <https://github.com/huard>`_
+
+Documentation
+~~~~~~~~~~~~~
+* Move URLs from earthsystemcog.org to earthsystemmodeling.org (:pull:`292`).
 
 Internal changes
 ~~~~~~~~~~~~~~~~
-* Pin sphinx < 7.0 since it's not supported by `sphinx_rtd_theme`
 * Remove Python 3.7 from the project classifiers
 * Build docs using Python 3.9
+
 
 
 0.7.1 (2023-04-03)
