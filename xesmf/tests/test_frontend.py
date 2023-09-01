@@ -626,7 +626,7 @@ def test_dask_output_chunks():
 
 
 def test_para_weight_gen():
-    # Generating weights in serial
+    # Generating weights in serial and parallel
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
     para_regridder = xe.Regridder(ds_in, ds_out_chunked, 'conservative', parallel=True)
 
