@@ -6,7 +6,7 @@ What's new
 
 This release of xESMF improves support for parallelization with dask: weights can now be computed in parallel, and those weights can be applied over chunks spanning the horizontal grid dimensions. Previously, computing weights in parallel was only possible using MPI, and datasets could only be chunked over non-spatial dimensions.
 
-These improvements are the work of `Charles Gauthier <https://github.com/charlesgauthier-udm>`_, who completed a summer internship at `Ouranos <https://www.ouranos.ca/>`_.
+These new features are the outcome of `Charles Gauthier <https://github.com/charlesgauthier-udm>`_' internship at Ouranos `Ouranos <https://www.ouranos.ca/>`_ during the summer of 2023. Thanks to Charles for his hard work and sharp analysis, which led to a permanent position at Ouranos!
 
 
 New features
