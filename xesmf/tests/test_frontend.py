@@ -952,3 +952,10 @@ def test_spatial_averager_mask():
     savg = xe.SpatialAverager(dsm, [poly], geom_dim_name='my_geom')
     out = savg(dsm.abc)
     assert_allclose(out, 2, rtol=1e-3)
+
+
+def test_densify_polys():
+    # Check that using a large poly raises a warning
+    poly = Polygon([(-80, -40), (80, -40), (80, 40), (-80, 40)])  # Large poly
+    with pytest.warns(UserWarning):
+        xe.SpatialAverager(ds_in, [poly])

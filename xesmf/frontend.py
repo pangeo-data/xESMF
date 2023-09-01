@@ -8,6 +8,7 @@ import cf_xarray as cfxr
 import numpy as np
 import sparse as sps
 import xarray as xr
+from shapely import LineString
 from xarray import DataArray, Dataset
 
 from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
@@ -1180,6 +1181,9 @@ class SpatialAverager(BaseRegridder):
             self._lon_out_name = 'lon'
             self._lat_out_name = 'lat'
 
+        # Check length of polys segments
+        self._check_polys_length(polys)
+
         poly_centers = [poly.centroid.xy for poly in polys]
         self._lon_out = np.asarray([c[0][0] for c in poly_centers])
         self._lat_out = np.asarray([c[1][0] for c in poly_centers])
@@ -1201,6 +1205,23 @@ class SpatialAverager(BaseRegridder):
             ignore_degenerate=ignore_degenerate,
             unmapped_to_nan=False,
         )
+
+    @staticmethod
+    def _check_polys_length(polys, threshold=1):
+        # Check length of polys segments, issue warning if too long
+        check_polys, check_holes, _, _ = split_polygons_and_holes(polys)
+        check_polys.extend(check_holes)
+        poly_segments = []
+        for check_poly in check_polys:
+            b = check_poly.boundary.coords
+            # Length of each segment
+            poly_segments.extend([LineString(b[k : k + 2]).length for k in range(len(b) - 1)])
+        if np.any(np.array(poly_segments) > threshold):
+            warnings.warn(
+                f'`polys` contains large (> {threshold}°) segments. This could lead to errors over large regions. For a more accurate average, segmentize (densify) your shapes with  `shapely.segmentize(polys, {threshold})`',
+                UserWarning,
+                stacklevel=2,
+            )
 
     def _compute_weights_and_area(self, mesh_out):
         """Return the weights and the area of the destination mesh cells."""
