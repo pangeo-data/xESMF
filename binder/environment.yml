@@ -7,7 +7,7 @@ dependencies:
   - dask
   - numpy
   - scipy
-  - shapely>=2
+  - shapely
   - matplotlib
   - cartopy
   - cf_xarray>=0.3.1
