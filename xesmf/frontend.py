@@ -863,21 +863,17 @@ class Regridder(BaseRegridder):
                 f'locstream output is only available for method in {methods_avail_ls_out}'
             )
 
-        if 'reuse_weights' in kwargs:
-            reuse_weights = kwargs['reuse_weights']
-        else:
-            reuse_weights = False
-        if 'weights' in kwargs:
-            weights = kwargs['weights']
-        else:
-            weights = None
+        reuse_weights = kwargs.get('reuse_weights', False)
+
+        weights = kwargs.get('weights', None)
+
         if parallel and (reuse_weights or weights is not None):
             parallel = False
             warnings.warn(
                 'Cannot use parallel=True when reuse_weights=True or when weights is not None. Building Regridder normally.'
             )
 
-        # record basic switches
+        # Record basic switches
         if method in ['conservative', 'conservative_normed']:
             need_bounds = True
             periodic = False  # bound shape will not be N+1 for periodic grid
@@ -887,10 +883,11 @@ class Regridder(BaseRegridder):
         # Ensure we have Datasets and not DataArrays.
         if isinstance(ds_in, xr.DataArray):
             ds_in = ds_in._to_temp_dataset()
+
         if isinstance(ds_out, xr.DataArray):
             ds_out = ds_out._to_temp_dataset()
 
-        # construct ESMF grid, with some shape checking
+        # Construct ESMF grid, with some shape checking
         if locstream_in:
             grid_in, shape_in, input_dims = ds_to_ESMFlocstream(ds_in)
         else:
@@ -913,7 +910,7 @@ class Regridder(BaseRegridder):
             **kwargs,
         )
 
-        # record output grid and metadata
+        # Record output grid and metadata
         lon_out, lat_out = _get_lon_lat(ds_out)
         if not isinstance(lon_out, DataArray):
             if lon_out.ndim == 2:
