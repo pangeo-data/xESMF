@@ -2,7 +2,7 @@ import warnings
 
 import numpy as np
 import xarray as xr
-from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon
+from shapely.geometry import MultiPolygon, Polygon
 
 LON_CF_ATTRS = {'standard_name': 'longitude', 'units': 'degrees_east'}
 LAT_CF_ATTRS = {'standard_name': 'latitude', 'units': 'degrees_north'}
