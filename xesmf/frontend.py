@@ -1210,20 +1210,20 @@ class SpatialAverager(BaseRegridder):
         )
 
     @staticmethod
-    def _check_polys_length(polys):
+    def _check_polys_length(polys, threshold=1):
         # Check length of polys segments, issue warning if too long
         check_polys, check_holes, _, _ = split_polygons_and_holes(polys)
         check_polys.extend(check_holes)
         poly_segments = []
         for check_poly in check_polys:
             b = check_poly.boundary.coords
-            poly_segments.extend(
-                [LineString(b[k : k + 2]).length for k in range(len(b) - 1)]
-            )  # Length of each segment
-        if np.any(np.array(poly_segments) > 1.0):
+            # Length of each segment
+            poly_segments.extend([LineString(b[k : k + 2]).length for k in range(len(b) - 1)])
+        if np.any(np.array(poly_segments) > threshold):
             warnings.warn(
-                'Polys contain large (>1deg) segments. This could lead to unsuspected errors. To prevent errors over large region, please segmentize your polys.',
+               f"`polys` contains large (> {threshold}°) segments. This could lead to errors over large regions. For a more accurate average, segmentize (densify) your shapes with  `shapely.segmentize(polys, {threshold})`",
                 UserWarning,
+                stacklevel=2
             )
 
     def _compute_weights_and_area(self, mesh_out):
