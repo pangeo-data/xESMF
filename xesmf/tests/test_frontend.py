@@ -955,7 +955,11 @@ def test_spatial_averager_mask():
 
 
 def test_densify_polys():
+    # Check that using a large poly raises a warning
     poly = Polygon([(-80, -40), (80, -40), (80, 40), (-80, 40)])  # Large poly
-    dense_poly = xe.util.densify_polys([poly])
+    with pytest.warns(UserWarning):
+        xe.SpatialAverager(ds_in,[poly])
 
+    # Verify that the densify_polys returns a poly with same area
+    dense_poly = xe.util.densify_polys([poly])
     assert_almost_equal(dense_poly[0].area, poly.area)
