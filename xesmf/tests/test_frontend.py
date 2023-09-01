@@ -1003,3 +1003,10 @@ def test_regrid_polekind():
     err_bipole = np.var(bipole_result-expected_sst)
 
     #assert err_monopole >= err_bipole
+
+
+def test_densify_polys():
+    # Check that using a large poly raises a warning
+    poly = Polygon([(-80, -40), (80, -40), (80, 40), (-80, 40)])  # Large poly
+    with pytest.warns(UserWarning):
+        xe.SpatialAverager(ds_in, [poly])
