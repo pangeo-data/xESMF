@@ -8,7 +8,7 @@ import cf_xarray as cfxr
 import numpy as np
 import sparse as sps
 import xarray as xr
-from shapely import LineString
+from shapely.geometry import LineString
 from xarray import DataArray, Dataset
 
 from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
