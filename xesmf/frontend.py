@@ -960,7 +960,7 @@ class Regridder(BaseRegridder):
             ds_out = ds_out.set_coords(['lon_b', 'lat_b'])
         if 'lon_b' in ds_in.data_vars:
             ds_in = ds_in.set_coords(['lon_b', 'lat_b'])
-        if not set(self.out_horiz_dims).issubset(ds_out.chunksizes.keys()):
+        if not (set(self.out_horiz_dims) - {'dummy'}).issubset(ds_out.chunksizes.keys()):
             raise ValueError(
                 "Using `parallel=True` requires the output grid to have chunks along all spatial dimensions. "
                 "If the dataset has no variables, consider adding an all-True spatial mask with appropriate chunks."
