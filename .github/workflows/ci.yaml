@@ -36,7 +36,7 @@ jobs:
         with:
           access_token: ${{ github.token }}
       - name: Checkout source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Create conda environment
         uses: mamba-org/provision-with-micromamba@main
         with:
@@ -73,7 +73,7 @@ jobs:
         uses: styfle/cancel-workflow-action@0.11.0
         with:
           access_token: ${{ github.token }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Create conda environment
         uses: mamba-org/provision-with-micromamba@v16
         with:
