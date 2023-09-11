@@ -962,8 +962,8 @@ class Regridder(BaseRegridder):
             ds_in = ds_in.set_coords(['lon_b', 'lat_b'])
         if not set(self.out_horiz_dims).issubset(ds_out.chunksizes.keys()):
             raise ValueError(
-                "Using `parallel=True` requires the output grid to have chunks along all spatial dimensions. "
-                "If the dataset has no variables, consider adding an all-True spatial mask with appropriate chunks."
+                'Using `parallel=True` requires the output grid to have chunks along all spatial dimensions. '
+                'If the dataset has no variables, consider adding an all-True spatial mask with appropriate chunks.'
             )
         # Drop everything in ds_out except mask or create mask if None. This is to prevent map_blocks loading unnecessary large data
         if self.sequence_out:
