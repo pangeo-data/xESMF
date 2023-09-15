@@ -593,7 +593,9 @@ class BaseRegridder(object):
         weights = self.weights.data.reshape(self.shape_out + self.shape_in)
         if isinstance(indata, dask_array_type):  # dask
             if output_chunks is None:
-                output_chunks = tuple([min(shp, inchnk) for shp, inchnk in zip(self.shape_out, indata.chunksize[-2:])])
+                output_chunks = tuple(
+                    [min(shp, inchnk) for shp, inchnk in zip(self.shape_out, indata.chunksize[-2:])]
+                )
             if len(output_chunks) != len(self.shape_out):
                 if len(output_chunks) == 1 and self.sequence_out:
                     output_chunks = (1, output_chunks[0])

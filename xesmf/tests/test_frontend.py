@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 import xarray as xr
 from numpy.testing import assert_allclose, assert_almost_equal, assert_equal
-from shapely.geometry import MultiPolygon, Polygon
 from shapely import segmentize
+from shapely.geometry import MultiPolygon, Polygon
 
 import xesmf as xe
 from xesmf.frontend import as_2d_mesh
