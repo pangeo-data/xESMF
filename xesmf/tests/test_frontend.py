@@ -650,7 +650,7 @@ def test_para_weight_gen():
 
 
 def test_para_weight_gen_errors():
-    with pytest.raises(ValueError, match="requires the output grid to have chunks"):
+    with pytest.raises(ValueError, match='requires the output grid to have chunks'):
         xe.Regridder(ds_in, ds_out, 'conservative', parallel=True)
 
 
