@@ -649,6 +649,11 @@ def test_para_weight_gen():
     assert all(regridder_locs.w.data.data == para_regridder_locs.w.data.data)
 
 
+def test_para_weight_gen_errors():
+    with pytest.raises(ValueError, match='requires the output grid to have chunks'):
+        xe.Regridder(ds_in, ds_out, 'conservative', parallel=True)
+
+
 def test_regrid_dataset():
     # xarray.Dataset containing in-memory numpy array
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
