@@ -590,21 +590,24 @@ class BaseRegridder(object):
 
         kwargs.update(skipna=skipna, na_thres=na_thres)
 
+        weights = self.weights.data.reshape(self.shape_out + self.shape_in)
         if isinstance(indata, dask_array_type):  # dask
             if output_chunks is None:
-                output_chunks = indata.chunksize[-2:]
-            elif output_chunks is not None:
-                if len(output_chunks) != len(self.shape_out):
+                output_chunks = tuple(
+                    [min(shp, inchnk) for shp, inchnk in zip(self.shape_out, indata.chunksize[-2:])]
+                )
+            if len(output_chunks) != len(self.shape_out):
+                if len(output_chunks) == 1 and self.sequence_out:
+                    output_chunks = (1, output_chunks[0])
+                else:
                     raise ValueError(
                         f'output_chunks must have same dimension as ds_out,'
                         f' output_chunks dimension ({len(output_chunks)}) does not '
                         f'match ds_out dimension ({len(self.shape_out)})'
                     )
-            weights = da.from_array(self.w.data, chunks=(output_chunks + indata.chunksize[-2:]))
-
+            weights = da.from_array(weights, chunks=(output_chunks + indata.chunksize[-2:]))
             outdata = self._regrid(indata, weights, **kwargs)
         else:  # numpy
-            weights = self.w.data  # 4D weights
             outdata = self._regrid(indata, weights, **kwargs)
         return outdata
 
