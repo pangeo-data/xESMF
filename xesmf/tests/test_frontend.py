@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import xarray as xr
 from numpy.testing import assert_allclose, assert_almost_equal, assert_equal
+from shapely import segmentize
 from shapely.geometry import MultiPolygon, Polygon
 
 import xesmf as xe
@@ -780,18 +781,22 @@ def test_ds_to_ESMFlocstream():
         locstream, shape, names = ds_to_ESMFlocstream(ds_bogus)
 
 
+@pytest.mark.parametrize('use_dask', [True, False])
 @pytest.mark.parametrize('poly,exp', list(zip(polys, exps_polys)))
-def test_spatial_averager(poly, exp):
+def test_spatial_averager(poly, exp, use_dask):
     if isinstance(poly, (Polygon, MultiPolygon)):
         poly = [poly]
-    savg = xe.SpatialAverager(ds_savg, poly, geom_dim_name='my_geom')
-    out = savg(ds_savg.abc)
+    if use_dask:
+        ds_in = ds_savg.chunk(lat=10)
+    else:
+        ds_in = ds_savg
+    savg = xe.SpatialAverager(ds_in, poly, geom_dim_name='my_geom')
+    out = savg(ds_in.abc)
     assert_allclose(out, exp, rtol=1e-3)
 
     assert 'my_geom' in out.dims
 
 
-@pytest.mark.xfail
 def test_spatial_averager_with_zonal_region():
     # We expect the spatial average for all regions to be one
     zonal_south = Polygon([(0, -90), (10, 0), (0, 0)])
@@ -800,6 +805,7 @@ def test_spatial_averager_with_zonal_region():
     zonal_full = Polygon([(0, -90), (10, 0), (0, 90), (0, 0)])  # This yields 0... why?
 
     polys = [zonal_south, zonal_north, zonal_short, zonal_full]
+    polys = segmentize(polys, 1)
 
     # Create field of ones on a global grid
     ds = xe.util.grid_global(20, 12, cf=True)

@@ -1,13 +1,19 @@
 What's new
 ==========
 
+0.8.2 (unreleased)
+------------------
+
+Bug fixes
+~~~~~~~~~
+* Correct guess of output chunks for the :``SpatialAverager``.
+
 0.8.1 (2023-09-05)
 ------------------
 
 Bug fixes
 ~~~~~~~~~
 * Change import to support shapely 1 and 2.
-
 
 0.8.0 (2023-09-01)
 ------------------
