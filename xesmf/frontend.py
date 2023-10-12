@@ -10,7 +10,7 @@ import sparse as sps
 import xarray as xr
 from shapely.geometry import LineString, Polygon
 from xarray import DataArray, Dataset
-from typing import Any, Literal, Optional, Tuple
+from typing import Any, Hashable, List, Literal, Optional, Tuple
 from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
 from .smm import (
     _combine_weight_multipoly,
@@ -426,7 +426,7 @@ class BaseRegridder(object):
         dims = 'y_out', 'x_out', 'y_in', 'x_in'
         return xr.DataArray(data, dims=dims)
 
-    def _get_default_filename(self):
+    def _get_default_filename(self) -> str:
         # e.g. bilinear_400x600_300x400.nc
         filename = '{0}_{1}x{2}_{3}x{4}'.format(
             self.method,
@@ -458,7 +458,14 @@ class BaseRegridder(object):
         esmf_regrid_finalize(regrid)  # only need weights, not regrid object
         return w
 
-    def __call__(self, indata, keep_attrs=False, skipna=False, na_thres=1.0, output_chunks=None):
+    def __call__(
+        self,
+        indata: np.ndarray | dask_array_type | xr.DataArray | xr.Dataset,
+        keep_attrs: bool = False,
+        skipna: bool = False,
+        na_thres: float = 1.0,
+        output_chunks=None,
+    ):
         """
         Apply regridding to input data.
 
@@ -561,7 +568,15 @@ class BaseRegridder(object):
             raise TypeError('input must be numpy array, dask array, xarray DataArray or Dataset!')
 
     @staticmethod
-    def _regrid(indata, weights, *, shape_in, shape_out, skipna, na_thres):
+    def _regrid(
+        indata: np.ndarray,
+        weights: sps.coo_matrix,
+        *,
+        shape_in: Tuple[int, int],
+        shape_out: Tuple[int, int],
+        skipna: bool,
+        na_thresh: float,
+    ) -> np.ndarray:
         # skipna: set missing values to zero
         if skipna:
             missing = np.isnan(indata)
@@ -580,7 +595,14 @@ class BaseRegridder(object):
 
         return outdata
 
-    def regrid_array(self, indata, weights, skipna=False, na_thres=1.0, output_chunks=None):
+    def regrid_array(
+        self,
+        indata: np.ndarray | dask_array_type,
+        weights: sps.coo_matrix,
+        skipna: bool = False,
+        na_thres: float = 1.0,
+        output_chunks: Optional[Tuple[int, ...]] = None,
+    ):
         """See __call__()."""
         if self.sequence_in:
             indata = np.reshape(indata, (*indata.shape[:-1], 1, indata.shape[-1]))
@@ -619,14 +641,14 @@ class BaseRegridder(object):
             outdata = self._regrid(indata, weights, **kwargs)
         return outdata
 
-    def regrid_numpy(self, indata, **kwargs):
+    def regrid_numpy(self, indata: dask_array_type, **kwargs):
         warnings.warn(
             '`regrid_numpy()` will be removed in xESMF 0.7, please use `regrid_array` instead.',
             category=FutureWarning,
         )
         return self.regrid_array(indata, self.weights.data, **kwargs)
 
-    def regrid_dask(self, indata, **kwargs):
+    def regrid_dask(self, indata: dask_array_type, **kwargs):
         warnings.warn(
             '`regrid_dask()` will be removed in xESMF 0.7, please use `regrid_array` instead.',
             category=FutureWarning,
@@ -635,11 +657,11 @@ class BaseRegridder(object):
 
     def regrid_dataarray(
         self,
-        dr_in,
+        dr_in: xr.DataArray,
         keep_attrs: bool = False,
         skipna: bool = False,
         na_thres: float = 1.0,
-        output_chunks=None,
+        output_chunks: Optional[Tuple[int, ...]] = None,
     ):
         """See __call__()."""
 
@@ -660,11 +682,11 @@ class BaseRegridder(object):
 
     def regrid_dataset(
         self,
-        ds_in,
+        ds_in: xr.Dataset,
         keep_attrs: bool = False,
         skipna: bool = False,
         na_thres: float = 1.0,
-        output_chunks=None,
+        output_chunks: Optional[Tuple[int, ...]] = None,
     ):
         """See __call__()."""
 
@@ -693,7 +715,9 @@ class BaseRegridder(object):
 
         return self._format_xroutput(ds_out, temp_horiz_dims)
 
-    def _parse_xrinput(self, dr_in):
+    def _parse_xrinput(
+        self, dr_in: xr.DataArray | xr.Dataset
+    ) -> Tuple[Tuple[Hashable, ...], List[str]]:
         # dr could be a DataArray or a Dataset
         # Get input horiz dim names and set output horiz dim names
         if self.in_horiz_dims is not None and all(dim in dr_in.dims for dim in self.in_horiz_dims):
@@ -720,15 +744,17 @@ class BaseRegridder(object):
             )
 
         if self.sequence_out:
-            temp_horiz_dims = ['dummy', 'locations']
+            temp_horiz_dims: List[str] = ['dummy', 'locations']
         else:
-            temp_horiz_dims = [s + '_new' for s in input_horiz_dims]
+            temp_horiz_dims: List[str] = [s + '_new' for s in input_horiz_dims]
 
         if self.sequence_in and not self.sequence_out:
             temp_horiz_dims = ['dummy_new'] + temp_horiz_dims
         return input_horiz_dims, temp_horiz_dims
 
-    def _format_xroutput(self, out, new_dims=None):
+    def _format_xroutput(
+        self, out: xr.DataArray | xr.Dataset, new_dims: List[str]
+    ) -> xr.DataArray | xr.Dataset:
         out.attrs['regrid_method'] = self.method
         return out
 
@@ -752,7 +778,7 @@ class BaseRegridder(object):
 
         return info
 
-    def to_netcdf(self, filename: Optional[str] = None):
+    def to_netcdf(self, filename: Optional[str] = None) -> str:
         """Save weights to disk as a netCDF file."""
         if filename is None:
             filename = self.filename
