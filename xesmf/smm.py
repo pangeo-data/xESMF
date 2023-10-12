@@ -1,16 +1,21 @@
 """
 Sparse matrix multiplication (SMM) using scipy.sparse library.
 """
+from typing import Any, Tuple
 import warnings
 from pathlib import Path
 
-import numba as nb
+import numba as nb  # type: ignore[import]
 import numpy as np
-import sparse as sps
+import sparse as sps  # type: ignore[import]
 import xarray as xr
 
 
-def read_weights(weights, n_in, n_out):
+def read_weights(
+    weights: str | Path | xr.Dataset | xr.DataArray | sps.COO | dict,  # type: ignore[no-untyped-def]
+    n_in: int,
+    n_out: int,
+) -> xr.DataArray:
     """
     Read regridding weights into a DataArray (sparse COO matrix).
 
@@ -25,8 +30,8 @@ def read_weights(weights, n_in, n_out):
         ``(N_out, N_in)`` will be the shape of the returning sparse matrix.
         They are the total number of grid boxes in input and output grids::
 
-              N_in = Nx_in * Ny_in
-              N_out = Nx_out * Ny_out
+            N_in = Nx_in * Ny_in
+            N_out = Nx_out * Ny_out
 
         We need them because the shape cannot always be inferred from the
         largest column and row indices, due to unmapped grid boxes.
@@ -34,45 +39,49 @@ def read_weights(weights, n_in, n_out):
     Returns
     -------
     xr.DataArray
-      A DataArray backed by a sparse.COO array, with dims ('out_dim', 'in_dim')
-      and size (n_out, n_in).
+        A DataArray backed by a sparse.COO array, with dims ('out_dim', 'in_dim')
+        and size (n_out, n_in).
     """
     if isinstance(weights, (str, Path, xr.Dataset, dict)):
-        weights = _parse_coords_and_values(weights, n_in, n_out)
+        return _parse_coords_and_values(weights, n_in, n_out)
 
-    elif isinstance(weights, sps.COO):
-        weights = xr.DataArray(weights, dims=('out_dim', 'in_dim'), name='weights')
+    if isinstance(weights, sps.COO):
+        return xr.DataArray(weights, dims=('out_dim', 'in_dim'), name='weights')
 
-    elif not isinstance(weights, xr.DataArray):
-        raise ValueError(f'Weights of type {type(weights)} not understood.')
+    if isinstance(weights, xr.DataArray):  # type: ignore[no-untyped-def]
+        return weights
 
-    return weights
+    raise ValueError(f'Weights of type {type(weights)} not understood.')
 
 
-def _parse_coords_and_values(indata, n_in, n_out):
+def _parse_coords_and_values(
+    indata: str | Path | xr.Dataset | dict,  # type: ignore[no-untyped-def]
+    n_in: int,
+    n_out: int,
+) -> xr.DataArray:
     """Creates a sparse.COO array from weights stored in a dict-like fashion.
 
     Parameters
     ----------
     indata: str, Path, xr.Dataset or dict
-      A dictionary as returned by ESMF.Regrid.get_weights_dict
-      or an xarray Dataset (or its path) as saved by xESMF.
+        A dictionary as returned by ESMF.Regrid.get_weights_dict
+        or an xarray Dataset (or its path) as saved by xESMF.
     n_in : int
-      The number of points in the input grid.
+        The number of points in the input grid.
     n_out : int
-      The number of points in the output grid.
+        The number of points in the output grid.
 
     Returns
     -------
     sparse.COO
-      Sparse array in the COO format.
+        Sparse array in the COO format.
     """
 
     if isinstance(indata, (str, Path, xr.Dataset)):
         if not isinstance(indata, xr.Dataset):
             if not Path(indata).exists():
                 raise IOError(f'Weights file not found on disk.\n{indata}')
-            ds_w = xr.open_dataset(indata)
+            ds_w = xr.open_dataset(indata)  # type: ignore[no-untyped-def]
         else:
             ds_w = indata
 
@@ -82,9 +91,9 @@ def _parse_coords_and_values(indata, n_in, n_out):
                 'values of weights.'
             )
 
-        col = ds_w['col'].values - 1  # Python starts with 0
-        row = ds_w['row'].values - 1
-        s = ds_w['S'].values
+        col = ds_w['col'].values - 1  # type: ignore[no-untyped-def]
+        row = ds_w['row'].values - 1  # type: ignore[no-untyped-def]
+        s = ds_w['S'].values  # type: ignore[no-untyped-def]
 
     elif isinstance(indata, dict):
         if not {'col_src', 'row_dst', 'weights'}.issubset(indata.keys()):
@@ -100,28 +109,33 @@ def _parse_coords_and_values(indata, n_in, n_out):
     return xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=('out_dim', 'in_dim'), name='weights')
 
 
-def check_shapes(indata, weights, shape_in, shape_out):
+def check_shapes(
+    indata: np.ndarray,  # type: ignore[no-untyped-def]
+    weights: np.ndarray,  # type: ignore[no-untyped-def]
+    shape_in: Tuple[int, int],
+    shape_out: Tuple[int, int],
+) -> None:
     """Compare the shapes of the input array, the weights and the regridder and raises
     potential errors.
 
     Parameters
     ----------
     indata : array
-      Input array with the two spatial dimensions at the end,
-      which should fit shape_in.
+        Input array with the two spatial dimensions at the end,
+        which should fit shape_in.
     weights : array
-      Weights 2D array of shape (out_dim, in_dim).
-      First element should be the product of shape_out.
-      Second element should be the product of shape_in.
+        Weights 2D array of shape (out_dim, in_dim).
+        First element should be the product of shape_out.
+        Second element should be the product of shape_in.
     shape_in : 2-tuple of int
-      Shape of the input of the Regridder.
+        Shape of the input of the Regridder.
     shape_out : 2-tuple of int
-      Shape of the output of the Regridder.
+        Shape of the output of the Regridder.
 
     Raises
     ------
     ValueError
-      If any of the conditions is not respected.
+        If any of the conditions is not respected.
     """
     # COO matrix is fast with F-ordered array but slow with C-array, so we
     # take in a C-ordered and then transpose)
@@ -155,14 +169,19 @@ def check_shapes(indata, weights, shape_in, shape_out):
         raise ValueError('ny_out * nx_out should equal to weights.shape[0]')
 
 
-def apply_weights(weights, indata, shape_in, shape_out):
+def apply_weights(
+    weights: np.ndarray,  # type: ignore[no-untyped-def]
+    indata: np.ndarray,  # type: ignore[no-untyped-def]
+    shape_in: Tuple[int, int],
+    shape_out: Tuple[int, int],
+) -> np.ndarray[Any, np.dtype[Any]]:
     """
     Apply regridding weights to data.
 
     Parameters
     ----------
     weights : sparse COO matrix
-      Regridding weights.
+        Regridding weights.
     indata : numpy array of shape ``(..., n_lat, n_lon)`` or ``(..., n_y, n_x)``.
         Should be C-ordered. Will be then tranposed to F-ordered.
     shape_in, shape_out : tuple of two integers
@@ -200,7 +219,7 @@ def apply_weights(weights, indata, shape_in, shape_out):
     return outdata
 
 
-def add_nans_to_weights(weights):
+def add_nans_to_weights(weights: xr.DataArray) -> xr.DataArray:
     """Add NaN in empty rows of the regridding weights sparse matrix.
 
     By default, empty rows in the weights sparse matrix are interpreted as zeroes. This can become problematic
@@ -210,12 +229,12 @@ def add_nans_to_weights(weights):
     Parameters
     ----------
     weights : DataArray backed by a sparse.COO array
-      Sparse weights matrix.
+        Sparse weights matrix.
 
     Returns
     -------
     DataArray backed by a sparse.COO array
-      Sparse weights matrix.
+        Sparse weights matrix.
     """
 
     # Taken from @trondkr and adapted by @raphaeldussin to use `lil`.
@@ -231,7 +250,11 @@ def add_nans_to_weights(weights):
     return weights
 
 
-def _combine_weight_multipoly(weights, areas, indexes):
+def _combine_weight_multipoly(
+    weights: xr.DataArray,
+    areas: np.ndarray[Any, np.dtype[Any]],
+    indexes: np.ndarray[Any, np.dtype[Any]],
+) -> xr.DataArray:
     """Reduce a weight sparse matrix (csc format) by combining (adding) columns.
 
     This is used to sum individual weight matrices from multi-part geometries.
@@ -239,17 +262,17 @@ def _combine_weight_multipoly(weights, areas, indexes):
     Parameters
     ----------
     weights : DataArray
-      Usually backed by a sparse.COO array, with dims ('out_dim', 'in_dim')
+        Usually backed by a sparse.COO array, with dims ('out_dim', 'in_dim')
     areas : np.array
-      Array of destination areas, following same order as weights.
+        Array of destination areas, following same order as weights.
     indexes : array of integers
-      Columns with the same "index" will be summed into a single column at this
-      index in the output matrix.
+        Columns with the same "index" will be summed into a single column at this
+        index in the output matrix.
 
     Returns
     -------
     sparse matrix (CSC)
-      Sum of weights from individual geometries.
+        Sum of weights from individual geometries.
     """
 
     sub_weights = weights.rename(out_dim='subgeometries')

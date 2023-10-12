@@ -26,7 +26,7 @@ import numpy as np
 import numpy.lib.recfunctions as nprec
 
 
-def warn_f_contiguous(a):
+def warn_f_contiguous(a: np.ndarray) -> None:
     """
     Give a warning if input array if not Fortran-ordered.
 
@@ -41,7 +41,7 @@ def warn_f_contiguous(a):
         warnings.warn('Input array is not F_CONTIGUOUS. ' 'Will affect performance.')
 
 
-def warn_lat_range(lat):
+def warn_lat_range(lat: np.ndarray) -> None:
     """
     Give a warning if latitude is outside of [-90, 90]
 
@@ -58,7 +58,13 @@ def warn_lat_range(lat):
 
 class Grid(ESMF.Grid):
     @classmethod
-    def from_xarray(cls, lon, lat, periodic=False, mask=None):
+    def from_xarray(
+        cls,
+        lon: np.ndarray[float, int],
+        lat: np.ndarray[float, int],
+        periodic: bool = False,
+        mask=None,
+    ):
         """
         Create an ESMF.Grid object, for constructing ESMF.Field and ESMF.Regrid.
 
@@ -158,7 +164,7 @@ class LocStream(ESMF.LocStream):
         Parameters
         ----------
         lon, lat : 1D numpy array
-             Longitute/Latitude of cell centers.
+            Longitute/Latitude of cell centers.
 
         Returns
         -------
