@@ -1,5 +1,5 @@
-from typing import Any, Generator, List, Literal, Tuple
 import warnings
+from typing import Any, Generator, List, Literal, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -320,9 +320,7 @@ def _bipolar_projection(
         # One way is simply to demand lamc to be continuous with lam on the equator phi=0
         # I am sure there is a more mathematically concrete way to do this.
         lamc = np.where((lamg - lon_bp > 90) & (lamg - lon_bp <= 180), 180 - lamc, lamc)
-        lamc = np.where(
-            (lamg - lon_bp > 180) & (lamg - lon_bp <= 270), 180 + lamc, lamc
-        )
+        lamc = np.where((lamg - lon_bp > 180) & (lamg - lon_bp <= 270), 180 + lamc, lamc)
         lamc = np.where((lamg - lon_bp > 270), 360 - lamc, lamc)
         # Along symmetry meridian choose lamc
         lamc = np.where(
@@ -347,9 +345,7 @@ def _bipolar_projection(
     N_inv = 1 / N
     cos2phis = (np.cos(phis * PI_180)) ** 2
 
-    h_j_inv_t1 = (
-        cos2phis * alpha2 * (1 - alpha2) * beta2_inv * (1 + beta2_inv) * (rden**2)
-    )
+    h_j_inv_t1 = cos2phis * alpha2 * (1 - alpha2) * beta2_inv * (1 + beta2_inv) * (rden**2)
     h_j_inv_t2 = M_inv * M_inv * (1 - alpha2) * rden
     h_j_inv = h_j_inv_t1 + h_j_inv_t2
 
@@ -357,10 +353,7 @@ def _bipolar_projection(
     h_j_inv = np.where(np.abs(beta2_inv) > HUGE, M_inv * M_inv, h_j_inv)
     h_j_inv = np.sqrt(h_j_inv) * N_inv
 
-    h_i_inv = (
-        cos2phis * (1 + beta2_inv) * (rden**2)
-        + M_inv * M_inv * alpha2 * beta2_inv * rden
-    )
+    h_i_inv = cos2phis * (1 + beta2_inv) * (rden**2) + M_inv * M_inv * alpha2 * beta2_inv * rden
     # Deal with beta=0
     h_i_inv = np.where(np.abs(beta2_inv) > HUGE, M_inv * M_inv, h_i_inv)
     h_i_inv = np.sqrt(h_i_inv)

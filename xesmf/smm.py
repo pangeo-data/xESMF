@@ -1,9 +1,9 @@
 """
 Sparse matrix multiplication (SMM) using scipy.sparse library.
 """
-from typing import Any, Tuple
 import warnings
 from pathlib import Path
+from typing import Any, Tuple
 
 import numba as nb  # type: ignore[import]
 import numpy as np
@@ -107,9 +107,7 @@ def _parse_coords_and_values(
         s = indata["weights"]
 
     crds = np.stack([row, col])
-    return xr.DataArray(
-        sps.COO(crds, s, (n_out, n_in)), dims=("out_dim", "in_dim"), name="weights"
-    )
+    return xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=("out_dim", "in_dim"), name="weights")
 
 
 def check_shapes(
@@ -299,9 +297,7 @@ def _combine_weight_multipoly(  # type: ignore
 
     # Change the fill_value to 1
     wsum = wsum.copy(
-        data=sps.COO(
-            wsum.data.coords, wsum.data.data, shape=wsum.data.shape, fill_value=1
-        )
+        data=sps.COO(wsum.data.coords, wsum.data.data, shape=wsum.data.shape, fill_value=1)
     )
 
     return out / wsum

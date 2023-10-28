@@ -16,13 +16,14 @@ So it would be helpful to catch some common mistakes in Python level.
 """
 
 import os
-from typing import Optional
 import warnings
+from typing import Optional
 
 try:
     import esmpy as ESMF
 except ImportError:
     import ESMF
+
 import numpy as np
 import numpy.lib.recfunctions as nprec
 
@@ -144,12 +145,9 @@ class Grid(ESMF.Grid):
             if not (grid_mask.shape == lon.shape):
                 raise ValueError(
                     "mask must have the same shape as the latitude/longitude"
-                    "coordinates, got: mask.shape = %s, lon.shape = %s"
-                    % (mask.shape, lon.shape)
+                    "coordinates, got: mask.shape = %s, lon.shape = %s" % (mask.shape, lon.shape)
                 )
-            grid.add_item(
-                ESMF.GridItem.MASK, staggerloc=ESMF.StaggerLoc.CENTER, from_file=False
-            )
+            grid.add_item(ESMF.GridItem.MASK, staggerloc=ESMF.StaggerLoc.CENTER, from_file=False)
             grid.mask[0][:] = grid_mask
 
         return grid
@@ -224,9 +222,7 @@ def add_corner(grid, lon_b, lat_b):
 
     assert lon_b.ndim == 2, "Input grid must be 2D array"
     assert lon_b.shape == lat_b.shape, "lon_b and lat_b must have same shape"
-    assert np.array_equal(
-        lon_b.shape, grid.max_index + 1
-    ), "lon_b should be size (Nx+1, Ny+1)"
+    assert np.array_equal(lon_b.shape, grid.max_index + 1), "lon_b should be size (Nx+1, Ny+1)"
     assert (grid.num_peri_dims == 0) and (
         grid.periodic_dim is None
     ), "Cannot add corner for periodic grid"
@@ -410,9 +406,7 @@ def esmf_regrid_build(
     try:
         esmf_regrid_method = method_dict[method]
     except Exception:
-        raise ValueError(
-            "method should be chosen from " "{}".format(list(method_dict.keys()))
-        )
+        raise ValueError("method should be chosen from " "{}".format(list(method_dict.keys())))
 
     # use shorter, clearer names for options in ESMF.ExtrapMethod
     extrap_dict = {
@@ -424,9 +418,7 @@ def esmf_regrid_build(
         esmf_extrap_method = extrap_dict[extrap_method]
     except KeyError:
         raise KeyError(
-            "`extrap_method` should be chosen from " "{}".format(
-                list(extrap_dict.keys())
-            )
+            "`extrap_method` should be chosen from " "{}".format(list(extrap_dict.keys()))
         )
 
     # until ESMPy updates ESMP_FieldRegridStoreFile, extrapolation is not possible
@@ -438,28 +430,22 @@ def esmf_regrid_build(
     if method in ["conservative", "conservative_normed"]:
         if not isinstance(sourcegrid, ESMF.Mesh) and not sourcegrid.has_corners:
             raise ValueError(
-                "source grid has no corner information. "
-                "cannot use conservative regridding."
+                "source grid has no corner information. " "cannot use conservative regridding."
             )
         if not isinstance(destgrid, ESMF.Mesh) and not destgrid.has_corners:
             raise ValueError(
-                "destination grid has no corner information. "
-                "cannot use conservative regridding."
+                "destination grid has no corner information. " "cannot use conservative regridding."
             )
 
     # ESMF.Regrid requires Field (Grid+data) as input, not just Grid.
     # Extra dimensions are specified when constructing the Field objects,
     # not when constructing the Regrid object later on.
     if isinstance(sourcegrid, ESMF.Mesh):
-        sourcefield = ESMF.Field(
-            sourcegrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims
-        )
+        sourcefield = ESMF.Field(sourcegrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims)
     else:
         sourcefield = ESMF.Field(sourcegrid, ndbounds=extra_dims)
     if isinstance(destgrid, ESMF.Mesh):
-        destfield = ESMF.Field(
-            destgrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims
-        )
+        destfield = ESMF.Field(destgrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims)
     else:
         destfield = ESMF.Field(destgrid, ndbounds=extra_dims)
 

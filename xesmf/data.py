@@ -3,6 +3,7 @@ Standard test data for regridding benchmark.
 """
 
 from typing import Any
+
 import numpy as np
 import numpy.typing as npt
 import xarray

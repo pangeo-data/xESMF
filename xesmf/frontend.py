@@ -3,23 +3,17 @@ Frontend for xESMF, exposed to users.
 """
 
 import warnings
+from typing import Any, Dict, Hashable, List, Literal, Optional, Sequence, Tuple
 
 import cf_xarray as cfxr
 import numpy as np
 import numpy.typing as npt
 import sparse as sps
 import xarray as xr
-from shapely.geometry import LineString, Polygon, MultiPolygon
+from shapely.geometry import LineString, MultiPolygon, Polygon
 from xarray import DataArray, Dataset
-from typing import Any, Dict, Hashable, List, Literal, Optional, Sequence, Tuple
-from .backend import (
-    Grid,
-    LocStream,
-    Mesh,
-    add_corner,
-    esmf_regrid_build,
-    esmf_regrid_finalize,
-)
+
+from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
 from .smm import (
     _combine_weight_multipoly,
     _parse_coords_and_values,
@@ -143,12 +137,8 @@ def _get_lon_lat_bounds(
 
     # Convert from CF bounds to xESMF bounds.
     # order=None is because we don't want to assume the dimension order for 2D bounds.
-    lon_b = cfxr.bounds_to_vertices(
-        lon_bnds, ds.cf.get_bounds_dim_name("longitude"), order=None
-    )
-    lat_b = cfxr.bounds_to_vertices(
-        lat_bnds, ds.cf.get_bounds_dim_name("latitude"), order=None
-    )
+    lon_b = cfxr.bounds_to_vertices(lon_bnds, ds.cf.get_bounds_dim_name("longitude"), order=None)
+    lat_b = cfxr.bounds_to_vertices(lat_bnds, ds.cf.get_bounds_dim_name("latitude"), order=None)
     return lon_b, lat_b
 
 
@@ -393,15 +383,10 @@ class BaseRegridder(object):
         self.sequence_out = isinstance(self.grid_out, (LocStream, Mesh))
 
         if input_dims is not None and len(input_dims) != int(not self.sequence_in) + 1:
-            raise ValueError(
-                f"Wrong number of dimension names in `input_dims` ({len(input_dims)}."
-            )
+            raise ValueError(f"Wrong number of dimension names in `input_dims` ({len(input_dims)}.")
         self.in_horiz_dims = input_dims
 
-        if (
-            output_dims is not None
-            and len(output_dims) != int(not self.sequence_out) + 1
-        ):
+        if output_dims is not None and len(output_dims) != int(not self.sequence_out) + 1:
             raise ValueError(
                 f"Wrong number of dimension names in `output dims` ({len(output_dims)}."
             )
@@ -416,9 +401,7 @@ class BaseRegridder(object):
 
         # some logic about reusing weights with either filename or weights args
         if reuse_weights and (filename is None) and (weights is None):
-            raise ValueError(
-                "To reuse weights, you need to provide either filename or weights."
-            )
+            raise ValueError("To reuse weights, you need to provide either filename or weights.")
 
         if not parallel:
             if not reuse_weights and weights is None:
@@ -442,9 +425,7 @@ class BaseRegridder(object):
                 self.to_netcdf(filename=filename)
 
             # set default weights filename if none given
-            self.filename = (
-                self._get_default_filename() if filename is None else filename
-            )
+            self.filename = self._get_default_filename() if filename is None else filename
 
     @property
     def A(self) -> DataArray:
@@ -612,9 +593,7 @@ class BaseRegridder(object):
                 output_chunks=output_chunks,
             )
         else:
-            raise TypeError(
-                "input must be numpy array, dask array, xarray DataArray or Dataset!"
-            )
+            raise TypeError("input must be numpy array, dask array, xarray DataArray or Dataset!")
 
     @staticmethod
     def _regrid(
@@ -636,9 +615,7 @@ class BaseRegridder(object):
 
         # skipna: Compute the influence of missing data at each interpolation point and filter those not meeting acceptable threshold.
         if skipna:
-            fraction_valid = apply_weights(
-                weights, (~missing).astype("d"), shape_in, shape_out
-            )
+            fraction_valid = apply_weights(weights, (~missing).astype("d"), shape_in, shape_out)
             tol = 1e-6
             bad = fraction_valid < np.clip(1 - na_thres, tol, 1 - tol)
             fraction_valid[bad] = 1
@@ -675,8 +652,7 @@ class BaseRegridder(object):
         if isinstance(indata, dask_array_type):  # dask
             if output_chunks is None:
                 output_chunks = tuple(
-                    min(shp, inchnk)
-                    for shp, inchnk in zip(self.shape_out, indata.chunksize[-2:])
+                    min(shp, inchnk) for shp, inchnk in zip(self.shape_out, indata.chunksize[-2:])
                 )
             if len(output_chunks) != len(self.shape_out):
                 if len(output_chunks) == 1 and self.sequence_out:
@@ -687,26 +663,20 @@ class BaseRegridder(object):
                         f" output_chunks dimension ({len(output_chunks)}) does not "
                         f"match ds_out dimension ({len(self.shape_out)})"
                     )
-            weights = da.from_array(
-                weights, chunks=(output_chunks + indata.chunksize[-2:])
-            )
+            weights = da.from_array(weights, chunks=(output_chunks + indata.chunksize[-2:]))
             outdata = self._regrid(indata, weights, **kwargs)
         else:  # numpy
             outdata = self._regrid(indata, weights, **kwargs)
         return outdata
 
-    def regrid_numpy(
-        self, indata: npt.NDArray[np.float256], **kwargs
-    ) -> npt.NDArray[np.float256]:
+    def regrid_numpy(self, indata: npt.NDArray[np.float256], **kwargs) -> npt.NDArray[np.float256]:
         warnings.warn(
             "`regrid_numpy()` will be removed in xESMF 0.7, please use `regrid_array` instead.",
             category=FutureWarning,
         )
         return self.regrid_array(indata, self.weights.data, **kwargs)
 
-    def regrid_dask(
-        self, indata: npt.NDArray[np.float256], **kwargs
-    ) -> npt.NDArray[np.float256]:
+    def regrid_dask(self, indata: npt.NDArray[np.float256], **kwargs) -> npt.NDArray[np.float256]:
         warnings.warn(
             "`regrid_dask()` will be removed in xESMF 0.7, please use `regrid_array` instead.",
             category=FutureWarning,
@@ -778,9 +748,7 @@ class BaseRegridder(object):
     ) -> Tuple[Tuple[Hashable, ...], List[str]]:
         # dr could be a DataArray or a Dataset
         # Get input horiz dim names and set output horiz dim names
-        if self.in_horiz_dims is not None and all(
-            dim in dr_in.dims for dim in self.in_horiz_dims
-        ):
+        if self.in_horiz_dims is not None and all(dim in dr_in.dims for dim in self.in_horiz_dims):
             input_horiz_dims = self.in_horiz_dims
         else:
             if isinstance(dr_in, Dataset):
@@ -1015,9 +983,7 @@ class Regridder(BaseRegridder):
         if locstream_out:
             grid_out, shape_out, output_dims = ds_to_ESMFlocstream(ds_out)
         else:
-            grid_out, shape_out, output_dims = ds_to_ESMFgrid(
-                ds_out, need_bounds=need_bounds
-            )
+            grid_out, shape_out, output_dims = ds_to_ESMFgrid(ds_out, need_bounds=need_bounds)
 
         # Create the BaseRegridder
         super().__init__(
@@ -1039,12 +1005,8 @@ class Regridder(BaseRegridder):
                 dims = [("locations",), ("locations",)]
             else:
                 dims = [("lon",), ("lat",)]
-            lon_out = xr.DataArray(
-                lon_out, dims=dims[0], name="lon", attrs=LON_CF_ATTRS
-            )
-            lat_out = xr.DataArray(
-                lat_out, dims=dims[1], name="lat", attrs=LAT_CF_ATTRS
-            )
+            lon_out = xr.DataArray(lon_out, dims=dims[0], name="lon", attrs=LON_CF_ATTRS)
+            lat_out = xr.DataArray(lat_out, dims=dims[1], name="lat", attrs=LAT_CF_ATTRS)
 
         if lat_out.ndim == 2:
             self.out_horiz_dims = lat_out.dims
@@ -1071,9 +1033,7 @@ class Regridder(BaseRegridder):
                 if "grid_mapping" in var.attrs
             }
             if grid_mapping:
-                self.out_coords.update(
-                    {gm: ds_out[gm] for gm in grid_mapping if gm in ds_out}
-                )
+                self.out_coords.update({gm: ds_out[gm] for gm in grid_mapping if gm in ds_out})
         else:
             self.out_coords = {lat_out.name: lat_out, lon_out.name: lon_out}
 
@@ -1091,9 +1051,7 @@ class Regridder(BaseRegridder):
             ds_out = ds_out.set_coords(["lon_b", "lat_b"])
         if "lon_b" in ds_in.data_vars:
             ds_in = ds_in.set_coords(["lon_b", "lat_b"])
-        if not (set(self.out_horiz_dims) - {"dummy"}).issubset(
-            ds_out.chunksizes.keys()
-        ):
+        if not (set(self.out_horiz_dims) - {"dummy"}).issubset(ds_out.chunksizes.keys()):
             raise ValueError(
                 "Using `parallel=True` requires the output grid to have chunks along all spatial dimensions. "
                 "If the dataset has no variables, consider adding an all-True spatial mask with appropriate chunks."
@@ -1108,9 +1066,7 @@ class Regridder(BaseRegridder):
                 ds_out = ds_out.coords.to_dataset()
                 ds_out["mask"] = mask
             else:
-                ds_out_chunks = tuple(
-                    [ds_out.chunksizes[i] for i in self.out_horiz_dims]
-                )
+                ds_out_chunks = tuple([ds_out.chunksizes[i] for i in self.out_horiz_dims])
                 ds_out = ds_out.coords.to_dataset()
                 mask = da.ones(self.shape_out, dtype=bool, chunks=ds_out_chunks)
                 ds_out["mask"] = (self.out_horiz_dims, mask)
@@ -1123,9 +1079,7 @@ class Regridder(BaseRegridder):
         # Drop unnecessary variables in ds_in to save memory
         if not self.sequence_in:
             # Drop unnecessary dims
-            ds_in_dims_drop = set(ds_in.cf.coordinates.keys()).difference(
-                ["longitude", "latitude"]
-            )
+            ds_in_dims_drop = set(ds_in.cf.coordinates.keys()).difference(["longitude", "latitude"])
             ds_in = ds_in.cf.drop_dims(ds_in_dims_drop)
 
             # Drop unnecessary vars
@@ -1153,9 +1107,7 @@ class Regridder(BaseRegridder):
         if self.sequence_in:
             ds_in = ds_in.rename({self.in_horiz_dims[0]: "x_in"})
         else:
-            ds_in = ds_in.rename(
-                {self.in_horiz_dims[0]: "y_in", self.in_horiz_dims[1]: "x_in"}
-            )
+            ds_in = ds_in.rename({self.in_horiz_dims[0]: "y_in", self.in_horiz_dims[1]: "x_in"})
 
         if self.sequence_out:
             ds_out = ds_out.rename({self.out_horiz_dims[1]: "x_out"})
@@ -1313,9 +1265,7 @@ class SpatialAverager(BaseRegridder):
         if isinstance(ds_in, xr.DataArray):
             ds_in = ds_in._to_temp_dataset()
 
-        grid_in, shape_in, input_dims = ds_to_ESMFgrid(
-            ds_in, need_bounds=True, periodic=periodic
-        )
+        grid_in, shape_in, input_dims = ds_to_ESMFgrid(ds_in, need_bounds=True, periodic=periodic)
 
         # Create an output locstream so that the regridder knows the output shape and coords.
         # Latitude and longitude coordinates are the polygon centroid.
@@ -1361,9 +1311,7 @@ class SpatialAverager(BaseRegridder):
         for check_poly in check_polys:
             b = check_poly.boundary.coords
             # Length of each segment
-            poly_segments.extend(
-                [LineString(b[k : k + 2]).length for k in range(len(b) - 1)]
-            )
+            poly_segments.extend([LineString(b[k : k + 2]).length for k in range(len(b) - 1)])
         if np.any(np.array(poly_segments) > threshold):
             warnings.warn(
                 f"`polys` contains large (> {threshold}°) segments. This could lead to errors over large regions. For a more accurate average, segmentize (densify) your shapes with  `shapely.segmentize(polys, {threshold})`",
@@ -1469,9 +1417,7 @@ class SpatialAverager(BaseRegridder):
 
         return info
 
-    def _format_xroutput(
-        self, out: DataArray | Dataset, new_dims=None
-    ) -> DataArray | Dataset:
+    def _format_xroutput(self, out: DataArray | Dataset, new_dims=None) -> DataArray | Dataset:
         out = out.squeeze(dim="dummy")
 
         # rename dimension name to match output grid
@@ -1479,11 +1425,7 @@ class SpatialAverager(BaseRegridder):
 
         # append output horizontal coordinate values
         # extra coordinates are automatically tracked by apply_ufunc
-        out.coords[self._lon_out_name] = xr.DataArray(
-            self._lon_out, dims=(self.geom_dim_name,)
-        )
-        out.coords[self._lat_out_name] = xr.DataArray(
-            self._lat_out, dims=(self.geom_dim_name,)
-        )
+        out.coords[self._lon_out_name] = xr.DataArray(self._lon_out, dims=(self.geom_dim_name,))
+        out.coords[self._lat_out_name] = xr.DataArray(self._lat_out, dims=(self.geom_dim_name,))
         out.attrs["regrid_method"] = self.method
         return out
