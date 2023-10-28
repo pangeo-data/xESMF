@@ -2,14 +2,17 @@ from typing import Any, Generator, List, Literal, Tuple
 import warnings
 
 import numpy as np
+import numpy.typing as npt
 import xarray as xr
 from shapely.geometry import MultiPolygon, Polygon
 
-LON_CF_ATTRS = {'standard_name': 'longitude', 'units': 'degrees_east'}
-LAT_CF_ATTRS = {'standard_name': 'latitude', 'units': 'degrees_north'}
+LON_CF_ATTRS = {"standard_name": "longitude", "units": "degrees_east"}
+LAT_CF_ATTRS = {"standard_name": "latitude", "units": "degrees_north"}
 
 
-def _grid_1d(start_b: float, end_b: float, step: float):
+def _grid_1d(
+    start_b: float, end_b: float, step: float
+) -> tuple[npt.NDArray[np.floating[Any]], npt.NDArray[np.floating[Any]]]:
     """
     1D grid centers and bounds
 
@@ -73,10 +76,10 @@ def grid_2d(
 
     ds = xr.Dataset(
         coords={
-            'lon': (['y', 'x'], lon, {'standard_name': 'longitude'}),
-            'lat': (['y', 'x'], lat, {'standard_name': 'latitude'}),
-            'lon_b': (['y_b', 'x_b'], lon_b),
-            'lat_b': (['y_b', 'x_b'], lat_b),
+            "lon": (["y", "x"], lon, {"standard_name": "longitude"}),
+            "lat": (["y", "x"], lat, {"standard_name": "latitude"}),
+            "lon_b": (["y_b", "x_b"], lon_b),
+            "lat_b": (["y_b", "x_b"], lat_b),
         }
     )
 
@@ -120,21 +123,21 @@ def cf_grid_2d(
 
     ds = xr.Dataset(
         coords={
-            'lon': (
-                'lon',
+            "lon": (
+                "lon",
                 lon_1d,
-                {'bounds': 'lon_bounds', **LON_CF_ATTRS},
+                {"bounds": "lon_bounds", **LON_CF_ATTRS},
             ),
-            'lat': (
-                'lat',
+            "lat": (
+                "lat",
                 lat_1d,
-                {'bounds': 'lat_bounds', **LAT_CF_ATTRS},
+                {"bounds": "lat_bounds", **LAT_CF_ATTRS},
             ),
-            'latitude_longitude': xr.DataArray(),
+            "latitude_longitude": xr.DataArray(),
         },
         data_vars={
-            'lon_bounds': vertices_to_bounds(lon_b_1d, ('bound', 'lon')),
-            'lat_bounds': vertices_to_bounds(lat_b_1d, ('bound', 'lat')),
+            "lon_bounds": vertices_to_bounds(lon_b_1d, ("bound", "lon")),
+            "lat_bounds": vertices_to_bounds(lat_b_1d, ("bound", "lat")),
         },
     )
 
@@ -170,14 +173,12 @@ def grid_global(
 
     if not np.isclose(360 / d_lon, 360 // d_lon):
         warnings.warn(
-            '360 cannot be divided by d_lon = {}, '
-            'might not cover the globe uniformly'.format(d_lon)
+            f"360 cannot be divided by d_lon = {d_lon}, might not cover the globe uniformly"
         )
 
     if not np.isclose(180 / d_lat, 180 // d_lat):
         warnings.warn(
-            '180 cannot be divided by d_lat = {}, '
-            'might not cover the globe uniformly'.format(d_lat)
+            f"180 cannot be divided by d_lat = {d_lat}, might not cover the globe uniformly"
         )
 
     lon0 = lon1 - 360
@@ -242,7 +243,12 @@ _default_Re = 6371.0e3  # MIDAS
 HUGE = 1.0e30
 
 
-def simple_tripolar_grid(nlons: int, nlats: int, lat_cap: float = 60, lon_cut: float = -300):
+def simple_tripolar_grid(
+    nlons: int,
+    nlats: int,
+    lat_cap: float = 60,
+    lon_cut: float = -300,
+) -> tuple[npt.NDArray[np.floating[Any]], npt.NDArray[Any]]:
     """Generate a simple tripolar grid, regular under `lat_cap`.
 
     Parameters
@@ -259,7 +265,7 @@ def simple_tripolar_grid(nlons: int, nlats: int, lat_cap: float = 60, lon_cut: f
     """
 
     # first generate the bipolar cap for north poles
-    nj_cap = np.rint(nlats * lat_cap / 180.0).astype('int')
+    nj_cap = np.rint(nlats * lat_cap / 180.0).astype("int")
 
     lams, phis, _, _ = _generate_bipolar_cap_mesh(
         nlons, nj_cap, lat_cap, lon_cut, ensure_nj_even=True
@@ -283,9 +289,9 @@ def simple_tripolar_grid(nlons: int, nlats: int, lat_cap: float = 60, lon_cut: f
 
 
 def _bipolar_projection(
-    lamg: float,
-    phig: float,
-    lon_bp: float,
+    lamg: npt.NDArray[np.floating[Any]],
+    phig: npt.NDArray[np.floating[Any]],
+    lon_bp: npt.NDArray[np.floating[Any]],
     rp: float,
     metrics_only: bool = False,
 ):
@@ -314,7 +320,9 @@ def _bipolar_projection(
         # One way is simply to demand lamc to be continuous with lam on the equator phi=0
         # I am sure there is a more mathematically concrete way to do this.
         lamc = np.where((lamg - lon_bp > 90) & (lamg - lon_bp <= 180), 180 - lamc, lamc)
-        lamc = np.where((lamg - lon_bp > 180) & (lamg - lon_bp <= 270), 180 + lamc, lamc)
+        lamc = np.where(
+            (lamg - lon_bp > 180) & (lamg - lon_bp <= 270), 180 + lamc, lamc
+        )
         lamc = np.where((lamg - lon_bp > 270), 360 - lamc, lamc)
         # Along symmetry meridian choose lamc
         lamc = np.where(
@@ -339,7 +347,9 @@ def _bipolar_projection(
     N_inv = 1 / N
     cos2phis = (np.cos(phis * PI_180)) ** 2
 
-    h_j_inv_t1 = cos2phis * alpha2 * (1 - alpha2) * beta2_inv * (1 + beta2_inv) * (rden**2)
+    h_j_inv_t1 = (
+        cos2phis * alpha2 * (1 - alpha2) * beta2_inv * (1 + beta2_inv) * (rden**2)
+    )
     h_j_inv_t2 = M_inv * M_inv * (1 - alpha2) * rden
     h_j_inv = h_j_inv_t1 + h_j_inv_t2
 
@@ -347,7 +357,10 @@ def _bipolar_projection(
     h_j_inv = np.where(np.abs(beta2_inv) > HUGE, M_inv * M_inv, h_j_inv)
     h_j_inv = np.sqrt(h_j_inv) * N_inv
 
-    h_i_inv = cos2phis * (1 + beta2_inv) * (rden**2) + M_inv * M_inv * alpha2 * beta2_inv * rden
+    h_i_inv = (
+        cos2phis * (1 + beta2_inv) * (rden**2)
+        + M_inv * M_inv * alpha2 * beta2_inv * rden
+    )
     # Deal with beta=0
     h_i_inv = np.where(np.abs(beta2_inv) > HUGE, M_inv * M_inv, h_i_inv)
     h_i_inv = np.sqrt(h_i_inv)
@@ -367,22 +380,22 @@ def _generate_bipolar_cap_mesh(
 ):
     # Define a (lon,lat) coordinate mesh on the Northern hemisphere of the globe sphere
     # such that the resolution of latg matches the desired resolution of the final grid along the symmetry meridian
-    print('Generating bipolar grid bounded at latitude ', lat0_bp)
+    print("Generating bipolar grid bounded at latitude ", lat0_bp)
     if Nj_ncap % 2 != 0 and ensure_nj_even:
-        print('   Supergrid has an odd number of area cells!')
+        print("   Supergrid has an odd number of area cells!")
         if ensure_nj_even:
             print("   The number of j's is not even. Fixing this by cutting one row.")
             Nj_ncap = Nj_ncap - 1
 
     lon_g = lon_bp + np.arange(Ni + 1) * 360.0 / float(Ni)
-    lamg = np.tile(lon_g, (Nj_ncap + 1, 1))
+    lamg: float = np.tile(lon_g, (Nj_ncap + 1, 1))
     latg0_cap = lat0_bp + np.arange(Nj_ncap + 1) * (90 - lat0_bp) / float(Nj_ncap)
-    phig = np.tile(latg0_cap.reshape((Nj_ncap + 1, 1)), (1, Ni + 1))
+    phig: float = np.tile(latg0_cap.reshape((Nj_ncap + 1, 1)), (1, Ni + 1))
     rp = np.tan(0.5 * (90 - lat0_bp) * PI_180)
     lams, phis, h_i_inv, h_j_inv = _bipolar_projection(lamg, phig, lon_bp, rp)
     h_i_inv = h_i_inv[:, :-1] * 2 * np.pi / float(Ni)
     h_j_inv = h_j_inv[:-1, :] * PI_180 * (90 - lat0_bp) / float(Nj_ncap)
-    print('   number of js=', phis.shape[0])
+    print("   number of js=", phis.shape[0])
     return lams, phis, h_i_inv, h_j_inv
 
 

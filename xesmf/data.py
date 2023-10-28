@@ -2,21 +2,23 @@
 Standard test data for regridding benchmark.
 """
 
+from typing import Any
 import numpy as np
+import numpy.typing as npt
 import xarray
 
 
 def wave_smooth(  # type: ignore
-    lon: np.ndarray[float] | xarray.DataArray,  # type: ignore
-    lat: np.ndarray[float] | xarray.DataArray,  # type: ignore
-) -> np.ndarray[float] | xarray.DataArray:  # type: ignore
+    lon: npt.NDArray[np.floating[Any]] | xarray.DataArray,
+    lat: npt.NDArray[np.floating[Any]] | xarray.DataArray,
+) -> npt.NDArray[np.floating[Any]] | xarray.DataArray:
     """
     Spherical harmonic with low frequency.
 
     Parameters
     ----------
     lon, lat : 2D numpy array or xarray DataArray
-            Longitute/Latitude of cell centers
+            Longitude/Latitude of cell centers
 
     Returns
     -------
@@ -40,8 +42,8 @@ def wave_smooth(  # type: ignore
         137(6), 1721-1741.
     """
     # degree to radius, make a copy
-    lat *= np.pi / 180.0  # type: ignore
-    lon *= np.pi / 180.0  # type: ignore
+    lat *= np.pi / 180.0
+    lon *= np.pi / 180.0
 
-    f = 2 + pow(np.cos(lat), 2) * np.cos(2 * lon)  # type: ignore
+    f = 2 + pow(np.cos(lat), 2) * np.cos(2 * lon)
     return f

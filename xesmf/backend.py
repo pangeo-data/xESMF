@@ -16,6 +16,7 @@ So it would be helpful to catch some common mistakes in Python level.
 """
 
 import os
+from typing import Optional
 import warnings
 
 try:
@@ -37,8 +38,8 @@ def warn_f_contiguous(a: np.ndarray) -> None:
     ----------
     a : numpy array
     """
-    if not a.flags['F_CONTIGUOUS']:
-        warnings.warn('Input array is not F_CONTIGUOUS. ' 'Will affect performance.')
+    if not a.flags["F_CONTIGUOUS"]:
+        warnings.warn("Input array is not F_CONTIGUOUS. " "Will affect performance.")
 
 
 def warn_lat_range(lat: np.ndarray) -> None:
@@ -53,17 +54,17 @@ def warn_lat_range(lat: np.ndarray) -> None:
     lat : numpy array
     """
     if (lat.max() > 90.0) or (lat.min() < -90.0):
-        warnings.warn('Latitude is outside of [-90, 90]')
+        warnings.warn("Latitude is outside of [-90, 90]")
 
 
 class Grid(ESMF.Grid):
     @classmethod
     def from_xarray(
         cls,
-        lon: np.ndarray[float, int],
-        lat: np.ndarray[float, int],
+        lon: np.ndarray,
+        lat: np.ndarray,
         periodic: bool = False,
-        mask=None,
+        mask: Optional[np.ndarray] = None,
     ):
         """
         Create an ESMF.Grid object, for constructing ESMF.Field and ESMF.Regrid.
@@ -103,8 +104,8 @@ class Grid(ESMF.Grid):
 
         # ESMF.Grid can actually take 3D array (lon, lat, radius),
         # but regridding only works for 2D array
-        assert lon.ndim == 2, 'Input grid must be 2D array'
-        assert lon.shape == lat.shape, 'lon and lat must have same shape'
+        assert lon.ndim == 2, "Input grid must be 2D array"
+        assert lon.shape == lat.shape, "lon and lat must have same shape"
 
         staggerloc = ESMF.StaggerLoc.CENTER  # actually just integer 0
 
@@ -142,10 +143,13 @@ class Grid(ESMF.Grid):
             grid_mask = mask.astype(np.int32)
             if not (grid_mask.shape == lon.shape):
                 raise ValueError(
-                    'mask must have the same shape as the latitude/longitude'
-                    'coordinates, got: mask.shape = %s, lon.shape = %s' % (mask.shape, lon.shape)
+                    "mask must have the same shape as the latitude/longitude"
+                    "coordinates, got: mask.shape = %s, lon.shape = %s"
+                    % (mask.shape, lon.shape)
                 )
-            grid.add_item(ESMF.GridItem.MASK, staggerloc=ESMF.StaggerLoc.CENTER, from_file=False)
+            grid.add_item(
+                ESMF.GridItem.MASK, staggerloc=ESMF.StaggerLoc.CENTER, from_file=False
+            )
             grid.mask[0][:] = grid_mask
 
         return grid
@@ -157,7 +161,7 @@ class Grid(ESMF.Grid):
 
 class LocStream(ESMF.LocStream):
     @classmethod
-    def from_xarray(cls, lon, lat):
+    def from_xarray(cls, lon: np.ndarray, lat: np.ndarray) -> ESMF.LocStream:
         """
         Create an ESMF.LocStream object, for contrusting ESMF.Field and ESMF.Regrid
 
@@ -172,9 +176,9 @@ class LocStream(ESMF.LocStream):
         """
 
         if len(lon.shape) > 1:
-            raise ValueError('lon can only be 1d')
+            raise ValueError("lon can only be 1d")
         if len(lat.shape) > 1:
-            raise ValueError('lat can only be 1d')
+            raise ValueError("lat can only be 1d")
 
         assert lon.shape == lat.shape
 
@@ -182,8 +186,8 @@ class LocStream(ESMF.LocStream):
 
         locstream = cls(location_count, coord_sys=ESMF.CoordSys.SPH_DEG)
 
-        locstream['ESMF:Lon'] = lon.astype(np.dtype('f8'))
-        locstream['ESMF:Lat'] = lat.astype(np.dtype('f8'))
+        locstream["ESMF:Lon"] = lon.astype(np.dtype("f8"))
+        locstream["ESMF:Lat"] = lat.astype(np.dtype("f8"))
 
         return locstream
 
@@ -218,12 +222,14 @@ def add_corner(grid, lon_b, lat_b):
 
     warn_lat_range(lat_b)
 
-    assert lon_b.ndim == 2, 'Input grid must be 2D array'
-    assert lon_b.shape == lat_b.shape, 'lon_b and lat_b must have same shape'
-    assert np.array_equal(lon_b.shape, grid.max_index + 1), 'lon_b should be size (Nx+1, Ny+1)'
+    assert lon_b.ndim == 2, "Input grid must be 2D array"
+    assert lon_b.shape == lat_b.shape, "lon_b and lat_b must have same shape"
+    assert np.array_equal(
+        lon_b.shape, grid.max_index + 1
+    ), "lon_b should be size (Nx+1, Ny+1)"
     assert (grid.num_peri_dims == 0) and (
         grid.periodic_dim is None
-    ), 'Cannot add corner for periodic grid'
+    ), "Cannot add corner for periodic grid"
 
     grid.add_coords(staggerloc=staggerloc)
 
@@ -236,7 +242,7 @@ def add_corner(grid, lon_b, lat_b):
 
 class Mesh(ESMF.Mesh):
     @classmethod
-    def from_polygons(cls, polys, element_coords='centroid'):
+    def from_polygons(cls, polys, element_coords="centroid"):
         """
         Create an ESMF.Mesh object from a list of polygons.
 
@@ -260,13 +266,13 @@ class Mesh(ESMF.Mesh):
         node_num = sum(len(e.exterior.coords) - 1 for e in polys)
         elem_num = len(polys)
         # Pre alloc arrays. Special structure for coords makes the code faster.
-        crd_dt = np.dtype([('x', np.float32), ('y', np.float32)])
+        crd_dt = np.dtype([("x", np.float32), ("y", np.float32)])
         node_coords = np.empty(node_num, dtype=crd_dt)
         node_coords[:] = (np.nan, np.nan)  # Fill with impossible values
         element_types = np.empty(elem_num, dtype=np.uint32)
         element_conn = np.empty(node_num, dtype=np.uint32)
         # Flag for centroid calculation
-        calc_centroid = isinstance(element_coords, str) and element_coords == 'centroid'
+        calc_centroid = isinstance(element_coords, str) and element_coords == "centroid"
         if calc_centroid:
             element_coords = np.empty(elem_num, dtype=crd_dt)
         inode = 0
@@ -309,7 +315,7 @@ class Mesh(ESMF.Mesh):
             )
         except ValueError as err:
             raise ValueError(
-                'ESMF failed to create the Mesh, this usually happen when some polygons are invalid (test with `poly.is_valid`)'
+                "ESMF failed to create the Mesh, this usually happen when some polygons are invalid (test with `poly.is_valid`)"
             ) from err
         return mesh
 
@@ -394,56 +400,66 @@ def esmf_regrid_build(
 
     # use shorter, clearer names for options in ESMF.RegridMethod
     method_dict = {
-        'bilinear': ESMF.RegridMethod.BILINEAR,
-        'conservative': ESMF.RegridMethod.CONSERVE,
-        'conservative_normed': ESMF.RegridMethod.CONSERVE,
-        'patch': ESMF.RegridMethod.PATCH,
-        'nearest_s2d': ESMF.RegridMethod.NEAREST_STOD,
-        'nearest_d2s': ESMF.RegridMethod.NEAREST_DTOS,
+        "bilinear": ESMF.RegridMethod.BILINEAR,
+        "conservative": ESMF.RegridMethod.CONSERVE,
+        "conservative_normed": ESMF.RegridMethod.CONSERVE,
+        "patch": ESMF.RegridMethod.PATCH,
+        "nearest_s2d": ESMF.RegridMethod.NEAREST_STOD,
+        "nearest_d2s": ESMF.RegridMethod.NEAREST_DTOS,
     }
     try:
         esmf_regrid_method = method_dict[method]
     except Exception:
-        raise ValueError('method should be chosen from ' '{}'.format(list(method_dict.keys())))
+        raise ValueError(
+            "method should be chosen from " "{}".format(list(method_dict.keys()))
+        )
 
     # use shorter, clearer names for options in ESMF.ExtrapMethod
     extrap_dict = {
-        'inverse_dist': ESMF.ExtrapMethod.NEAREST_IDAVG,
-        'nearest_s2d': ESMF.ExtrapMethod.NEAREST_STOD,
+        "inverse_dist": ESMF.ExtrapMethod.NEAREST_IDAVG,
+        "nearest_s2d": ESMF.ExtrapMethod.NEAREST_STOD,
         None: None,
     }
     try:
         esmf_extrap_method = extrap_dict[extrap_method]
     except KeyError:
         raise KeyError(
-            '`extrap_method` should be chosen from ' '{}'.format(list(extrap_dict.keys()))
+            "`extrap_method` should be chosen from " "{}".format(
+                list(extrap_dict.keys())
+            )
         )
 
     # until ESMPy updates ESMP_FieldRegridStoreFile, extrapolation is not possible
     # if files are written on disk
     if (extrap_method is not None) & (filename is not None):
-        raise ValueError('`extrap_method` cannot be used along with `filename`.')
+        raise ValueError("`extrap_method` cannot be used along with `filename`.")
 
     # conservative regridding needs cell corner information
-    if method in ['conservative', 'conservative_normed']:
+    if method in ["conservative", "conservative_normed"]:
         if not isinstance(sourcegrid, ESMF.Mesh) and not sourcegrid.has_corners:
             raise ValueError(
-                'source grid has no corner information. ' 'cannot use conservative regridding.'
+                "source grid has no corner information. "
+                "cannot use conservative regridding."
             )
         if not isinstance(destgrid, ESMF.Mesh) and not destgrid.has_corners:
             raise ValueError(
-                'destination grid has no corner information. ' 'cannot use conservative regridding.'
+                "destination grid has no corner information. "
+                "cannot use conservative regridding."
             )
 
     # ESMF.Regrid requires Field (Grid+data) as input, not just Grid.
     # Extra dimensions are specified when constructing the Field objects,
     # not when constructing the Regrid object later on.
     if isinstance(sourcegrid, ESMF.Mesh):
-        sourcefield = ESMF.Field(sourcegrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims)
+        sourcefield = ESMF.Field(
+            sourcegrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims
+        )
     else:
         sourcefield = ESMF.Field(sourcegrid, ndbounds=extra_dims)
     if isinstance(destgrid, ESMF.Mesh):
-        destfield = ESMF.Field(destgrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims)
+        destfield = ESMF.Field(
+            destgrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims
+        )
     else:
         destfield = ESMF.Field(destgrid, ndbounds=extra_dims)
 
@@ -460,11 +476,11 @@ def esmf_regrid_build(
     if filename is not None:
         assert not os.path.exists(
             filename
-        ), 'Weight file already exists! Please remove it or use a new name.'
+        ), "Weight file already exists! Please remove it or use a new name."
 
     # re-normalize conservative regridding results
     # https://github.com/JiaweiZhuang/xESMF/issues/17
-    if method == 'conservative_normed':
+    if method == "conservative_normed":
         norm_type = ESMF.NormType.FRACAREA
     else:
         norm_type = ESMF.NormType.DSTAREA
@@ -571,7 +587,7 @@ def esmf_regrid_finalize(regrid):
 
 def esmf_locstream(lon, lat):
     warnings.warn(
-        '`esmf_locstream` is being deprecated in favor of `LocStream.from_xarray`',
+        "`esmf_locstream` is being deprecated in favor of `LocStream.from_xarray`",
         DeprecationWarning,
     )
     return LocStream.from_xarray(lon, lat)
@@ -579,6 +595,7 @@ def esmf_locstream(lon, lat):
 
 def esmf_grid(lon, lat, periodic=False, mask=None):
     warnings.warn(
-        '`esmf_grid` is being deprecated in favor of `Grid.from_xarray`', DeprecationWarning
+        "`esmf_grid` is being deprecated in favor of `Grid.from_xarray`",
+        DeprecationWarning,
     )
     return Grid.from_xarray(lon, lat)
