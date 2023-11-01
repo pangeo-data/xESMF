@@ -792,7 +792,7 @@ class BaseRegridder(object):
         return input_horiz_dims, temp_horiz_dims
 
     def _format_xroutput(
-        self, out: xr.DataArray | xr.Dataset, new_dims: List[str]
+        self, out: xr.DataArray | xr.Dataset, new_dims: Optional[List[str]] = None
     ) -> xr.DataArray | xr.Dataset:
         out.attrs["regrid_method"] = self.method
         return out
