@@ -171,7 +171,7 @@ def check_shapes(
 
 
 def apply_weights(
-    weights: npt.NDArray[Any],
+    weights: sps.COO,
     indata: npt.NDArray[Any],
     shape_in: Tuple[int, int],
     shape_out: Tuple[int, int],
