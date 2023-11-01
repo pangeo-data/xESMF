@@ -289,11 +289,7 @@ def simple_tripolar_grid(
 
 
 def _bipolar_projection(
-    lamg: npt.NDArray[np.floating[Any]],
-    phig: npt.NDArray[np.floating[Any]],
-    lon_bp: npt.NDArray[np.floating[Any]],
-    rp: float,
-    metrics_only: bool = False,
+    lamg: float, phig: float, lon_bp: float, rp: float, metrics_only: bool = False
 ):
     """Makes a stereographic bipolar projection of the input coordinate mesh (lamg,phig)
     Returns the projected coordinate mesh and their metric coefficients (h^-1).

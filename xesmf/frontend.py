@@ -13,14 +13,7 @@ import xarray as xr
 from shapely.geometry import LineString, MultiPolygon, Polygon
 from xarray import DataArray, Dataset
 
-from .backend import (
-    Grid,
-    LocStream,
-    Mesh,
-    add_corner,
-    esmf_regrid_build,
-    esmf_regrid_finalize,
-)
+from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
 from .smm import (
     _combine_weight_multipoly,
     _parse_coords_and_values,
@@ -624,7 +617,7 @@ class BaseRegridder(object):
         if skipna:
             fraction_valid = apply_weights(weights, (~missing).astype("d"), shape_in, shape_out)
             tol = 1e-6
-            bad = fraction_valid < np.clip(1 - na_thres, tol, 1 - tol)
+            bad = fraction_valid < np.clip(1 - na_thresh, tol, 1 - tol)
             fraction_valid[bad] = 1
             outdata = np.where(bad, np.nan, outdata / fraction_valid)
 
@@ -792,7 +785,7 @@ class BaseRegridder(object):
         return input_horiz_dims, temp_horiz_dims
 
     def _format_xroutput(
-        self, out: xr.DataArray | xr.Dataset, new_dims: List[str]
+        self, out: xr.DataArray | xr.Dataset, new_dims: Optional[List[str]] = None
     ) -> xr.DataArray | xr.Dataset:
         out.attrs["regrid_method"] = self.method
         return out
@@ -800,19 +793,12 @@ class BaseRegridder(object):
     def __repr__(self) -> str:
         info = (
             "xESMF Regridder \n"
-            "Regridding algorithm:       {} \n"
-            "Weight filename:            {} \n"
-            "Reuse pre-computed weights? {} \n"
-            "Input grid shape:           {} \n"
-            "Output grid shape:          {} \n"
-            "Periodic in longitude?      {}".format(
-                self.method,
-                self.filename,
-                self.reuse_weights,
-                self.shape_in,
-                self.shape_out,
-                self.periodic,
-            )
+            f"Regridding algorithm:       {self.method} \n"
+            f"Weight filename:            {self.filename} \n"
+            f"Reuse pre-computed weights? {self.reuse_weights} \n"
+            f"Input grid shape:           {self.shape_in} \n"
+            f"Output grid shape:          {self.shape_out} \n"
+            f"Periodic in longitude?      {self.periodic}"
         )
 
         return info
@@ -1189,7 +1175,7 @@ class SpatialAverager(BaseRegridder):
         periodic: bool = False,
         filename: Optional[str] = None,
         reuse_weights: bool = False,
-        weights: Optional[sps.coo_matrix | dict | str | Dataset | "Path"] = None,
+        weights: Optional[sps.coo_matrix | dict | str | Dataset] = None,
         ignore_degenerate: bool = False,
         geom_dim_name: str = "geom",
     ):
