@@ -13,7 +13,14 @@ import xarray as xr
 from shapely.geometry import LineString, MultiPolygon, Polygon
 from xarray import DataArray, Dataset
 
-from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
+from .backend import (
+    Grid,
+    LocStream,
+    Mesh,
+    add_corner,
+    esmf_regrid_build,
+    esmf_regrid_finalize,
+)
 from .smm import (
     _combine_weight_multipoly,
     _parse_coords_and_values,
@@ -79,9 +86,9 @@ def subset_regridder(
 
 
 def as_2d_mesh(
-    lon: DataArray | npt.NDArray[np.float256],
-    lat: DataArray | npt.NDArray[np.float256],
-) -> tuple[DataArray | npt.NDArray[np.float256], DataArray | npt.NDArray[np.float256]]:
+    lon: DataArray | npt.NDArray[np.floating[Any]],
+    lat: DataArray | npt.NDArray[np.floating[Any]],
+) -> tuple[DataArray | npt.NDArray[np.floating[Any]], DataArray | npt.NDArray[np.floating[Any]]]:
     if (lon.ndim, lat.ndim) == (2, 2):
         assert lon.shape == lat.shape, "lon and lat should have same shape"
     elif (lon.ndim, lat.ndim) == (1, 1):
@@ -93,8 +100,8 @@ def as_2d_mesh(
 
 
 def _get_lon_lat(
-    ds: Dataset | Dict[str, npt.NDArray[np.float256]]
-) -> tuple[DataArray | npt.NDArray[np.float256], DataArray | npt.NDArray[np.float256]]:
+    ds: Dataset | Dict[str, npt.NDArray[np.floating[Any]]]
+) -> tuple[DataArray | npt.NDArray[np.floating[Any]], DataArray | npt.NDArray[np.floating[Any]]]:
     """Return lon and lat extracted from ds."""
     if ("lat" in ds and "lon" in ds) or ("lat" in ds.coords and "lon" in ds.coords):
         # Old way.
@@ -112,8 +119,8 @@ def _get_lon_lat(
 
 
 def _get_lon_lat_bounds(
-    ds: Dataset | Dict[str, npt.NDArray[np.float256]]
-) -> tuple[DataArray | npt.NDArray[np.float256], DataArray | npt.NDArray[np.float256]]:
+    ds: Dataset | Dict[str, npt.NDArray[np.floating[Any]]]
+) -> tuple[DataArray | npt.NDArray[np.floating[Any]], DataArray | npt.NDArray[np.floating[Any]]]:
     """Return bounds of lon and lat extracted from ds."""
     if "lat_b" in ds and "lon_b" in ds:
         # Old way.
@@ -143,7 +150,7 @@ def _get_lon_lat_bounds(
 
 
 def ds_to_ESMFgrid(
-    ds: Dataset | Dict[str, npt.NDArray[np.float256]],
+    ds: Dataset | Dict[str, npt.NDArray[np.floating[Any]]],
     need_bounds: bool = False,
     periodic: bool = False,
     append=None,
@@ -488,7 +495,7 @@ class BaseRegridder(object):
 
     def __call__(
         self,
-        indata: npt.NDArray[np.float256] | dask_array_type | xr.DataArray | xr.Dataset,
+        indata: npt.NDArray[np.floating[Any]] | dask_array_type | xr.DataArray | xr.Dataset,
         keep_attrs: bool = False,
         skipna: bool = False,
         na_thres: float = 1.0,
@@ -597,17 +604,17 @@ class BaseRegridder(object):
 
     @staticmethod
     def _regrid(
-        indata: npt.NDArray[np.float256],
+        indata: npt.NDArray[np.floating[Any]],
         weights: sps.coo_matrix,
         *,
         shape_in: Tuple[int, int],
         shape_out: Tuple[int, int],
         skipna: bool,
         na_thresh: float,
-    ) -> npt.NDArray[np.float256]:
+    ) -> npt.NDArray[np.floating[Any]]:
         # skipna: set missing values to zero
         if skipna:
-            missing = np.isnan(indata)
+            missing: npt.NDArray[np.bool_] = np.isnan(indata)
             indata = np.where(missing, 0.0, indata)
 
         # apply weights
@@ -625,7 +632,7 @@ class BaseRegridder(object):
 
     def regrid_array(
         self,
-        indata: npt.NDArray[np.float256] | dask_array_type,
+        indata: npt.NDArray[np.floating[Any]] | dask_array_type,
         weights: sps.coo_matrix,
         skipna: bool = False,
         na_thres: float = 1.0,
@@ -669,14 +676,18 @@ class BaseRegridder(object):
             outdata = self._regrid(indata, weights, **kwargs)
         return outdata
 
-    def regrid_numpy(self, indata: npt.NDArray[np.float256], **kwargs) -> npt.NDArray[np.float256]:
+    def regrid_numpy(
+        self, indata: npt.NDArray[np.floating[Any]], **kwargs
+    ) -> npt.NDArray[np.floating[Any]]:
         warnings.warn(
             "`regrid_numpy()` will be removed in xESMF 0.7, please use `regrid_array` instead.",
             category=FutureWarning,
         )
         return self.regrid_array(indata, self.weights.data, **kwargs)
 
-    def regrid_dask(self, indata: npt.NDArray[np.float256], **kwargs) -> npt.NDArray[np.float256]:
+    def regrid_dask(
+        self, indata: npt.NDArray[np.floating[Any]], **kwargs
+    ) -> npt.NDArray[np.floating[Any]]:
         warnings.warn(
             "`regrid_dask()` will be removed in xESMF 0.7, please use `regrid_array` instead.",
             category=FutureWarning,
@@ -689,7 +700,7 @@ class BaseRegridder(object):
         keep_attrs: bool = False,
         skipna: bool = False,
         na_thres: float = 1.0,
-        output_chunks: Optional[Tuple[int, ...]] = None,
+        output_chunks: Optional[Dict[str, int] | Tuple[int, ...]] = None,
     ) -> DataArray | Dataset:
         """See __call__()."""
 
@@ -714,7 +725,7 @@ class BaseRegridder(object):
         keep_attrs: bool = False,
         skipna: bool = False,
         na_thres: float = 1.0,
-        output_chunks: Optional[Tuple[int, ...]] = None,
+        output_chunks: Optional[Dict[str, int] | Tuple[int, ...]] = None,
     ) -> DataArray | Dataset:
         """See __call__()."""
 
