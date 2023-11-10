@@ -17,7 +17,7 @@ So it would be helpful to catch some common mistakes in Python level.
 
 import os
 import warnings
-from typing import Any, List, Literal, Union
+from typing import List, Literal, Optional, Sequence, Union
 
 try:
     import esmpy as ESMF
@@ -27,6 +27,7 @@ except ImportError:
 import numpy as np
 import numpy.lib.recfunctions as nprec
 import numpy.typing as npt
+from shapely.geometry import Polygon
 
 
 def warn_f_contiguous(a: npt.NDArray) -> None:
@@ -66,7 +67,7 @@ class Grid(ESMF.Grid):
         lon: npt.NDArray,
         lat: npt.NDArray,
         periodic: bool = False,
-        mask: Union[npt.NDArray[np.integer[Any]], None] = None,
+        mask: Optional[npt.NDArray] = None,
     ):
         """
         Create an ESMF.Grid object, for constructing ESMF.Field and ESMF.Regrid.
@@ -245,7 +246,7 @@ class Mesh(ESMF.Mesh):
     @classmethod
     def from_polygons(
         cls,
-        polys: npt.NDArray[np.object_],
+        polys: Sequence[Polygon],
         element_coords: Union[Literal['centroid'], npt.NDArray] = 'centroid',
     ):
         """
@@ -600,7 +601,7 @@ def esmf_grid(
     lon: npt.NDArray,
     lat: npt.NDArray,
     periodic: bool = False,
-    mask: Union[npt.NDArray[np.integer[Any]], None] = None,
+    mask: Optional[npt.NDArray] = None,
 ) -> Grid:
     warnings.warn(
         '`esmf_grid` is being deprecated in favor of `Grid.from_xarray`',

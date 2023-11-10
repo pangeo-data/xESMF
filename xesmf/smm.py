@@ -111,8 +111,8 @@ def _parse_coords_and_values(
 
 
 def check_shapes(
-    indata: npt.NDArray[Any],
-    weights: npt.NDArray[Any],
+    indata: npt.NDArray,
+    weights: npt.NDArray,
     shape_in: Tuple[int, int],
     shape_out: Tuple[int, int],
 ) -> None:
@@ -172,10 +172,10 @@ def check_shapes(
 
 def apply_weights(
     weights: sps.COO,
-    indata: npt.NDArray[Any],
+    indata: npt.NDArray,
     shape_in: Tuple[int, int],
     shape_out: Tuple[int, int],
-) -> npt.NDArray[Any]:
+) -> npt.NDArray:
     """
     Apply regridding weights to data.
 
@@ -254,8 +254,8 @@ def add_nans_to_weights(weights: xr.DataArray) -> xr.DataArray:
 
 def _combine_weight_multipoly(  # type: ignore
     weights: xr.DataArray,
-    areas: npt.NDArray[np.integer[Any]],
-    indexes: npt.NDArray[np.integer[Any]],
+    areas: npt.NDArray,
+    indexes: npt.NDArray,
 ) -> xr.DataArray:
     """Reduce a weight sparse matrix (csc format) by combining (adding) columns.
 

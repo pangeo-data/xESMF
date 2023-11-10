@@ -241,7 +241,7 @@ def ds_to_ESMFlocstream(ds):
     return locstream, (1,) + lon.shape, dim_names
 
 
-def polys_to_ESMFmesh(polys) -> tuple[Mesh, tuple[Literal[1], int]]:
+def polys_to_ESMFmesh(polys) -> Tuple[Mesh, Tuple[Literal[1], int]]:
     """
     Convert a sequence of shapely Polygons to a ESMF.Mesh object.
 
@@ -488,7 +488,7 @@ class BaseRegridder(object):
 
     def __call__(
         self,
-        indata: Union[npt.NDArray, dask_array_type, xr.DataArray, xr.Dataset],
+        indata: Union[npt.NDArray, 'da.Array', xr.DataArray, xr.Dataset],
         keep_attrs: bool = False,
         skipna: bool = False,
         na_thres: float = 1.0,
@@ -598,7 +598,7 @@ class BaseRegridder(object):
     @staticmethod
     def _regrid(
         indata: npt.NDArray,
-        weights: sps.coo_matrix,
+        weights: sps.COO,
         *,
         shape_in: Tuple[int, int],
         shape_out: Tuple[int, int],
@@ -625,8 +625,8 @@ class BaseRegridder(object):
 
     def regrid_array(
         self,
-        indata: Union[npt.NDArray, dask_array_type],
-        weights: sps.coo_matrix,
+        indata: Union[npt.NDArray, 'da.Array'],
+        weights: sps.COO,
         skipna: bool = False,
         na_thres: float = 1.0,
         output_chunks: Optional[Union[Tuple[int, ...], Dict[str, int]]] = None,
@@ -1171,7 +1171,7 @@ class SpatialAverager(BaseRegridder):
         periodic: bool = False,
         filename: Optional[str] = None,
         reuse_weights: bool = False,
-        weights: Optional[Union[sps.coo_matrix, dict, str, Dataset]] = None,
+        weights: Optional[Union[sps.COO, dict, str, Dataset]] = None,
         ignore_degenerate: bool = False,
         geom_dim_name: str = 'geom',
     ):
@@ -1312,7 +1312,7 @@ class SpatialAverager(BaseRegridder):
                 stacklevel=2,
             )
 
-    def _compute_weights_and_area(self, mesh_out: Mesh) -> tuple[DataArray, Any]:
+    def _compute_weights_and_area(self, mesh_out: Mesh) -> Tuple[DataArray, Any]:
         """Return the weights and the area of the destination mesh cells."""
 
         # Build the regrid object
