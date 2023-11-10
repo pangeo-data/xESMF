@@ -29,7 +29,7 @@ import numpy.lib.recfunctions as nprec
 import numpy.typing as npt
 
 
-def warn_f_contiguous(a: npt.NDArray[np.floating[Any]]) -> None:
+def warn_f_contiguous(a: npt.NDArray) -> None:
     """
     Give a warning if input array if not Fortran-ordered.
 
@@ -44,7 +44,7 @@ def warn_f_contiguous(a: npt.NDArray[np.floating[Any]]) -> None:
         warnings.warn('Input array is not F_CONTIGUOUS. ' 'Will affect performance.')
 
 
-def warn_lat_range(lat: npt.NDArray[np.floating[Any]]) -> None:
+def warn_lat_range(lat: npt.NDArray) -> None:
     """
     Give a warning if latitude is outside of [-90, 90]
 
@@ -63,8 +63,8 @@ class Grid(ESMF.Grid):
     @classmethod
     def from_xarray(
         cls,
-        lon: npt.NDArray[np.floating[Any]],
-        lat: npt.NDArray[np.floating[Any]],
+        lon: npt.NDArray,
+        lat: npt.NDArray,
         periodic: bool = False,
         mask: Union[npt.NDArray[np.integer[Any]], None] = None,
     ):
@@ -162,8 +162,8 @@ class LocStream(ESMF.LocStream):
     @classmethod
     def from_xarray(
         cls,
-        lon: npt.NDArray[np.floating[Any]],
-        lat: npt.NDArray[np.floating[Any]],
+        lon: npt.NDArray,
+        lat: npt.NDArray,
     ) -> ESMF.LocStream:
         """
         Create an ESMF.LocStream object, for contrusting ESMF.Field and ESMF.Regrid
@@ -246,7 +246,7 @@ class Mesh(ESMF.Mesh):
     def from_polygons(
         cls,
         polys: npt.NDArray[np.object_],
-        element_coords: Union[Literal['centroid'], npt.NDArray[np.floating[Any]]] = 'centroid',
+        element_coords: Union[Literal['centroid'], npt.NDArray] = 'centroid',
     ):
         """
         Create an ESMF.Mesh object from a list of polygons.
@@ -586,8 +586,8 @@ def esmf_regrid_finalize(regrid: ESMF.Regrid):
 
 
 def esmf_locstream(
-    lon: npt.NDArray[np.floating[Any]],
-    lat: npt.NDArray[np.floating[Any]],
+    lon: npt.NDArray,
+    lat: npt.NDArray,
 ) -> LocStream:
     warnings.warn(
         '`esmf_locstream` is being deprecated in favor of `LocStream.from_xarray`',
@@ -597,8 +597,8 @@ def esmf_locstream(
 
 
 def esmf_grid(
-    lon: npt.NDArray[np.floating[Any]],
-    lat: npt.NDArray[np.floating[Any]],
+    lon: npt.NDArray,
+    lat: npt.NDArray,
     periodic: bool = False,
     mask: Union[npt.NDArray[np.integer[Any]], None] = None,
 ) -> Grid:

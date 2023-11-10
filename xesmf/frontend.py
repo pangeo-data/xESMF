@@ -33,8 +33,8 @@ except ImportError:
 
 
 def subset_regridder(
-    ds_in: DataArray | Dataset | dict[str, DataArray],
-    ds_out: DataArray | Dataset | dict[str, DataArray],
+    ds_in: Union[DataArray, Dataset, Dict[str, DataArray]],
+    ds_out: Union[DataArray, Dataset, Dict[str, DataArray]],
     method: Literal[
         'bilinear',
         'conservative',
@@ -79,9 +79,9 @@ def subset_regridder(
 
 
 def as_2d_mesh(
-    lon: DataArray | npt.NDArray[np.floating[Any]],
-    lat: DataArray | npt.NDArray[np.floating[Any]],
-) -> tuple[DataArray | npt.NDArray[np.floating[Any]], DataArray | npt.NDArray[np.floating[Any]]]:
+    lon: Union[DataArray, npt.NDArray],
+    lat: Union[DataArray, npt.NDArray],
+) -> Tuple[Union[DataArray, npt.NDArray], Union[DataArray, npt.NDArray]]:
     if (lon.ndim, lat.ndim) == (2, 2):
         assert lon.shape == lat.shape, 'lon and lat should have same shape'
     elif (lon.ndim, lat.ndim) == (1, 1):
@@ -93,8 +93,8 @@ def as_2d_mesh(
 
 
 def _get_lon_lat(
-    ds: Dataset | Dict[str, npt.NDArray[np.floating[Any]]]
-) -> tuple[DataArray | npt.NDArray[np.floating[Any]], DataArray | npt.NDArray[np.floating[Any]]]:
+    ds: Union[Dataset, Dict[str, npt.NDArray]]
+) -> Tuple[Union[DataArray, npt.NDArray], Union[DataArray, npt.NDArray]]:
     """Return lon and lat extracted from ds."""
     if ('lat' in ds and 'lon' in ds) or ('lat' in ds.coords and 'lon' in ds.coords):
         # Old way.
@@ -112,8 +112,8 @@ def _get_lon_lat(
 
 
 def _get_lon_lat_bounds(
-    ds: Dataset | Dict[str, npt.NDArray[np.floating[Any]]]
-) -> tuple[DataArray | npt.NDArray[np.floating[Any]], DataArray | npt.NDArray[np.floating[Any]]]:
+    ds: Union[Dataset, Dict[str, npt.NDArray]]
+) -> Tuple[Union[DataArray, npt.NDArray], Union[DataArray, npt.NDArray]]:
     """Return bounds of lon and lat extracted from ds."""
     if 'lat_b' in ds and 'lon_b' in ds:
         # Old way.
@@ -143,7 +143,7 @@ def _get_lon_lat_bounds(
 
 
 def ds_to_ESMFgrid(
-    ds: Dataset | Dict[str, npt.NDArray[np.floating[Any]]],
+    ds: Union[Dataset, Dict[str, npt.NDArray]],
     need_bounds: bool = False,
     periodic: bool = False,
     append=None,
@@ -488,7 +488,7 @@ class BaseRegridder(object):
 
     def __call__(
         self,
-        indata: npt.NDArray[np.floating[Any]] | dask_array_type | xr.DataArray | xr.Dataset,
+        indata: Union[npt.NDArray, dask_array_type, xr.DataArray, xr.Dataset],
         keep_attrs: bool = False,
         skipna: bool = False,
         na_thres: float = 1.0,
@@ -597,17 +597,17 @@ class BaseRegridder(object):
 
     @staticmethod
     def _regrid(
-        indata: npt.NDArray[np.floating[Any]],
+        indata: npt.NDArray,
         weights: sps.coo_matrix,
         *,
         shape_in: Tuple[int, int],
         shape_out: Tuple[int, int],
         skipna: bool,
         na_thresh: float,
-    ) -> npt.NDArray[np.floating[Any]]:
+    ) -> npt.NDArray:
         # skipna: set missing values to zero
         if skipna:
-            missing: npt.NDArray[np.bool_] = np.isnan(indata)
+            missing: npt.NDArray = np.isnan(indata)
             indata = np.where(missing, 0.0, indata)
 
         # apply weights
@@ -625,7 +625,7 @@ class BaseRegridder(object):
 
     def regrid_array(
         self,
-        indata: npt.NDArray[np.floating[Any]] | dask_array_type,
+        indata: Union[npt.NDArray, dask_array_type],
         weights: sps.coo_matrix,
         skipna: bool = False,
         na_thres: float = 1.0,
@@ -669,18 +669,14 @@ class BaseRegridder(object):
             outdata = self._regrid(indata, weights, **kwargs)
         return outdata
 
-    def regrid_numpy(
-        self, indata: npt.NDArray[np.floating[Any]], **kwargs
-    ) -> npt.NDArray[np.floating[Any]]:
+    def regrid_numpy(self, indata: npt.NDArray, **kwargs) -> npt.NDArray:
         warnings.warn(
             '`regrid_numpy()` will be removed in xESMF 0.7, please use `regrid_array` instead.',
             category=FutureWarning,
         )
         return self.regrid_array(indata, self.weights.data, **kwargs)
 
-    def regrid_dask(
-        self, indata: npt.NDArray[np.floating[Any]], **kwargs
-    ) -> npt.NDArray[np.floating[Any]]:
+    def regrid_dask(self, indata: npt.NDArray, **kwargs) -> npt.NDArray:
         warnings.warn(
             '`regrid_dask()` will be removed in xESMF 0.7, please use `regrid_array` instead.',
             category=FutureWarning,
@@ -694,7 +690,7 @@ class BaseRegridder(object):
         skipna: bool = False,
         na_thres: float = 1.0,
         output_chunks: Optional[Union[Dict[str, int], Tuple[int, ...]]] = None,
-    ) -> DataArray | Dataset:
+    ) -> Union[DataArray, Dataset]:
         """See __call__()."""
 
         input_horiz_dims, temp_horiz_dims = self._parse_xrinput(dr_in)
@@ -719,7 +715,7 @@ class BaseRegridder(object):
         skipna: bool = False,
         na_thres: float = 1.0,
         output_chunks: Optional[Union[Dict[str, int], Tuple[int, ...]]] = None,
-    ) -> DataArray | Dataset:
+    ) -> Union[DataArray, Dataset]:
         """See __call__()."""
 
         # get the first data variable to infer input_core_dims
@@ -748,7 +744,7 @@ class BaseRegridder(object):
         return self._format_xroutput(ds_out, temp_horiz_dims)
 
     def _parse_xrinput(
-        self, dr_in: xr.DataArray | xr.Dataset
+        self, dr_in: Union[xr.DataArray, xr.Dataset]
     ) -> Tuple[Tuple[Hashable, ...], List[str]]:
         # dr could be a DataArray or a Dataset
         # Get input horiz dim names and set output horiz dim names
@@ -785,8 +781,8 @@ class BaseRegridder(object):
         return input_horiz_dims, temp_horiz_dims
 
     def _format_xroutput(
-        self, out: xr.DataArray | xr.Dataset, new_dims: Optional[List[str]] = None
-    ) -> xr.DataArray | xr.Dataset:
+        self, out: Union[xr.DataArray, xr.Dataset], new_dims: Optional[List[str]] = None
+    ) -> Union[xr.DataArray, xr.Dataset]:
         out.attrs['regrid_method'] = self.method
         return out
 
@@ -823,8 +819,8 @@ class BaseRegridder(object):
 class Regridder(BaseRegridder):
     def __init__(
         self,
-        ds_in: xr.DataArray | xr.Dataset | dict[str, xr.DataArray],
-        ds_out: xr.DataArray | xr.Dataset | dict[str, xr.DataArray],
+        ds_in: Union[xr.DataArray, xr.Dataset, Dict[str, xr.DataArray]],
+        ds_out: Union[xr.DataArray, xr.Dataset, Dict[str, xr.DataArray]],
         method: Literal[
             'bilinear',
             'conservative',
@@ -1169,13 +1165,13 @@ class Regridder(BaseRegridder):
 class SpatialAverager(BaseRegridder):
     def __init__(
         self,
-        ds_in: xr.DataArray | xr.Dataset | dict,
-        polys: Sequence[Polygon | MultiPolygon],
+        ds_in: Union[xr.DataArray, xr.Dataset, dict],
+        polys: Sequence[Union[Polygon, MultiPolygon]],
         ignore_holes: bool = False,
         periodic: bool = False,
         filename: Optional[str] = None,
         reuse_weights: bool = False,
-        weights: Optional[sps.coo_matrix | dict | str | Dataset] = None,
+        weights: Optional[Union[sps.coo_matrix, dict, str, Dataset]] = None,
         ignore_degenerate: bool = False,
         geom_dim_name: str = 'geom',
     ):
@@ -1414,7 +1410,9 @@ class SpatialAverager(BaseRegridder):
 
         return info
 
-    def _format_xroutput(self, out: DataArray | Dataset, new_dims=None) -> DataArray | Dataset:
+    def _format_xroutput(
+        self, out: Union[DataArray, Dataset], new_dims=None
+    ) -> Union[DataArray, Dataset]:
         out = out.squeeze(dim='dummy')
 
         # rename dimension name to match output grid
