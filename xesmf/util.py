@@ -6,8 +6,8 @@ import numpy.typing as npt
 import xarray as xr
 from shapely.geometry import MultiPolygon, Polygon
 
-LON_CF_ATTRS = {"standard_name": "longitude", "units": "degrees_east"}
-LAT_CF_ATTRS = {"standard_name": "latitude", "units": "degrees_north"}
+LON_CF_ATTRS = {'standard_name': 'longitude', 'units': 'degrees_east'}
+LAT_CF_ATTRS = {'standard_name': 'latitude', 'units': 'degrees_north'}
 
 
 def _grid_1d(
@@ -76,10 +76,10 @@ def grid_2d(
 
     ds = xr.Dataset(
         coords={
-            "lon": (["y", "x"], lon, {"standard_name": "longitude"}),
-            "lat": (["y", "x"], lat, {"standard_name": "latitude"}),
-            "lon_b": (["y_b", "x_b"], lon_b),
-            "lat_b": (["y_b", "x_b"], lat_b),
+            'lon': (['y', 'x'], lon, {'standard_name': 'longitude'}),
+            'lat': (['y', 'x'], lat, {'standard_name': 'latitude'}),
+            'lon_b': (['y_b', 'x_b'], lon_b),
+            'lat_b': (['y_b', 'x_b'], lat_b),
         }
     )
 
@@ -123,21 +123,21 @@ def cf_grid_2d(
 
     ds = xr.Dataset(
         coords={
-            "lon": (
-                "lon",
+            'lon': (
+                'lon',
                 lon_1d,
-                {"bounds": "lon_bounds", **LON_CF_ATTRS},
+                {'bounds': 'lon_bounds', **LON_CF_ATTRS},
             ),
-            "lat": (
-                "lat",
+            'lat': (
+                'lat',
                 lat_1d,
-                {"bounds": "lat_bounds", **LAT_CF_ATTRS},
+                {'bounds': 'lat_bounds', **LAT_CF_ATTRS},
             ),
-            "latitude_longitude": xr.DataArray(),
+            'latitude_longitude': xr.DataArray(),
         },
         data_vars={
-            "lon_bounds": vertices_to_bounds(lon_b_1d, ("bound", "lon")),
-            "lat_bounds": vertices_to_bounds(lat_b_1d, ("bound", "lat")),
+            'lon_bounds': vertices_to_bounds(lon_b_1d, ('bound', 'lon')),
+            'lat_bounds': vertices_to_bounds(lat_b_1d, ('bound', 'lat')),
         },
     )
 
@@ -173,12 +173,12 @@ def grid_global(
 
     if not np.isclose(360 / d_lon, 360 // d_lon):
         warnings.warn(
-            f"360 cannot be divided by d_lon = {d_lon}, might not cover the globe uniformly"
+            f'360 cannot be divided by d_lon = {d_lon}, might not cover the globe uniformly'
         )
 
     if not np.isclose(180 / d_lat, 180 // d_lat):
         warnings.warn(
-            f"180 cannot be divided by d_lat = {d_lat}, might not cover the globe uniformly"
+            f'180 cannot be divided by d_lat = {d_lat}, might not cover the globe uniformly'
         )
 
     lon0 = lon1 - 360
@@ -265,7 +265,7 @@ def simple_tripolar_grid(
     """
 
     # first generate the bipolar cap for north poles
-    nj_cap = np.rint(nlats * lat_cap / 180.0).astype("int")
+    nj_cap = np.rint(nlats * lat_cap / 180.0).astype('int')
 
     lams, phis, _, _ = _generate_bipolar_cap_mesh(
         nlons, nj_cap, lat_cap, lon_cut, ensure_nj_even=True
@@ -312,7 +312,7 @@ def _bipolar_projection(
         B = np.where(np.abs(beta2_inv) > HUGE, 0.0, B)
         lamc = np.arcsin(B) / PI_180
         # But this equation accepts 4 solutions for a given B, {l, 180-l, l+180, 360-l }
-        # We have to pickup the "correct" root.
+        # We have to pickup the 'correct' root.
         # One way is simply to demand lamc to be continuous with lam on the equator phi=0
         # I am sure there is a more mathematically concrete way to do this.
         lamc = np.where((lamg - lon_bp > 90) & (lamg - lon_bp <= 180), 180 - lamc, lamc)
@@ -369,11 +369,11 @@ def _generate_bipolar_cap_mesh(
 ):
     # Define a (lon,lat) coordinate mesh on the Northern hemisphere of the globe sphere
     # such that the resolution of latg matches the desired resolution of the final grid along the symmetry meridian
-    print("Generating bipolar grid bounded at latitude ", lat0_bp)
+    print('Generating bipolar grid bounded at latitude ', lat0_bp)
     if Nj_ncap % 2 != 0 and ensure_nj_even:
-        print("   Supergrid has an odd number of area cells!")
+        print('   Supergrid has an odd number of area cells!')
         if ensure_nj_even:
-            print("   The number of j's is not even. Fixing this by cutting one row.")
+            print('   The number of j's is not even. Fixing this by cutting one row.')
             Nj_ncap = Nj_ncap - 1
 
     lon_g = lon_bp + np.arange(Ni + 1) * 360.0 / float(Ni)
@@ -384,7 +384,7 @@ def _generate_bipolar_cap_mesh(
     lams, phis, h_i_inv, h_j_inv = _bipolar_projection(lamg, phig, lon_bp, rp)
     h_i_inv = h_i_inv[:, :-1] * 2 * np.pi / float(Ni)
     h_j_inv = h_j_inv[:-1, :] * PI_180 * (90 - lat0_bp) / float(Nj_ncap)
-    print("   number of js=", phis.shape[0])
+    print('   number of js=', phis.shape[0])
     return lams, phis, h_i_inv, h_j_inv
 
 

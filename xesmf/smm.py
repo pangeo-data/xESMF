@@ -47,12 +47,12 @@ def read_weights(
         return _parse_coords_and_values(weights, n_in, n_out)
 
     if isinstance(weights, sps.COO):
-        return xr.DataArray(weights, dims=("out_dim", "in_dim"), name="weights")
+        return xr.DataArray(weights, dims=('out_dim', 'in_dim'), name='weights')
 
     if isinstance(weights, xr.DataArray):  # type: ignore[no-untyped-def]
         return weights
 
-    raise ValueError(f"Weights of type {type(weights)} not understood.")
+    raise ValueError(f'Weights of type {type(weights)} not understood.')
 
 
 def _parse_coords_and_values(
@@ -81,33 +81,33 @@ def _parse_coords_and_values(
     if isinstance(indata, (str, Path, xr.Dataset)):
         if not isinstance(indata, xr.Dataset):
             if not Path(indata).exists():
-                raise IOError(f"Weights file not found on disk.\n{indata}")
+                raise IOError(f'Weights file not found on disk.\n{indata}')
             ds_w = xr.open_dataset(indata)  # type: ignore[no-untyped-def]
         else:
             ds_w = indata
 
-        if not {"col", "row", "S"}.issubset(ds_w.variables):
+        if not {'col', 'row', 'S'}.issubset(ds_w.variables):
             raise ValueError(
-                "Weights dataset should have variables `col`, `row` and `S` storing the indices "
-                "and values of weights."
+                'Weights dataset should have variables `col`, `row` and `S` storing the indices '
+                'and values of weights.'
             )
 
-        col = ds_w["col"].values - 1  # type: ignore[no-untyped-def]
-        row = ds_w["row"].values - 1  # type: ignore[no-untyped-def]
-        s = ds_w["S"].values  # type: ignore[no-untyped-def]
+        col = ds_w['col'].values - 1  # type: ignore[no-untyped-def]
+        row = ds_w['row'].values - 1  # type: ignore[no-untyped-def]
+        s = ds_w['S'].values  # type: ignore[no-untyped-def]
 
     elif isinstance(indata, dict):  # type: ignore
-        if not {"col_src", "row_dst", "weights"}.issubset(indata.keys()):
+        if not {'col_src', 'row_dst', 'weights'}.issubset(indata.keys()):
             raise ValueError(
-                "Weights dictionary should have keys `col_src`, `row_dst` and `weights` storing "
-                "the indices and values of weights."
+                'Weights dictionary should have keys `col_src`, `row_dst` and `weights` storing '
+                'the indices and values of weights.'
             )
-        col = indata["col_src"] - 1
-        row = indata["row_dst"] - 1
-        s = indata["weights"]
+        col = indata['col_src'] - 1
+        row = indata['row_dst'] - 1
+        s = indata['weights']
 
     crds = np.stack([row, col])
-    return xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=("out_dim", "in_dim"), name="weights")
+    return xr.DataArray(sps.COO(crds, s, (n_out, n_in)), dims=('out_dim', 'in_dim'), name='weights')
 
 
 def check_shapes(
@@ -141,8 +141,8 @@ def check_shapes(
     # COO matrix is fast with F-ordered array but slow with C-array, so we
     # take in a C-ordered and then transpose)
     # (CSR or CRS matrix is fast with C-ordered array but slow with F-array)
-    if hasattr(indata, "flags") and not indata.flags["C_CONTIGUOUS"]:
-        warnings.warn("Input array is not C_CONTIGUOUS. " "Will affect performance.")
+    if hasattr(indata, 'flags') and not indata.flags['C_CONTIGUOUS']:
+        warnings.warn('Input array is not C_CONTIGUOUS. ' 'Will affect performance.')
 
     # Limitation from numba : some big-endian dtypes are not supported.
     try:
@@ -150,8 +150,8 @@ def check_shapes(
         nb.from_dtype(weights.dtype)  # type: ignore
     except (NotImplementedError, nb.core.errors.NumbaError):  # type: ignore
         warnings.warn(
-            "Input array has a dtype not supported by sparse and numba."
-            "Computation will fall back to scipy."
+            'Input array has a dtype not supported by sparse and numba.'
+            'Computation will fall back to scipy.'
         )
 
     # get input shape information
@@ -159,15 +159,15 @@ def check_shapes(
 
     if shape_horiz != shape_in:
         raise ValueError(
-            f"The horizontal shape of input data is {shape_horiz}, different from that "
-            f"of the regridder {shape_in}!"
+            f'The horizontal shape of input data is {shape_horiz}, different from that '
+            f'of the regridder {shape_in}!'
         )
 
     if shape_in[0] * shape_in[1] != weights.shape[1]:
-        raise ValueError("ny_in * nx_in should equal to weights.shape[1]")
+        raise ValueError('ny_in * nx_in should equal to weights.shape[1]')
 
     if shape_out[0] * shape_out[1] != weights.shape[0]:
-        raise ValueError("ny_out * nx_out should equal to weights.shape[0]")
+        raise ValueError('ny_out * nx_out should equal to weights.shape[0]')
 
 
 def apply_weights(
@@ -203,7 +203,7 @@ def apply_weights(
         nb.from_dtype(indata.dtype)  # type: ignore
         nb.from_dtype(weights.dtype)  # type: ignore
     except (NotImplementedError, nb.core.errors.NumbaError):  # type: ignore
-        indata = indata.astype("<f8")  # On the fly conversion
+        indata = indata.astype('<f8')  # On the fly conversion
 
     # Dot product
     outdata = np.tensordot(
@@ -268,7 +268,7 @@ def _combine_weight_multipoly(  # type: ignore
     areas : np.array
         Array of destination areas, following same order as weights.
     indexes : array of integers
-        Columns with the same "index" will be summed into a single column at this
+        Columns with the same 'index' will be summed into a single column at this
         index in the output matrix.
 
     Returns
@@ -277,7 +277,7 @@ def _combine_weight_multipoly(  # type: ignore
         Sum of weights from individual geometries.
     """
 
-    sub_weights = weights.rename(out_dim="subgeometries")
+    sub_weights = weights.rename(out_dim='subgeometries')
 
     # Create a sparse DataArray with the mesh areas
     # This ties the `out_dim` (the dimension for the original geometries) to the
@@ -285,15 +285,15 @@ def _combine_weight_multipoly(  # type: ignore
     crds = np.stack([indexes, np.arange(len(indexes))])
     a = xr.DataArray(
         sps.COO(crds, areas, (indexes.max() + 1, len(indexes)), fill_value=0),
-        dims=("out_dim", "subgeometries"),
-        name="area",
+        dims=('out_dim', 'subgeometries'),
+        name='area',
     )
 
     # Weight the regridding weights by the area of the destination polygon and sum over sub-geometries
-    out = (sub_weights * a).sum(dim="subgeometries")
+    out = (sub_weights * a).sum(dim='subgeometries')
 
     # Renormalize weights along in_dim
-    wsum = out.sum("in_dim")
+    wsum = out.sum('in_dim')
 
     # Change the fill_value to 1
     wsum = wsum.copy(
