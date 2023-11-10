@@ -25,8 +25,8 @@ except ImportError:
     import ESMF
 
 import numpy as np
-import numpy.typing as npt
 import numpy.lib.recfunctions as nprec
+import numpy.typing as npt
 
 
 def warn_f_contiguous(a: npt.NDArray[np.floating[Any]]) -> None:

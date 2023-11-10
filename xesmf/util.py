@@ -373,13 +373,13 @@ def _generate_bipolar_cap_mesh(
     if Nj_ncap % 2 != 0 and ensure_nj_even:
         print('   Supergrid has an odd number of area cells!')
         if ensure_nj_even:
-            print('   The number of j's is not even. Fixing this by cutting one row.')
+            print('   The number of j\'s is not even. Fixing this by cutting one row.')
             Nj_ncap = Nj_ncap - 1
 
     lon_g = lon_bp + np.arange(Ni + 1) * 360.0 / float(Ni)
-    lamg: float = np.tile(lon_g, (Nj_ncap + 1, 1))
+    lamg = np.tile(lon_g, (Nj_ncap + 1, 1))
     latg0_cap = lat0_bp + np.arange(Nj_ncap + 1) * (90 - lat0_bp) / float(Nj_ncap)
-    phig: float = np.tile(latg0_cap.reshape((Nj_ncap + 1, 1)), (1, Ni + 1))
+    phig = np.tile(latg0_cap.reshape((Nj_ncap + 1, 1)), (1, Ni + 1))
     rp = np.tan(0.5 * (90 - lat0_bp) * PI_180)
     lams, phis, h_i_inv, h_j_inv = _bipolar_projection(lamg, phig, lon_bp, rp)
     h_i_inv = h_i_inv[:, :-1] * 2 * np.pi / float(Ni)
