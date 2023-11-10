@@ -3,7 +3,7 @@ Frontend for xESMF, exposed to users.
 """
 
 import warnings
-from typing import Any, Dict, Hashable, List, Literal, Optional, Sequence, Tuple
+from typing import Any, Dict, Hashable, List, Literal, Optional, Sequence, Tuple, Union
 
 import cf_xarray as cfxr
 import numpy as np
@@ -270,8 +270,8 @@ def polys_to_ESMFmesh(polys) -> tuple[Mesh, tuple[Literal[1], int]]:
 class BaseRegridder(object):
     def __init__(
         self,
-        grid_in: Grid | LocStream | Mesh,
-        grid_out: Grid | LocStream | Mesh,
+        grid_in: Union[Grid, LocStream, Mesh],
+        grid_out: Union[Grid, LocStream, Mesh],
         method: str,
         filename: Optional[str] = None,
         reuse_weights: bool = False,
@@ -492,7 +492,7 @@ class BaseRegridder(object):
         keep_attrs: bool = False,
         skipna: bool = False,
         na_thres: float = 1.0,
-        output_chunks: Optional[Dict[str, int] | Tuple[int, ...]] = None,
+        output_chunks: Optional[Union[Dict[str, int], Tuple[int, ...]]] = None,
     ):
         """
         Apply regridding to input data.
@@ -629,7 +629,7 @@ class BaseRegridder(object):
         weights: sps.coo_matrix,
         skipna: bool = False,
         na_thres: float = 1.0,
-        output_chunks: Optional[Tuple[int, ...] | Dict[str, int]] = None,
+        output_chunks: Optional[Union[Tuple[int, ...], Dict[str, int]]] = None,
     ):
         """See __call__()."""
         if self.sequence_in:
@@ -693,7 +693,7 @@ class BaseRegridder(object):
         keep_attrs: bool = False,
         skipna: bool = False,
         na_thres: float = 1.0,
-        output_chunks: Optional[Dict[str, int] | Tuple[int, ...]] = None,
+        output_chunks: Optional[Union[Dict[str, int], Tuple[int, ...]]] = None,
     ) -> DataArray | Dataset:
         """See __call__()."""
 
@@ -718,7 +718,7 @@ class BaseRegridder(object):
         keep_attrs: bool = False,
         skipna: bool = False,
         na_thres: float = 1.0,
-        output_chunks: Optional[Dict[str, int] | Tuple[int, ...]] = None,
+        output_chunks: Optional[Union[Dict[str, int], Tuple[int, ...]]] = None,
     ) -> DataArray | Dataset:
         """See __call__()."""
 

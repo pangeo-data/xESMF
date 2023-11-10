@@ -2,7 +2,7 @@
 Standard test data for regridding benchmark.
 """
 
-from typing import Any
+from typing import Union
 
 import numpy as np
 import numpy.typing as npt
@@ -10,9 +10,9 @@ import xarray
 
 
 def wave_smooth(  # type: ignore
-    lon: npt.NDArray[np.floating[Any]] | xarray.DataArray,
-    lat: npt.NDArray[np.floating[Any]] | xarray.DataArray,
-) -> npt.NDArray[np.floating[Any]] | xarray.DataArray:
+    lon: Union[npt.NDArray, xarray.DataArray],
+    lat: Union[npt.NDArray, xarray.DataArray],
+) -> Union[npt.NDArray, xarray.DataArray]:
     """
     Spherical harmonic with low frequency.
 

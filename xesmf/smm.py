@@ -3,7 +3,7 @@ Sparse matrix multiplication (SMM) using scipy.sparse library.
 """
 import warnings
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any, Dict, Tuple, Union
 
 import numba as nb  # type: ignore[import]
 import numpy as np
@@ -13,7 +13,7 @@ import xarray as xr
 
 
 def read_weights(
-    weights: str | Path | xr.Dataset | xr.DataArray | sps.COO | dict[str, Any],
+    weights: Union[str, Path, xr.Dataset, xr.DataArray, sps.COO, Dict[str, Any]],
     n_in: int,
     n_out: int,
 ) -> xr.DataArray:
@@ -56,7 +56,7 @@ def read_weights(
 
 
 def _parse_coords_and_values(
-    indata: str | Path | xr.Dataset | dict[str, Any],
+    indata: Union[str, Path, xr.Dataset, Dict[str, Any]],
     n_in: int,
     n_out: int,
 ) -> xr.DataArray:

@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, Generator, List, Literal, Tuple
+from typing import Any, Generator, List, Literal, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -10,9 +10,7 @@ LON_CF_ATTRS = {'standard_name': 'longitude', 'units': 'degrees_east'}
 LAT_CF_ATTRS = {'standard_name': 'latitude', 'units': 'degrees_north'}
 
 
-def _grid_1d(
-    start_b: float, end_b: float, step: float
-) -> tuple[npt.NDArray[np.floating[Any]], npt.NDArray[np.floating[Any]]]:
+def _grid_1d(start_b: float, end_b: float, step: float) -> Tuple[npt.NDArray, npt.NDArray]:
     """
     1D grid centers and bounds
 
@@ -191,7 +189,7 @@ def grid_global(
 
 def _flatten_poly_list(
     polys: List[Polygon],
-) -> Generator[tuple[int, Any] | tuple[int, Polygon], Any, None]:
+) -> Generator[Union[Tuple[int, Any], Tuple[int, Polygon]], Any, None]:
     """Iterator flattening MultiPolygons."""
     for i, poly in enumerate(polys):
         if isinstance(poly, MultiPolygon):
@@ -248,7 +246,7 @@ def simple_tripolar_grid(
     nlats: int,
     lat_cap: float = 60,
     lon_cut: float = -300,
-) -> tuple[npt.NDArray[np.floating[Any]], npt.NDArray[Any]]:
+) -> Tuple[npt.NDArray, npt.NDArray]:
     """Generate a simple tripolar grid, regular under `lat_cap`.
 
     Parameters
