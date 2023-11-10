@@ -603,7 +603,7 @@ class BaseRegridder(object):
         shape_in: Tuple[int, int],
         shape_out: Tuple[int, int],
         skipna: bool,
-        na_thresh: float,
+        na_thres: float,
     ) -> npt.NDArray:
         # skipna: set missing values to zero
         if skipna:
@@ -617,7 +617,7 @@ class BaseRegridder(object):
         if skipna:
             fraction_valid = apply_weights(weights, (~missing).astype('d'), shape_in, shape_out)
             tol = 1e-6
-            bad = fraction_valid < np.clip(1 - na_thresh, tol, 1 - tol)
+            bad = fraction_valid < np.clip(1 - na_thres, tol, 1 - tol)
             fraction_valid[bad] = 1
             outdata = np.where(bad, np.nan, outdata / fraction_valid)
 
