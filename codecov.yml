@@ -1,20 +1,20 @@
 codecov:
-  require_ci_to_pass: no
-  max_report_age: off
+    require_ci_to_pass: no
+    max_report_age: off
 
 comment: false
 
 ignore:
-  - 'xesmf/tests/*'
-  - 'setup.py'
+    - 'xesmf/tests/*'
+    - 'setup.py'
 
 coverage:
-  precision: 2
-  round: down
-  status:
-    project:
-      default:
-        target: 95
-        informational: true
-    patch: off
-    changes: off
+    precision: 2
+    round: down
+    status:
+        project:
+            default:
+                target: 95
+                informational: true
+        patch: off
+        changes: off

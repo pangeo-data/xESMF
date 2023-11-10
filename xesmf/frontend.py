@@ -3,12 +3,14 @@ Frontend for xESMF, exposed to users.
 """
 
 import warnings
+from typing import Any, Dict, Hashable, List, Literal, Optional, Sequence, Tuple, Union
 
 import cf_xarray as cfxr
 import numpy as np
+import numpy.typing as npt
 import sparse as sps
 import xarray as xr
-from shapely.geometry import LineString
+from shapely.geometry import LineString, MultiPolygon, Polygon
 from xarray import DataArray, Dataset
 
 from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
@@ -31,7 +33,22 @@ except ImportError:
 
 
 def subset_regridder(
-    ds_out, ds_in, method, in_dims, out_dims, locstream_in, locstream_out, periodic, **kwargs
+    ds_in: Union[DataArray, Dataset, Dict[str, DataArray]],
+    ds_out: Union[DataArray, Dataset, Dict[str, DataArray]],
+    method: Literal[
+        'bilinear',
+        'conservative',
+        'conservative_normed',
+        'patch',
+        'nearest_s2d',
+        'nearest_d2s',
+    ],
+    in_dims,
+    out_dims,
+    locstream_in: bool,
+    locstream_out: bool,
+    periodic: bool,
+    **kwargs,
 ):
     """Compute subset of weights"""
     kwargs.pop('filename', None)  # Don't save subset of weights
@@ -49,12 +66,22 @@ def subset_regridder(
         ds_out = ds_out.rename({'y_out': out_dims[0], 'x_out': out_dims[1]})
 
     regridder = Regridder(
-        ds_in, ds_out, method, locstream_in, locstream_out, periodic, parallel=False, **kwargs
+        ds_in=ds_in,
+        ds_out=ds_out,
+        method=method,
+        locstream_in=locstream_in,
+        locstream_out=locstream_out,
+        periodic=periodic,
+        parallel=False,
+        **kwargs,
     )
     return regridder.w
 
 
-def as_2d_mesh(lon, lat):
+def as_2d_mesh(
+    lon: Union[DataArray, npt.NDArray],
+    lat: Union[DataArray, npt.NDArray],
+) -> Tuple[Union[DataArray, npt.NDArray], Union[DataArray, npt.NDArray]]:
     if (lon.ndim, lat.ndim) == (2, 2):
         assert lon.shape == lat.shape, 'lon and lat should have same shape'
     elif (lon.ndim, lat.ndim) == (1, 1):
@@ -65,7 +92,9 @@ def as_2d_mesh(lon, lat):
     return lon, lat
 
 
-def _get_lon_lat(ds):
+def _get_lon_lat(
+    ds: Union[Dataset, Dict[str, npt.NDArray]]
+) -> Tuple[Union[DataArray, npt.NDArray], Union[DataArray, npt.NDArray]]:
     """Return lon and lat extracted from ds."""
     if ('lat' in ds and 'lon' in ds) or ('lat' in ds.coords and 'lon' in ds.coords):
         # Old way.
@@ -82,7 +111,9 @@ def _get_lon_lat(ds):
     return lon, lat
 
 
-def _get_lon_lat_bounds(ds):
+def _get_lon_lat_bounds(
+    ds: Union[Dataset, Dict[str, npt.NDArray]]
+) -> Tuple[Union[DataArray, npt.NDArray], Union[DataArray, npt.NDArray]]:
     """Return bounds of lon and lat extracted from ds."""
     if 'lat_b' in ds and 'lon_b' in ds:
         # Old way.
@@ -96,7 +127,7 @@ def _get_lon_lat_bounds(ds):
         lat_bnds = ds.cf.get_bounds('latitude')
     except KeyError:  # bounds are not already present
         if ds.cf['longitude'].ndim > 1:
-            # We cannot infer 2D bounds, raise KeyError as custom "lon_b" is missing.
+            # We cannot infer 2D bounds, raise KeyError as custom 'lon_b' is missing.
             raise KeyError('lon_b')
         lon_name = ds.cf['longitude'].name
         lat_name = ds.cf['latitude'].name
@@ -111,7 +142,12 @@ def _get_lon_lat_bounds(ds):
     return lon_b, lat_b
 
 
-def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
+def ds_to_ESMFgrid(
+    ds: Union[Dataset, Dict[str, npt.NDArray]],
+    need_bounds: bool = False,
+    periodic: bool = None,
+    append=None,
+):
     """
     Convert xarray DataSet or dictionary to ESMF.Grid object.
 
@@ -205,7 +241,7 @@ def ds_to_ESMFlocstream(ds):
     return locstream, (1,) + lon.shape, dim_names
 
 
-def polys_to_ESMFmesh(polys):
+def polys_to_ESMFmesh(polys) -> Tuple[Mesh, Tuple[Literal[1], int]]:
     """
     Convert a sequence of shapely Polygons to a ESMF.Mesh object.
 
@@ -234,21 +270,21 @@ def polys_to_ESMFmesh(polys):
 class BaseRegridder(object):
     def __init__(
         self,
-        grid_in,
-        grid_out,
-        method,
-        filename=None,
-        reuse_weights=False,
-        extrap_method=None,
-        extrap_dist_exponent=None,
-        extrap_num_src_pnts=None,
-        weights=None,
-        ignore_degenerate=None,
-        input_dims=None,
-        output_dims=None,
-        unmapped_to_nan=False,
-        parallel=False,
-    ):
+        grid_in: Union[Grid, LocStream, Mesh],
+        grid_out: Union[Grid, LocStream, Mesh],
+        method: str,
+        filename: Optional[str] = None,
+        reuse_weights: bool = False,
+        extrap_method: Optional[Literal['inverse_dist', 'nearest_s2d']] = None,
+        extrap_dist_exponent: Optional[float] = None,
+        extrap_num_src_pnts: Optional[int] = None,
+        weights: Optional[Any] = None,
+        ignore_degenerate: bool = False,
+        input_dims: Optional[Tuple[str, ...]] = None,
+        output_dims: Optional[Tuple[str, ...]] = None,
+        unmapped_to_nan: bool = False,
+        parallel: bool = False,
+    ) -> None:
         """
         Base xESMF regridding class supporting ESMF objects: `Grid`, `Mesh` and `LocStream`.
 
@@ -298,10 +334,10 @@ class BaseRegridder(object):
 
         weights : None, coo_matrix, dict, str, Dataset, Path,
             Regridding weights, stored as
-              - a scipy.sparse COO matrix,
-              - a dictionary with keys `row_dst`, `col_src` and `weights`,
-              - an xarray Dataset with data variables `col`, `row` and `S`,
-              - or a path to a netCDF file created by ESMF.
+            - a scipy.sparse COO matrix,
+            - a dictionary with keys `row_dst`, `col_src` and `weights`,
+            - an xarray Dataset with data variables `col`, `row` and `S`,
+            - or a path to a netCDF file created by ESMF.
             If None, compute the weights.
 
         ignore_degenerate : bool, optional
@@ -392,7 +428,7 @@ class BaseRegridder(object):
             self.filename = self._get_default_filename() if filename is None else filename
 
     @property
-    def A(self):
+    def A(self) -> DataArray:
         message = (
             'regridder.A is deprecated and will be removed in future versions. '
             'Use regridder.weights instead.'
@@ -418,7 +454,7 @@ class BaseRegridder(object):
         dims = 'y_out', 'x_out', 'y_in', 'x_in'
         return xr.DataArray(data, dims=dims)
 
-    def _get_default_filename(self):
+    def _get_default_filename(self) -> str:
         # e.g. bilinear_400x600_300x400.nc
         filename = '{0}_{1}x{2}_{3}x{4}'.format(
             self.method,
@@ -450,7 +486,14 @@ class BaseRegridder(object):
         esmf_regrid_finalize(regrid)  # only need weights, not regrid object
         return w
 
-    def __call__(self, indata, keep_attrs=False, skipna=False, na_thres=1.0, output_chunks=None):
+    def __call__(
+        self,
+        indata: Union[npt.NDArray, 'da.Array', xr.DataArray, xr.Dataset],
+        keep_attrs: bool = False,
+        skipna: bool = False,
+        na_thres: float = 1.0,
+        output_chunks: Optional[Union[Dict[str, int], Tuple[int, ...]]] = None,
+    ):
         """
         Apply regridding to input data.
 
@@ -553,10 +596,18 @@ class BaseRegridder(object):
             raise TypeError('input must be numpy array, dask array, xarray DataArray or Dataset!')
 
     @staticmethod
-    def _regrid(indata, weights, *, shape_in, shape_out, skipna, na_thres):
+    def _regrid(
+        indata: npt.NDArray,
+        weights: sps.COO,
+        *,
+        shape_in: Tuple[int, int],
+        shape_out: Tuple[int, int],
+        skipna: bool,
+        na_thres: float,
+    ) -> npt.NDArray:
         # skipna: set missing values to zero
         if skipna:
-            missing = np.isnan(indata)
+            missing: npt.NDArray = np.isnan(indata)
             indata = np.where(missing, 0.0, indata)
 
         # apply weights
@@ -572,14 +623,21 @@ class BaseRegridder(object):
 
         return outdata
 
-    def regrid_array(self, indata, weights, skipna=False, na_thres=1.0, output_chunks=None):
+    def regrid_array(
+        self,
+        indata: Union[npt.NDArray, 'da.Array'],
+        weights: sps.COO,
+        skipna: bool = False,
+        na_thres: float = 1.0,
+        output_chunks: Optional[Union[Tuple[int, ...], Dict[str, int]]] = None,
+    ):
         """See __call__()."""
         if self.sequence_in:
             indata = np.reshape(indata, (*indata.shape[:-1], 1, indata.shape[-1]))
 
         # If output_chunk is dict, order output chunks to match order of out_horiz_dims and convert to tuple
         if isinstance(output_chunks, dict):
-            output_chunks = tuple([output_chunks.get(key) for key in self.out_horiz_dims])
+            output_chunks = tuple(map(output_chunks.get, self.out_horiz_dims))
 
         kwargs = {
             'shape_in': self.shape_in,
@@ -594,7 +652,7 @@ class BaseRegridder(object):
         if isinstance(indata, dask_array_type):  # dask
             if output_chunks is None:
                 output_chunks = tuple(
-                    [min(shp, inchnk) for shp, inchnk in zip(self.shape_out, indata.chunksize[-2:])]
+                    min(shp, inchnk) for shp, inchnk in zip(self.shape_out, indata.chunksize[-2:])
                 )
             if len(output_chunks) != len(self.shape_out):
                 if len(output_chunks) == 1 and self.sequence_out:
@@ -611,14 +669,14 @@ class BaseRegridder(object):
             outdata = self._regrid(indata, weights, **kwargs)
         return outdata
 
-    def regrid_numpy(self, indata, **kwargs):
+    def regrid_numpy(self, indata: npt.NDArray, **kwargs) -> npt.NDArray:
         warnings.warn(
             '`regrid_numpy()` will be removed in xESMF 0.7, please use `regrid_array` instead.',
             category=FutureWarning,
         )
         return self.regrid_array(indata, self.weights.data, **kwargs)
 
-    def regrid_dask(self, indata, **kwargs):
+    def regrid_dask(self, indata: npt.NDArray, **kwargs) -> npt.NDArray:
         warnings.warn(
             '`regrid_dask()` will be removed in xESMF 0.7, please use `regrid_array` instead.',
             category=FutureWarning,
@@ -626,8 +684,13 @@ class BaseRegridder(object):
         return self.regrid_array(indata, self.weights.data, **kwargs)
 
     def regrid_dataarray(
-        self, dr_in, keep_attrs=False, skipna=False, na_thres=1.0, output_chunks=None
-    ):
+        self,
+        dr_in: xr.DataArray,
+        keep_attrs: bool = False,
+        skipna: bool = False,
+        na_thres: float = 1.0,
+        output_chunks: Optional[Union[Dict[str, int], Tuple[int, ...]]] = None,
+    ) -> Union[DataArray, Dataset]:
         """See __call__()."""
 
         input_horiz_dims, temp_horiz_dims = self._parse_xrinput(dr_in)
@@ -646,8 +709,13 @@ class BaseRegridder(object):
         return self._format_xroutput(dr_out, temp_horiz_dims)
 
     def regrid_dataset(
-        self, ds_in, keep_attrs=False, skipna=False, na_thres=1.0, output_chunks=None
-    ):
+        self,
+        ds_in: xr.Dataset,
+        keep_attrs: bool = False,
+        skipna: bool = False,
+        na_thres: float = 1.0,
+        output_chunks: Optional[Union[Dict[str, int], Tuple[int, ...]]] = None,
+    ) -> Union[DataArray, Dataset]:
         """See __call__()."""
 
         # get the first data variable to infer input_core_dims
@@ -675,7 +743,9 @@ class BaseRegridder(object):
 
         return self._format_xroutput(ds_out, temp_horiz_dims)
 
-    def _parse_xrinput(self, dr_in):
+    def _parse_xrinput(
+        self, dr_in: Union[xr.DataArray, xr.Dataset]
+    ) -> Tuple[Tuple[Hashable, ...], List[str]]:
         # dr could be a DataArray or a Dataset
         # Get input horiz dim names and set output horiz dim names
         if self.in_horiz_dims is not None and all(dim in dr_in.dims for dim in self.in_horiz_dims):
@@ -702,46 +772,45 @@ class BaseRegridder(object):
             )
 
         if self.sequence_out:
-            temp_horiz_dims = ['dummy', 'locations']
+            temp_horiz_dims: List[str] = ['dummy', 'locations']
         else:
-            temp_horiz_dims = [s + '_new' for s in input_horiz_dims]
+            temp_horiz_dims: List[str] = [s + '_new' for s in input_horiz_dims]
 
         if self.sequence_in and not self.sequence_out:
             temp_horiz_dims = ['dummy_new'] + temp_horiz_dims
         return input_horiz_dims, temp_horiz_dims
 
-    def _format_xroutput(self, out, new_dims=None):
+    def _format_xroutput(
+        self, out: Union[xr.DataArray, xr.Dataset], new_dims: Optional[List[str]] = None
+    ) -> Union[xr.DataArray, xr.Dataset]:
         out.attrs['regrid_method'] = self.method
         return out
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         info = (
             'xESMF Regridder \n'
-            'Regridding algorithm:       {} \n'
-            'Weight filename:            {} \n'
-            'Reuse pre-computed weights? {} \n'
-            'Input grid shape:           {} \n'
-            'Output grid shape:          {} \n'
-            'Periodic in longitude?      {}'.format(
-                self.method,
-                self.filename,
-                self.reuse_weights,
-                self.shape_in,
-                self.shape_out,
-                self.periodic,
-            )
+            f'Regridding algorithm:       {self.method} \n'
+            f'Weight filename:            {self.filename} \n'
+            f'Reuse pre-computed weights? {self.reuse_weights} \n'
+            f'Input grid shape:           {self.shape_in} \n'
+            f'Output grid shape:          {self.shape_out} \n'
+            f'Periodic in longitude?      {self.periodic}'
         )
 
         return info
 
-    def to_netcdf(self, filename=None):
+    def to_netcdf(self, filename: Optional[str] = None) -> str:
         """Save weights to disk as a netCDF file."""
         if filename is None:
             filename = self.filename
         w = self.weights.data
         dim = 'n_s'
         ds = xr.Dataset(
-            {'S': (dim, w.data), 'col': (dim, w.coords[1, :] + 1), 'row': (dim, w.coords[0, :] + 1)}
+            {
+                'S': (dim, w.data),
+                'col': (dim, w.coords[1, :] + 1),
+                'row': (dim, w.coords[0, :] + 1),
+            }
         )
         ds.to_netcdf(filename)
         return filename
@@ -750,15 +819,22 @@ class BaseRegridder(object):
 class Regridder(BaseRegridder):
     def __init__(
         self,
-        ds_in,
-        ds_out,
-        method,
-        locstream_in=False,
-        locstream_out=False,
-        periodic=False,
-        parallel=False,
+        ds_in: Union[xr.DataArray, xr.Dataset, Dict[str, xr.DataArray]],
+        ds_out: Union[xr.DataArray, xr.Dataset, Dict[str, xr.DataArray]],
+        method: Literal[
+            'bilinear',
+            'conservative',
+            'conservative_normed',
+            'patch',
+            'nearest_s2d',
+            'nearest_d2s',
+        ],
+        locstream_in: bool = False,
+        locstream_out: bool = False,
+        periodic: bool = False,
+        parallel: bool = False,
         **kwargs,
-    ):
+    ) -> None:
         """
         Make xESMF regridder
 
@@ -833,10 +909,10 @@ class Regridder(BaseRegridder):
 
         weights : None, coo_matrix, dict, str, Dataset, Path,
             Regridding weights, stored as
-              - a scipy.sparse COO matrix,
-              - a dictionary with keys `row_dst`, `col_src` and `weights`,
-              - an xarray Dataset with data variables `col`, `row` and `S`,
-              - or a path to a netCDF file created by ESMF.
+                - a scipy.sparse COO matrix,
+                - a dictionary with keys `row_dst`, `col_src` and `weights`,
+                - an xarray Dataset with data variables `col`, `row` and `S`,
+                - or a path to a netCDF file created by ESMF.
 
             If None, compute the weights.
 
@@ -957,7 +1033,12 @@ class Regridder(BaseRegridder):
         if parallel:
             self._init_para_regrid(ds_in, ds_out, kwargs)
 
-    def _init_para_regrid(self, ds_in, ds_out, kwargs):
+    def _init_para_regrid(
+        self,
+        ds_in: xr.Dataset,
+        ds_out: xr.Dataset,
+        kwargs: dict,
+    ):
         # Check if we have bounds as variable and not coords, and add them to coords in both datasets
         if 'lon_b' in ds_out.data_vars:
             ds_out = ds_out.set_coords(['lon_b', 'lat_b'])
@@ -1084,15 +1165,15 @@ class Regridder(BaseRegridder):
 class SpatialAverager(BaseRegridder):
     def __init__(
         self,
-        ds_in,
-        polys,
-        ignore_holes=False,
-        periodic=False,
-        filename=None,
-        reuse_weights=False,
-        weights=None,
-        ignore_degenerate=False,
-        geom_dim_name='geom',
+        ds_in: Union[xr.DataArray, xr.Dataset, dict],
+        polys: Sequence[Union[Polygon, MultiPolygon]],
+        ignore_holes: bool = False,
+        periodic: bool = False,
+        filename: Optional[str] = None,
+        reuse_weights: bool = False,
+        weights: Optional[Union[sps.COO, dict, str, Dataset]] = None,
+        ignore_degenerate: bool = False,
+        geom_dim_name: str = 'geom',
     ):
         """Compute the exact average of a gridded array over a geometry.
 
@@ -1215,7 +1296,7 @@ class SpatialAverager(BaseRegridder):
         )
 
     @staticmethod
-    def _check_polys_length(polys, threshold=1):
+    def _check_polys_length(polys: List[Polygon], threshold: int = 1) -> None:
         # Check length of polys segments, issue warning if too long
         check_polys, check_holes, _, _ = split_polygons_and_holes(polys)
         check_polys.extend(check_holes)
@@ -1231,7 +1312,7 @@ class SpatialAverager(BaseRegridder):
                 stacklevel=2,
             )
 
-    def _compute_weights_and_area(self, mesh_out):
+    def _compute_weights_and_area(self, mesh_out: Mesh) -> Tuple[DataArray, Any]:
         """Return the weights and the area of the destination mesh cells."""
 
         # Build the regrid object
@@ -1253,12 +1334,12 @@ class SpatialAverager(BaseRegridder):
         esmf_regrid_finalize(regrid)
         return w, dstarea
 
-    def _compute_weights(self):
+    def _compute_weights(self) -> DataArray:
         """Return weight sparse matrix.
 
         This function first explodes the geometries into a flat list of Polygon exterior objects:
-          - Polygon -> polygon.exterior
-          - MultiPolygon -> list of polygon.exterior
+            - Polygon -> polygon.exterior
+            - MultiPolygon -> list of polygon.exterior
 
         and a list of Polygon.interiors (holes).
 
@@ -1310,7 +1391,7 @@ class SpatialAverager(BaseRegridder):
         dims = self.geom_dim_name, 'y_in', 'x_in'
         return xr.DataArray(data, dims=dims)
 
-    def _get_default_filename(self):
+    def _get_default_filename(self) -> str:
         # e.g. bilinear_400x600_300x400.nc
         filename = 'spatialavg_{0}x{1}_{2}.nc'.format(
             self.shape_in[0], self.shape_in[1], self.n_out
@@ -1318,20 +1399,20 @@ class SpatialAverager(BaseRegridder):
 
         return filename
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         info = (
-            'xESMF SpatialAverager \n'
-            'Weight filename:            {} \n'
-            'Reuse pre-computed weights? {} \n'
-            'Input grid shape:           {} \n'
-            'Output list length:         {} \n'.format(
-                self.filename, self.reuse_weights, self.shape_in, self.n_out
-            )
+            f'xESMF SpatialAverager \n'
+            f'Weight filename:            {self.filename} \n'
+            f'Reuse pre-computed weights: {self.reuse_weights} \n'
+            f'Input grid shape:           {self.shape_in} \n'
+            f'Output list length:         {self.n_out} \n'
         )
 
         return info
 
-    def _format_xroutput(self, out, new_dims=None):
+    def _format_xroutput(
+        self, out: Union[DataArray, Dataset], new_dims=None
+    ) -> Union[DataArray, Dataset]:
         out = out.squeeze(dim='dummy')
 
         # rename dimension name to match output grid

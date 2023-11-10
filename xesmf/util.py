@@ -1,6 +1,8 @@
 import warnings
+from typing import Any, Generator, List, Literal, Tuple, Union
 
 import numpy as np
+import numpy.typing as npt
 import xarray as xr
 from shapely.geometry import MultiPolygon, Polygon
 
@@ -8,7 +10,7 @@ LON_CF_ATTRS = {'standard_name': 'longitude', 'units': 'degrees_east'}
 LAT_CF_ATTRS = {'standard_name': 'latitude', 'units': 'degrees_north'}
 
 
-def _grid_1d(start_b, end_b, step):
+def _grid_1d(start_b: float, end_b: float, step: float) -> Tuple[npt.NDArray, npt.NDArray]:
     """
     1D grid centers and bounds
 
@@ -33,7 +35,14 @@ def _grid_1d(start_b, end_b, step):
     return centers, bounds
 
 
-def grid_2d(lon0_b, lon1_b, d_lon, lat0_b, lat1_b, d_lat):
+def grid_2d(
+    lon0_b: float,
+    lon1_b: float,
+    d_lon: float,
+    lat0_b: float,
+    lat1_b: float,
+    d_lat: float,
+) -> xr.Dataset:
     """
     2D rectilinear grid centers and bounds
 
@@ -75,7 +84,14 @@ def grid_2d(lon0_b, lon1_b, d_lon, lat0_b, lat1_b, d_lat):
     return ds
 
 
-def cf_grid_2d(lon0_b, lon1_b, d_lon, lat0_b, lat1_b, d_lat):
+def cf_grid_2d(
+    lon0_b: float,
+    lon1_b: float,
+    d_lon: float,
+    lat0_b: float,
+    lat1_b: float,
+    d_lat: float,
+) -> xr.Dataset:
     """
     CF compliant 2D rectilinear grid centers and bounds.
 
@@ -126,21 +142,26 @@ def cf_grid_2d(lon0_b, lon1_b, d_lon, lat0_b, lat1_b, d_lat):
     return ds
 
 
-def grid_global(d_lon, d_lat, cf=False, lon1=180):
+def grid_global(
+    d_lon: float,
+    d_lat: float,
+    cf: bool = False,
+    lon1: Literal[180, 360] = 180,
+) -> xr.Dataset:
     """
     Global 2D rectilinear grid centers and bounds
 
     Parameters
     ----------
     d_lon : float
-      Longitude step size, i.e. grid resolution
+        Longitude step size, i.e. grid resolution
     d_lat : float
-      Latitude step size, i.e. grid resolution
+        Latitude step size, i.e. grid resolution
     cf : bool
-      Return a CF compliant grid.
+        Return a CF compliant grid.
     lon1 : {180, 360}
-      Right longitude bound. According to which convention is used longitudes will
-      vary from -180 to 180 or from 0 to 360.
+        Right longitude bound. According to which convention is used longitudes will
+        vary from -180 to 180 or from 0 to 360.
 
     Returns
     -------
@@ -150,14 +171,12 @@ def grid_global(d_lon, d_lat, cf=False, lon1=180):
 
     if not np.isclose(360 / d_lon, 360 // d_lon):
         warnings.warn(
-            '360 cannot be divided by d_lon = {}, '
-            'might not cover the globe uniformly'.format(d_lon)
+            f'360 cannot be divided by d_lon = {d_lon}, might not cover the globe uniformly'
         )
 
     if not np.isclose(180 / d_lat, 180 // d_lat):
         warnings.warn(
-            '180 cannot be divided by d_lat = {}, '
-            'might not cover the globe uniformly'.format(d_lat)
+            f'180 cannot be divided by d_lat = {d_lat}, might not cover the globe uniformly'
         )
 
     lon0 = lon1 - 360
@@ -168,7 +187,9 @@ def grid_global(d_lon, d_lat, cf=False, lon1=180):
     return grid_2d(lon0, lon1, d_lon, -90, 90, d_lat)
 
 
-def _flatten_poly_list(polys):
+def _flatten_poly_list(
+    polys: List[Polygon],
+) -> Generator[Union[Tuple[int, Any], Tuple[int, Polygon]], Any, None]:
     """Iterator flattening MultiPolygons."""
     for i, poly in enumerate(polys):
         if isinstance(poly, MultiPolygon):
@@ -178,7 +199,9 @@ def _flatten_poly_list(polys):
             yield (i, poly)
 
 
-def split_polygons_and_holes(polys):
+def split_polygons_and_holes(
+    polys: List[Polygon],
+) -> Tuple[List[Polygon], List[Polygon], List[int], List[int]]:
     """Split the exterior boundaries and the holes for a list of polygons.
 
     If MultiPolygons are encountered in the list, they are flattened out
@@ -195,14 +218,14 @@ def split_polygons_and_holes(polys):
     holes : list of Polygons
         Holes of the polygons as polygons
     i_ext : list of integers
-       The index in `polys` of each polygon in `exteriors`.
+        The index in `polys` of each polygon in `exteriors`.
     i_hol : list of integers
-       The index in `polys` of the owner of each hole in `holes`.
+        The index in `polys` of the owner of each hole in `holes`.
     """
-    exteriors = []
-    holes = []
-    i_ext = []
-    i_hol = []
+    exteriors: List[Polygon] = []
+    holes: List[Polygon] = []
+    i_ext: List[int] = []
+    i_hol: List[int] = []
     for i, poly in _flatten_poly_list(polys):
         exteriors.append(Polygon(poly.exterior))
         i_ext.append(i)
@@ -218,19 +241,24 @@ _default_Re = 6371.0e3  # MIDAS
 HUGE = 1.0e30
 
 
-def simple_tripolar_grid(nlons, nlats, lat_cap=60, lon_cut=-300):
+def simple_tripolar_grid(
+    nlons: int,
+    nlats: int,
+    lat_cap: float = 60,
+    lon_cut: float = -300,
+) -> Tuple[npt.NDArray, npt.NDArray]:
     """Generate a simple tripolar grid, regular under `lat_cap`.
 
     Parameters
     ----------
     nlons: int
-      Number of longitude points.
+        Number of longitude points.
     nlats: int
-      Number of latitude points.
+        Number of latitude points.
     lat_cap: float
-      Latitude of the northern cap.
+        Latitude of the northern cap.
     lon_cut: float
-      Longitude of the periodic boundary.
+        Longitude of the periodic boundary.
 
     """
 
@@ -258,7 +286,9 @@ def simple_tripolar_grid(nlons, nlats, lat_cap=60, lon_cut=-300):
 # rather than using the package as a dependency
 
 
-def _bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
+def _bipolar_projection(
+    lamg: float, phig: float, lon_bp: float, rp: float, metrics_only: bool = False
+):
     """Makes a stereographic bipolar projection of the input coordinate mesh (lamg,phig)
     Returns the projected coordinate mesh and their metric coefficients (h^-1).
     The input mesh must be a regular spherical grid capping the pole with:
@@ -280,7 +310,7 @@ def _bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
         B = np.where(np.abs(beta2_inv) > HUGE, 0.0, B)
         lamc = np.arcsin(B) / PI_180
         # But this equation accepts 4 solutions for a given B, {l, 180-l, l+180, 360-l }
-        # We have to pickup the "correct" root.
+        # We have to pickup the 'correct' root.
         # One way is simply to demand lamc to be continuous with lam on the equator phi=0
         # I am sure there is a more mathematically concrete way to do this.
         lamc = np.where((lamg - lon_bp > 90) & (lamg - lon_bp <= 180), 180 - lamc, lamc)
@@ -328,14 +358,20 @@ def _bipolar_projection(lamg, phig, lon_bp, rp, metrics_only=False):
         return h_i_inv, h_j_inv
 
 
-def _generate_bipolar_cap_mesh(Ni, Nj_ncap, lat0_bp, lon_bp, ensure_nj_even=True):
+def _generate_bipolar_cap_mesh(
+    Ni: float,
+    Nj_ncap: float,
+    lat0_bp: float,
+    lon_bp: float,
+    ensure_nj_even: bool = True,
+):
     # Define a (lon,lat) coordinate mesh on the Northern hemisphere of the globe sphere
     # such that the resolution of latg matches the desired resolution of the final grid along the symmetry meridian
     print('Generating bipolar grid bounded at latitude ', lat0_bp)
     if Nj_ncap % 2 != 0 and ensure_nj_even:
         print('   Supergrid has an odd number of area cells!')
         if ensure_nj_even:
-            print("   The number of j's is not even. Fixing this by cutting one row.")
+            print('   The number of j\'s is not even. Fixing this by cutting one row.')
             Nj_ncap = Nj_ncap - 1
 
     lon_g = lon_bp + np.arange(Ni + 1) * 360.0 / float(Ni)
@@ -350,7 +386,7 @@ def _generate_bipolar_cap_mesh(Ni, Nj_ncap, lat0_bp, lon_bp, ensure_nj_even=True
     return lams, phis, h_i_inv, h_j_inv
 
 
-def _mdist(x1, x2):
+def _mdist(x1: float, x2: float) -> float:
     """Returns positive distance modulo 360."""
     return np.minimum(np.mod(x1 - x2, 360.0), np.mod(x2 - x1, 360.0))
 
