@@ -66,12 +66,12 @@ def subset_regridder(
         ds_out = ds_out.rename({'y_out': out_dims[0], 'x_out': out_dims[1]})
 
     regridder = Regridder(
-        ds_in,
-        ds_out,
-        method,
-        locstream_in,
-        locstream_out,
-        periodic,
+        ds_in=ds_in,
+        ds_out=ds_out,
+        method=method,
+        locstream_in=locstream_in,
+        locstream_out=locstream_out,
+        periodic=periodic,
         parallel=False,
         **kwargs,
     )
@@ -145,7 +145,7 @@ def _get_lon_lat_bounds(
 def ds_to_ESMFgrid(
     ds: Union[Dataset, Dict[str, npt.NDArray]],
     need_bounds: bool = False,
-    periodic: bool = False,
+    periodic: bool = None,
     append=None,
 ):
     """
