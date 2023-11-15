@@ -3,7 +3,7 @@ default_language_version:
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v4.5.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -13,12 +13,12 @@ repos:
       - id: double-quote-string-fixer
 
   - repo: https://github.com/psf/black
-    rev: 23.9.1
+    rev: 23.10.1
     hooks:
       - id: black
 
   - repo: https://github.com/keewis/blackdoc
-    rev: v0.3.8
+    rev: v0.3.9
     hooks:
       - id: blackdoc
 
@@ -54,7 +54,7 @@ repos:
           ]
 
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: 1.2.0
+    rev: 1.4.1
     hooks:
       - id: pyproject-fmt
 
