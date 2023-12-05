@@ -756,6 +756,32 @@ def test_build_regridder_with_masks():
         assert method in str(regridder)
 
 
+def test_nearest_s2d_domain_mask():
+    # Create input and output grid
+    ds_in = xe.util.grid_2d(50, 60, 1, 40, 50, 1)
+    ds_out = xe.util.grid_2d(40, 70, 1, 30, 50, 1)
+    # Create input data
+    ds_in['data'] = xr.DataArray(data=np.ones((10, 10), dtype=np.float32), dims=['lat', 'lon'])
+
+    # Create remapping weights
+    regridder = xe.Regridder(ds_in, ds_out, method='nearest_s2d', nearest_s2d_domain_mask=True)
+    ds_out['data'] = regridder(ds_in['data'])
+
+    # Create expected output mask
+    mask = np.ones((20, 30), dtype=np.int32)
+    mask[:, 0:10] = 0
+    mask[:, 20:30] = 0
+    mask[0:10, :] = 0
+    # Generate mask from weights
+    maskwgts = xe.smm.gen_mask_from_weights(regridder.weights, 20, 30)
+    # Generate mask from remapped data
+    maskdata = np.where(np.isnan(ds_out['data'].data), 0, 1)
+
+    # Assert equality of the masks
+    assert np.array_equal(maskdata, maskwgts, equal_nan=False)
+    assert np.array_equal(maskdata, mask, equal_nan=False)
+
+
 def test_regrid_dataset_from_locstream():
     # xarray.Dataset containing in-memory numpy array
 

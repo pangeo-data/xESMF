@@ -231,6 +231,35 @@ def add_nans_to_weights(weights):
     return weights
 
 
+def gen_mask_from_weights(weights, nlat, nlon):
+    """Generate a 2D mask from the regridding weights sparse matrix.
+
+    This function will generate a 2D binary mask out of a regridding weights sparse matrix.
+
+    Parameters
+    ----------
+    weights : DataArray backed by a sparse.COO array
+      Sparse weights matrix.
+
+    Returns
+    -------
+    numpy.ndarray of type numpy.int32 and of shape (nlat, nlon)
+        Binary mask.
+    """
+    # Taken from @trondkr and adapted by @raphaeldussin to use `lil`.
+    # lil matrix is better than CSR when changing sparsity
+    m = weights.data.to_scipy_sparse().tolil()
+
+    # Create mask ndarray of ones and fill with 0-elements
+    mask = np.ones((nlat, nlon), dtype=np.int32).ravel()
+    for krow in range(len(m.rows)):
+        if any([np.isnan(x) for x in m.data[krow]]):
+            mask[krow] = 0
+
+    # Reshape and return
+    return mask.reshape((nlat, nlon))
+
+
 def _combine_weight_multipoly(weights, areas, indexes):
     """Reduce a weight sparse matrix (csc format) by combining (adding) columns.
 

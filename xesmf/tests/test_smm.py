@@ -27,3 +27,23 @@ def test_add_nans_to_weights():
 
     Matout = xe.smm.add_nans_to_weights(xr.DataArray(Matin, dims=('in', 'out')))
     assert np.allclose(Matin.todense(), Matout.data.todense())
+
+
+def test_gen_mask_from_weights():
+    """testing creating mask out of weight matrix Nans"""
+    # Create input and output Dataset
+    ds_in = xe.util.grid_2d(20, 40, 1, 20, 30, 1)
+    ds_out = xe.util.grid_2d(20, 40, 2, 20, 30, 2)
+
+    # Create random mask for ds_out
+    mask = np.random.randint(low=0, high=2, size=(5, 10), dtype=np.int32)
+    ds_out['mask'] = xr.DataArray(data=mask, dims=['lat', 'lon'])
+
+    # Create remapping weights
+    Weights = xe.Regridder(ds_in, ds_out, method='bilinear').weights
+
+    # Generate mask from weights
+    maskwgts = xe.smm.gen_mask_from_weights(Weights, 5, 10)
+
+    # Assert equality between both masks
+    assert np.array_equal(mask, maskwgts, equal_nan=False)
