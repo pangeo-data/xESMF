@@ -5,7 +5,7 @@ on:
     branches:
       - master
   pull_request:
-    branches: '*'
+    branches: "*"
 
 jobs:
   linting:
@@ -14,5 +14,5 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: "3.x"
       - uses: pre-commit/action@v3.0.0

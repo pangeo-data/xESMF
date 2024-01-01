@@ -47,10 +47,10 @@ repos:
       - id: prenotebook
         args:
           [
-            '--keep-output',
-            '--keep-metadata',
-            '--keep-execution-count',
-            '--keep-empty',
+            "--keep-output",
+            "--keep-metadata",
+            "--keep-execution-count",
+            "--keep-empty",
           ]
 
   - repo: https://github.com/tox-dev/pyproject-fmt
@@ -64,7 +64,7 @@ ci:
 
     for more information, see https://pre-commit.ci
   autofix_prs: true
-  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
   autoupdate_schedule: monthly
   skip: []
   submodules: false
