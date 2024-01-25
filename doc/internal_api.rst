@@ -18,9 +18,3 @@ smm
 
 .. automodule:: xesmf.smm
     :members:
-
-util
-====
-
-.. automodule:: xesmf.util
-    :members:
