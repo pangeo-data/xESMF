@@ -1081,6 +1081,10 @@ class Regridder(BaseRegridder):
             )
             out_chunks = [ds_out.chunks.get(k) for k in ['y_out', 'x_out']]
 
+        # Rename coords to avoid issues in xr.map_blocks
+        for coord in list(self.out_coords.keys()):
+            ds_out = ds_out.rename({coord: coord + '_out'})
+
         weights_dims = ('y_out', 'x_out', 'y_in', 'x_in')
         templ = sps.zeros((self.shape_out + self.shape_in))
         w_templ = xr.DataArray(templ, dims=weights_dims).chunk(
