@@ -32,7 +32,7 @@ jobs:
             esmf-version: 8.4
     steps:
       - name: Cancel previous runs
-        uses: styfle/cancel-workflow-action@0.12.0
+        uses: styfle/cancel-workflow-action@0.12.1
         with:
           access_token: ${{ github.token }}
       - name: Checkout source
@@ -57,7 +57,7 @@ jobs:
         run: |
           python -m pytest --cov=./ --cov-report=xml --verbose
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3.1.3
+        uses: codecov/codecov-action@v3.1.5
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
@@ -70,7 +70,7 @@ jobs:
         shell: bash -l {0}
     steps:
       - name: Cancel previous runs
-        uses: styfle/cancel-workflow-action@0.12.0
+        uses: styfle/cancel-workflow-action@0.12.1
         with:
           access_token: ${{ github.token }}
       - uses: actions/checkout@v4
