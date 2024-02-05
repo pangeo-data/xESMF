@@ -1,6 +1,7 @@
 """
 Sparse matrix multiplication (SMM) using scipy.sparse library.
 """
+
 import warnings
 from pathlib import Path
 
