@@ -1003,8 +1003,7 @@ class Regridder(BaseRegridder):
             ds_in = ds_in.coords.to_dataset()
 
         # Ensure ds_in is not dask-backed
-        if xr.core.pycompat.is_dask_collection(ds_in):
-            ds_in = ds_in.compute()
+        ds_in = ds_in.load()
 
         # if bounds in ds_out, we switch to cf bounds for map_blocks
         if 'lon_b' in ds_out and (ds_out.lon_b.ndim == ds_out.cf['longitude'].ndim):
