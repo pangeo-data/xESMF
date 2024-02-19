@@ -8,6 +8,7 @@ Bug fixes
 ~~~~~~~~~
 * Raise a meaningful error messages when the output grid has no chunks with `parallel=True` (:issue:`299`, :pull:`304`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
 * Correct guess of output chunks for the :``SpatialAverager``.
+* Remove usage of private method of xarray that was removed in its 2024.02.0 version.
 
 0.8.1 (2023-09-05)
 ------------------
