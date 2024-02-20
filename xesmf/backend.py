@@ -127,26 +127,34 @@ class Grid(ESMF.Grid):
         lon_pointer[...] = lon
         lat_pointer[...] = lat
 
-        # Follows SCRIP convention where 1 is unmasked and 0 is masked.
-        # See https://github.com/NCPP/ocgis/blob/61d88c60e9070215f28c1317221c2e074f8fb145/src/ocgis/regrid/base.py#L391-L404
+        # Set mask
         if mask is not None:
-            # remove fractional values
-            mask = np.where(mask == 0, 0, 1)
-            # convert array type to integer (ESMF compat)
-            grid_mask = mask.astype(np.int32)
-            if not (grid_mask.shape == lon.shape):
-                raise ValueError(
-                    'mask must have the same shape as the latitude/longitude'
-                    'coordinates, got: mask.shape = %s, lon.shape = %s' % (mask.shape, lon.shape)
-                )
-            grid.add_item(ESMF.GridItem.MASK, staggerloc=ESMF.StaggerLoc.CENTER, from_file=False)
-            grid.mask[0][:] = grid_mask
+            grid._append_mask(mask)
 
         return grid
 
     def get_shape(self, loc=ESMF.StaggerLoc.CENTER):
         """Return shape of grid for specified StaggerLoc"""
         return tuple(self.size[loc])
+
+    def _append_mask(self, mask):
+        """Append mask to existing ESMF.Grid object."""
+        # Follows SCRIP convention where 1 is unmasked and 0 is masked.
+        # See https://github.com/NCPP/ocgis/blob/61d88c60e9070215f28c1317221c2e074f8fb145/src/ocgis/regrid/base.py#L391-L404
+
+        # remove fractional values
+        mask = np.where(mask == 0, 0, 1)
+        # convert array type to integer (ESMF compat)
+        grid_mask = mask.astype(np.int32)
+        if not (grid_mask.shape == self._coords[0][0].shape):
+            raise ValueError(
+                'mask must have the same shape as the latitude/longitude'
+                'coordinates, got: mask.shape = %s, lon.shape = %s'
+                % (mask.shape, self._coords[0][0].shape)
+            )
+        if self.mask[0] is None:
+            self.add_item(ESMF.GridItem.MASK, staggerloc=ESMF.StaggerLoc.CENTER, from_file=False)
+        self.mask[0][:] = grid_mask
 
 
 class LocStream(ESMF.LocStream):
