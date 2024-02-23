@@ -53,7 +53,7 @@ tag_regex = "^(?P<prefix>v)?(?P<version>[^\\+]+)(?P<suffix>.*)?$"
 
 [tool.black]
 line-length = 100
-target-version = ['py38']
+target-version = ['py310']
 skip-string-normalization = true
 
 [tool.isort]
