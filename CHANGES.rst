@@ -4,7 +4,7 @@ What's new
 0.8.4 (2024-02-26)
 ------------------
 * Fix regression from :pull:`332` that made ``Regridder`` fail with rectilinear datasets and ``parallel=True``. (:issue:`343`, :pull:`344`).
-* Allow Python 3.12 (and higher) again.
+* Allow Python 3.12 (and higher) again. (:pull:`345).
 
 0.8.3 (2024-02-20)
 ------------------
