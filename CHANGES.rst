@@ -1,6 +1,10 @@
 What's new
 ==========
 
+0.8.4 (2024-02-26)
+------------------
+* Fix regression from :pull:`332` that made ``Regridder`` fail with rectilinear datasets and ``parallel=True``. (:issue:`343`, :pull:`344`).
+
 0.8.3 (2024-02-20)
 ------------------
 * Remove usage of private method of xarray that was removed in its 2024.02.0 version (:issue:`338`, :issue:`340`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
@@ -8,7 +12,6 @@ What's new
 Internal changes
 ----------------
 * Test against ESMF 8.6
-
 
 0.8.2 (2023-09-18)
 ------------------

@@ -634,6 +634,21 @@ def test_para_weight_gen():
     # weights should be identical between serial and parallel
     assert all(regridder.w.data.data == para_regridder.w.data.data)
 
+    # Should work with a rectilinear version too (where dims == coords)
+    ds_in_cf = xe.util.cf_grid_2d(-90, 90, 20, -45, 45, 12)
+    ds_out_cf = xe.util.cf_grid_2d(-90, 90, 15, -45, 45, 9)
+    ds_in_cf['data'] = xe.data.wave_smooth(ds_in_cf['lon'], ds_in_cf['lat'])
+    ds_out_cf['data_ref'] = xe.data.wave_smooth(ds_out_cf['lon'], ds_out_cf['lat']).chunk(
+        {'lat': 5, 'lon': 5}
+    )
+
+    # Generating weights in serial and parallel
+    regridder = xe.Regridder(ds_in_cf, ds_out_cf, 'conservative')
+    para_regridder = xe.Regridder(ds_in_cf, ds_out_cf, 'conservative', parallel=True)
+
+    # weights should be identical between serial and parallel
+    assert all(regridder.w.data.data == para_regridder.w.data.data)
+
     # Ensure para weight gen works with locstream_in as well
     reggrider_locs = xe.Regridder(ds_locs, ds_out_chunked, 'nearest_s2d', locstream_in=True)
     para_regridder_locs = xe.Regridder(
