@@ -21,10 +21,6 @@ Bug fixes
 * Raise a meaningful error messages when the output grid has no chunks with `parallel=True` (:issue:`299`, :pull:`304`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
 * Correct guess of output chunks for ``SpatialAverager``.
 
-Internal changes
-----------------
-* Test against ESMF 8.6
-
 0.8.1 (2023-09-05)
 ------------------
 
