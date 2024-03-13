@@ -507,7 +507,7 @@ def test_regrid_dask(request, scheduler):
     scheduler = request.getfixturevalue(scheduler)
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
-    indata = ds_in_chunked['data4D'].data
+    indata = ds_in_chunked['data'].data
     # Use ridiculous small chunk size value to be sure it _isn't_ impacting computation.
     with dask.config.set({'array.chunk-size': '1MiB'}):
         outdata = regridder(indata)
@@ -518,12 +518,25 @@ def test_regrid_dask(request, scheduler):
     assert outdata.shape == indata.shape[:-2] + horiz_shape_out
     assert outdata.chunksize == indata.chunksize
 
-    # Check that the number of tasks hasn't exploded.
+    # Check that the number of tasks hasn't exploded too much.
+    # xESMF adds 3 tasks per chunk
+    # ds_in has 1 chunk
+    # output has 4 chunks (because output is larger than input and chunk sizes are preserved by default)
+    # 5 tasks come from wrapping the weights and chunking them with the 4 chunks
     n_task_in = len(indata.__dask_graph__().keys())
     n_task_out = len(outdata.__dask_graph__().keys())
-    assert (n_task_out / n_task_in) < 15
+    assert n_task_out <= n_task_in + 3 * 4 + 5
 
-    outdata_ref = ds_out['data4D_ref'].values
+    # Use reasonable chunk size
+    with dask.config.set({'array.chunk-size': '1MiB'}):
+        outdata = regridder(indata, output_chunks={'x': -1, 'y': -1})
+
+    # Here output has 1 chunk, so we should only have added 3 (regridding) + 2 (weights) tasks
+    n_task_in = len(indata.__dask_graph__().keys())
+    n_task_out = len(outdata.__dask_graph__().keys())
+    assert n_task_out <= n_task_in + 5
+
+    outdata_ref = ds_out['data_ref'].values
     rel_err = (outdata.compute() - outdata_ref) / outdata_ref
     assert np.max(np.abs(rel_err)) < 0.05
 

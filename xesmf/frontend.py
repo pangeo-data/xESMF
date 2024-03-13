@@ -596,6 +596,19 @@ class BaseRegridder(object):
                 output_chunks = tuple(
                     [min(shp, inchnk) for shp, inchnk in zip(self.shape_out, indata.chunksize[-2:])]
                 )
+                fac = np.prod(
+                    [np.ceil(shp / inchnk) for shp, inchnk in zip(self.shape_out, indata.chunksize[-2:])]
+                )
+                if fac > 4:  # Dask's built-in threshold is 10
+                    warnings.warn(
+                        (
+                            f"Regridding is increasing the number of chunks by a factor of {fac}, "
+                            "you might want to specify sizes in `output_chunks` in the regridder call. "
+                            f"Default behaviour is to preserve the chunk sizes from the input {indata.chunksize[-2:]}."
+                        ),
+                        da.core.PerformanceWarning,
+                        stacklevel=3
+                    )
             if len(output_chunks) != len(self.shape_out):
                 if len(output_chunks) == 1 and self.sequence_out:
                     output_chunks = (1, output_chunks[0])
