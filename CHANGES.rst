@@ -1,6 +1,10 @@
 What's new
 ==========
 
+0.8.5 (unreleased)
+------------------
+* Reverted to the chunking behaviour of xESMF 0.7 for cases where the spatial dimensions are not chunked on the source data. (:pull:`348`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
+
 0.8.4 (2024-02-26)
 ------------------
 * Fix regression from :pull:`332` that made ``Regridder`` fail with rectilinear datasets and ``parallel=True``. (:issue:`343`, :pull:`344`).
