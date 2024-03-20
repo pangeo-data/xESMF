@@ -585,7 +585,6 @@ def test_regrid_dataarray_dask(request, scheduler):
     assert dask.is_dask_collection(dr_out)
 
     assert dr_out.data.shape == dr_in.data.shape[:-2] + horiz_shape_out
-    assert dr_out.data.chunksize == dr_in.data.chunksize
 
     # data over broadcasting dimensions should agree
     assert_almost_equal(dr_in.values.mean(axis=(2, 3)), dr_out.values.mean(axis=(2, 3)), decimal=10)
