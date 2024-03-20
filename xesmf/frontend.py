@@ -593,8 +593,14 @@ class BaseRegridder(object):
         weights = self.weights.data.reshape(self.shape_out + self.shape_in)
         if isinstance(indata, dask_array_type):  # dask
             if output_chunks is None:
+                # Default : same chunk size as the input to preserve chunksize
+                # Unless the input is not chunked along the dimension (shape_in == in_chunk_size), in which case we do not chunk along the dimension
+                # This preserves the pre-0.8 behaviour.
                 output_chunks = tuple(
-                    [min(shp, inchnk) for shp, inchnk in zip(self.shape_out, indata.chunksize[-2:])]
+                    min(chnkin, shpout) if shpin != chnkin else shpout
+                    for shpout, shpin, chnkin in zip(
+                        self.shape_out, self.shape_in, indata.chunksize[-2:]
+                    )
                 )
                 fac = np.prod(
                     [
