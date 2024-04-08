@@ -502,11 +502,14 @@ class BaseRegridder(object):
             mask the output value.
 
         output_chunks: dict or tuple, optional
-            If indata is a dask_array_type, the desired chunks to have on the
-            output data along the spatial axes. Other non-spatial axes inherit
-            the same chunks as indata as those are not affected by the application
-            of the weights. Default behavior is to have the outdata chunks be like
-            the indata chunks. Chunks have to be specified for all spatial dimensions
+            The desired chunks to have on the output along the spatial axes, if indata is a dask array.
+            Other non-spatial axes inherit the same chunks as indata.
+            Default behavior depends on the chunking of indata. If it is not chunked along
+            the spatial dimension, the output will also not be chunked,
+            equivalent to passing ``output_chunks=(-1, -1)``.
+            If it is chunked, the output will preserve the chunk sizes,
+            equivalent to passing ``output_chunks=ìndata.chunks``.
+            Chunks have to be specified for all spatial dimensions
             of the output data otherwise regridding will fail. output_chunks can
             either be a tuple the same size as the spatial axes of outdata or it
             can be a dict with defined dims. If output_chunks is a dict, the
@@ -598,9 +601,28 @@ class BaseRegridder(object):
         weights = self.weights.data.reshape(self.shape_out + self.shape_in)
         if isinstance(indata, dask_array_type):  # dask
             if output_chunks is None:
+                # Default : same chunk size as the input to preserve chunksize
+                # Unless the input is not chunked along the dimension (shape_in == in_chunk_size), in which case we do not chunk along the dimension
+                # This preserves the pre-0.8 behaviour.
                 output_chunks = tuple(
-                    [min(shp, inchnk) for shp, inchnk in zip(self.shape_out, indata.chunksize[-2:])]
+                    min(chnkin, shpout) if shpin != chnkin else shpout
+                    for shpout, shpin, chnkin in zip(
+                        self.shape_out, self.shape_in, indata.chunksize[-2:]
+                    )
                 )
+                fac = np.prod(
+                    [np.ceil(shp / chnk) for shp, chnk in zip(self.shape_out, output_chunks)]
+                )
+                if fac > 4:  # Dask's built-in threshold is 10
+                    warnings.warn(
+                        (
+                            f'Regridding is increasing the number of chunks by a factor of {fac}, '
+                            'you might want to specify sizes in `output_chunks` in the regridder call. '
+                            f'Default behaviour is to preserve the chunk sizes from the input {indata.chunksize[-2:]}.'
+                        ),
+                        da.core.PerformanceWarning,
+                        stacklevel=3,
+                    )
             if len(output_chunks) != len(self.shape_out):
                 if len(output_chunks) == 1 and self.sequence_out:
                     output_chunks = (1, output_chunks[0])

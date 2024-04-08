@@ -507,23 +507,46 @@ def test_regrid_dask(request, scheduler):
     scheduler = request.getfixturevalue(scheduler)
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
-    indata = ds_in_chunked['data4D'].data
-    # Use ridiculous small chunk size value to be sure it _isn't_ impacting computation.
-    with dask.config.set({'array.chunk-size': '1MiB'}):
-        outdata = regridder(indata)
+    indata = ds_in_chunked['data'].data
+    outdata = regridder(indata)
 
     assert dask.is_dask_collection(outdata)
 
     # lazy dask arrays have incorrect shape attribute due to last chunk
     assert outdata.shape == indata.shape[:-2] + horiz_shape_out
-    assert outdata.chunksize == indata.chunksize
 
-    # Check that the number of tasks hasn't exploded.
-    n_task_in = len(indata.__dask_graph__().keys())
+    # Check that the number of tasks is as predicted
+    # ds_in has 1 chunk
+    # thus output also has 1 chunk (output is not chunked if input isn't)
+    # regridding adds 3 tasks, wrapping the weights adds 2
     n_task_out = len(outdata.__dask_graph__().keys())
-    assert (n_task_out / n_task_in) < 15
+    n_task_in = len(indata.__dask_graph__().keys())
+    assert n_task_out == n_task_in + 5
 
-    outdata_ref = ds_out['data4D_ref'].values
+    # Use very small chunks
+    indata_chunked = indata.rechunk((5, 6))  # Now has 9 chunks (5, 6)
+    outdata = regridder(indata_chunked)
+    # This is the case where we preserve chunk size
+    assert outdata.chunksize == indata_chunked.chunksize
+    n_task_out = len(outdata.__dask_graph__().keys())
+    n_task_in = len(indata_chunked.__dask_graph__().keys())
+    # input has 9 chunks
+    # output has 16
+    # Regridding adds 2 * 9 * 16 + 16 + 64 (I'm not sure I fully understand how dasks sums at the end)
+    # Wrapping the weights adds 9 * 16 + 1
+    assert n_task_out == n_task_in + 513
+
+    # Prescribe chunks
+    outdata = regridder(indata, output_chunks=(-1, 12))
+    n_task_out = len(outdata.__dask_graph__().keys())
+    n_task_in = len(indata.__dask_graph__().keys())
+    # input has 1 chunks
+    # output has 2
+    # Regridding adds 2 * 1 * 2 + 2
+    # Wrapping the weights adds 1 * 2 + 1
+    assert n_task_out == n_task_in + 9
+
+    outdata_ref = ds_out['data_ref'].values
     rel_err = (outdata.compute() - outdata_ref) / outdata_ref
     assert np.max(np.abs(rel_err)) < 0.05
 
@@ -562,7 +585,6 @@ def test_regrid_dataarray_dask(request, scheduler):
     assert dask.is_dask_collection(dr_out)
 
     assert dr_out.data.shape == dr_in.data.shape[:-2] + horiz_shape_out
-    assert dr_out.data.chunksize == dr_in.data.chunksize
 
     # data over broadcasting dimensions should agree
     assert_almost_equal(dr_in.values.mean(axis=(2, 3)), dr_out.values.mean(axis=(2, 3)), decimal=10)
