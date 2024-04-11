@@ -1,7 +1,7 @@
 What's new
 ==========
 
-0.8.5 (unreleased)
+0.8.5 (2024-04-11)
 ------------------
 * Reverted to the chunking behaviour of xESMF 0.7 for cases where the spatial dimensions are not chunked on the source data. (:pull:`348`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
 
@@ -15,8 +15,9 @@ What's new
 * Remove usage of private method of xarray that was removed in its 2024.02.0 version (:issue:`338`, :issue:`340`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
 
 Internal changes
-----------------
+~~~~~~~~~~~~~~~~
 * Test against ESMF 8.6
+
 
 0.8.2 (2023-09-18)
 ------------------
