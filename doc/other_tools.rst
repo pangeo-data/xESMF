@@ -66,7 +66,7 @@ that works for more grid types.
 - `Regridder in Iris <https://scitools-iris.readthedocs.io/en/v3.4.1/userguide/interpolation_and_regridding.html>`_
   (*Python package*)
 
-- `Regridder in xCDAT <https://xcdat.readthedocs.io/en/latest/>`_
+- `Regridder in xCDAT <https://xcdat.readthedocs.io/en/latest/generated/xcdat.regridder.accessor.RegridderAccessor.html>`_
   (*Python package*)
 
  Offers regridding algorithms from xESMF and `regrid2`, originally from the CDAT `cdutil` package, it also includes code for vertical regridding.
