@@ -47,7 +47,7 @@ and can be modified to support many cubed-sphere grid variations
 
 - `SCRIP <http://oceans11.lanl.gov/trac/SCRIP>`_ (*Fortran package*)
 
-An old pacakge, once popular but **no longer maintained** (long live SCRIP).
+An old package, once popular but **no longer maintained** (long live SCRIP).
 You should not use it now, but should know that it exists.
 Newer regridding packages often follow its standards --
 you will see "SCRIP format" here and there, for example in ESMF or TempestRemap.
@@ -66,5 +66,7 @@ that works for more grid types.
 - `Regridder in Iris <https://scitools-iris.readthedocs.io/en/v3.4.1/userguide/interpolation_and_regridding.html>`_
   (*Python package*)
 
-- `Regridder in UV-CDAT <https://uvcdat.llnl.gov/documentation/cdms/cdms_4.html>`_
+- `Regridder in xCDAT <https://xcdat.readthedocs.io/en/latest/generated/xcdat.regridder.accessor.RegridderAccessor.html>`_
   (*Python package*)
+
+ Offers regridding algorithms from xESMF and `regrid2`, originally from the CDAT `cdutil` package, it also includes code for vertical regridding.
