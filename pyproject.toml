@@ -66,7 +66,7 @@ skip-string-normalization = true
 
 [tool.isort]
 known_first_party = "xesmf"
-known_third_party = [
+known_third_party = ["cf_xarray", "cftime", "dask", "numba", "numpy", "pytest", "shapely", "sparse", "xarray"]
   "cf_xarray",
   "cftime",
   "dask",

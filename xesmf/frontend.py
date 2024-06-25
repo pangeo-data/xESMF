@@ -11,15 +11,11 @@ import xarray as xr
 from shapely.geometry import LineString
 from xarray import DataArray, Dataset
 
-from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
-from .smm import (
-    _combine_weight_multipoly,
-    _parse_coords_and_values,
-    add_nans_to_weights,
-    apply_weights,
-    check_shapes,
-    read_weights,
-)
+from .backend import (Grid, LocStream, Mesh, add_corner, esmf_regrid_build,
+                      esmf_regrid_finalize)
+from .smm import (_combine_weight_multipoly, _parse_coords_and_values,
+                  add_nans_to_weights, apply_weights, check_shapes,
+                  read_weights)
 from .util import LAT_CF_ATTRS, LON_CF_ATTRS, split_polygons_and_holes
 
 try:
