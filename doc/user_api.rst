@@ -5,8 +5,13 @@ Regridder
 =========
 
 .. autoclass:: xesmf.frontend.Regridder
-    :members:
+    :inherited-members:
     :special-members: __init__, __call__
+
+.. autoclass:: xesmf.frontend.SpatialAverager
+    :members:
+    :special-members: __init__
+
 
 util
 ====

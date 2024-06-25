@@ -22,6 +22,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+_version.py
 
 # Sphinx documentation
 docs/_build/
@@ -44,3 +45,4 @@ PET0.ESMF_LogFile
 .cache
 .coverage
 coverage.xml
+dask-worker-space/

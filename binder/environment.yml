@@ -1,0 +1,15 @@
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7
+  - esmpy==7.1.0r
+  - xarray
+  - dask
+  - numpy
+  - scipy
+  - shapely
+  - matplotlib
+  - cartopy
+  - cf_xarray>=0.3.1
+  - pip:
+      - xesmf==0.2.2

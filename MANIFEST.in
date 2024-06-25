@@ -1,0 +1,18 @@
+include LICENSE
+include *.rst
+
+graft xesmf
+
+prune .github
+prune *.egg-info
+prune binder
+prune ci
+prune doc
+
+exclude *.yaml
+exclude *.yml
+exclude .*.txt
+exclude .gitignore
+exclude .pre-commit-config.yaml
+exclude .prettierrc.toml
+exclude xesmf/_version.py

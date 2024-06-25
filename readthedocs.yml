@@ -1,5 +1,12 @@
-conda:
-    file: doc/environment.yml
+version: 2
+
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.10"
+
 python:
-    version: 3.5
-    setup_py_install: true
+  install:
+    - requirements: doc/requirements.txt
+    - method: pip
+      path: .

@@ -1,0 +1,20 @@
+name: xesmf
+channels:
+  - conda-forge
+dependencies:
+  - cftime
+  - codecov
+  - dask
+  - esmpy
+  - numba
+  - numpy
+  - pip
+  - pre-commit
+  - pydap
+  - pytest
+  - pytest-cov
+  - shapely
+  - sparse>=0.8.0
+  - pip:
+      - git+https://github.com/pydata/xarray.git
+      - git+https://github.com/xarray-contrib/cf-xarray.git

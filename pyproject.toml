@@ -1,0 +1,70 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=41.2",
+  "setuptools_scm",
+  "wheel",
+]
+
+[project]
+name = "xesmf"
+description = "Universal Regridder for Geospatial Data"
+license = {text = "MIT"}
+authors = [
+    {name = "Jiawei Zhuang", email = "jiaweizhuang@g.harvard.edu"},
+]
+requires-python = ">=3.8"
+classifiers = [
+  'Development Status :: 4 - Beta',
+  'Intended Audience :: Science/Research',
+  'License :: OSI Approved :: MIT License',
+  'Operating System :: OS Independent',
+  'Programming Language :: Python',
+  "Programming Language :: Python :: 3 :: Only",
+  'Programming Language :: Python :: 3.8',
+  'Programming Language :: Python :: 3.9',
+  'Programming Language :: Python :: 3.10',
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  'Topic :: Scientific/Engineering',
+]
+dynamic = [
+  "dependencies",
+  "readme",
+  "version",
+]
+[project.urls]
+documentation = "https://xesmf.readthedocs.io/en/latest/"
+homepage = "https://github.com/pangeo-data/xESMF"
+repository = "https://github.com/pangeo-data/xESMF"
+
+[tool.setuptools]
+packages = ["xesmf", "xesmf.tests"]
+license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+readme = {file = "README.rst", content-type = "text/x-rst"}
+
+[tool.setuptools_scm]
+write_to = "xesmf/_version.py"
+write_to_template = "__version__ = '{version}'"
+tag_regex = "^(?P<prefix>v)?(?P<version>[^\\+]+)(?P<suffix>.*)?$"
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+skip-string-normalization = true
+
+[tool.isort]
+known_first_party = "xesmf"
+known_third_party =  ["cf_xarray", "cftime", "dask", "numba", "numpy", "pytest", "shapely", "sparse", "xarray"]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+combine_as_imports = true
+line_length = 100
+skip = [
+    "setup.py",
+	"doc/conf.py",
+]
