@@ -11,9 +11,16 @@ import xarray as xr
 from numpy.testing import assert_almost_equal, assert_equal
 
 import xesmf as xe
-from xesmf.backend import (Grid, LocStream, add_corner, esmf_regrid_apply,
-                           esmf_regrid_build, esmf_regrid_finalize,
-                           warn_f_contiguous, warn_lat_range)
+from xesmf.backend import (
+    Grid,
+    LocStream,
+    add_corner,
+    esmf_regrid_apply,
+    esmf_regrid_build,
+    esmf_regrid_finalize,
+    warn_f_contiguous,
+    warn_lat_range,
+)
 from xesmf.smm import apply_weights, read_weights
 
 # We use pure numpy arrays to test backend
