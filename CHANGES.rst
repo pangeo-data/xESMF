@@ -1,6 +1,11 @@
 What's new
 ==========
 
+0.8.6 (unreleased)
+------------------
+* New ``xe.util.cell_area`` utility to compute the cell area using ESMF's internal mechanism. (:pull:`372`, :issue:`369`) By `Jiawei Zhuang <https://github.com/JiaweiZhuang>`_  and `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Compatibility with Numpy 2.0 (NaN vs nan) (:pull:`373`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
+
 0.8.5 (2024-04-11)
 ------------------
 * Reverted to the chunking behaviour of xESMF 0.7 for cases where the spatial dimensions are not chunked on the source data. (:pull:`348`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
