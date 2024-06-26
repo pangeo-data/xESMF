@@ -48,6 +48,11 @@ jobs:
           extra-specs: |
             python=${{ matrix.python-version }}
             esmpy=${{ matrix.esmf-version }}
+      - name: Fix env for esmpy 8.4
+        run: |
+          if [ "${{esmf-version}}" == "8.4"]; then
+              conda install "importlib-metadata<8.0.0"
+          fi
       - name: Install Xesmf (editable)
         run: |
           python -m pip install --no-deps -e .
