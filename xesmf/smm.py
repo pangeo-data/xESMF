@@ -202,11 +202,11 @@ def apply_weights(weights, indata, shape_in, shape_out):
 
 
 def add_nans_to_weights(weights):
-    """Add NaN in empty rows of the regridding weights sparse matrix.
+    """Add nan in empty rows of the regridding weights sparse matrix.
 
     By default, empty rows in the weights sparse matrix are interpreted as zeroes. This can become problematic
-    when the field being interpreted has legitimate null values. This function inserts NaN values in each row to
-    make sure empty weights are propagated as NaNs instead of zeros.
+    when the field being interpreted has legitimate null values. This function inserts nan values in each row to
+    make sure empty weights are propagated as nans instead of zeros.
 
     Parameters
     ----------
@@ -222,11 +222,11 @@ def add_nans_to_weights(weights):
     # Taken from @trondkr and adapted by @raphaeldussin to use `lil`.
     # lil matrix is better than CSR when changing sparsity
     m = weights.data.to_scipy_sparse().tolil()
-    # replace empty rows by one NaN value at element 0 (arbitrary)
-    # so that remapped element become NaN instead of zero
+    # replace empty rows by one nan value at element 0 (arbitrary)
+    # so that remapped element become nan instead of zero
     for krow in range(len(m.rows)):
         m.rows[krow] = [0] if m.rows[krow] == [] else m.rows[krow]
-        m.data[krow] = [np.NaN] if m.data[krow] == [] else m.data[krow]
+        m.data[krow] = [np.nan] if m.data[krow] == [] else m.data[krow]
     # update regridder weights (in COO)
     weights = weights.copy(data=sps.COO.from_scipy_sparse(m))
     return weights
