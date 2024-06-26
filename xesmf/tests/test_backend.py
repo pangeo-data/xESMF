@@ -4,6 +4,7 @@ try:
     import esmpy as ESMF
 except ImportError:
     import ESMF
+
 import numpy as np
 import pytest
 import xarray as xr
