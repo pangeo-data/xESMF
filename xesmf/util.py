@@ -4,6 +4,11 @@ import numpy as np
 import xarray as xr
 from shapely.geometry import MultiPolygon, Polygon
 
+try:
+    import esmpy as ESMF
+except ImportError:
+    import ESMF
+
 LON_CF_ATTRS = {'standard_name': 'longitude', 'units': 'degrees_east'}
 LAT_CF_ATTRS = {'standard_name': 'latitude', 'units': 'degrees_north'}
 
@@ -159,7 +164,6 @@ def grid_global(d_lon, d_lat, cf=False, lon1=180):
             '180 cannot be divided by d_lat = {}, '
             'might not cover the globe uniformly'.format(d_lat)
         )
-
     lon0 = lon1 - 360
 
     if cf:
@@ -356,3 +360,50 @@ def _mdist(x1, x2):
 
 
 # end code from https://github.com/NOAA-GFDL/ocean_model_grid_generator
+
+
+def cell_area(ds, earth_radius=None):
+    """
+    Get cell area of a grid, assuming a sphere.
+
+    Parameters
+    ----------
+    ds : xarray Dataset
+        Input grid, longitude and latitude required.
+        Curvilinear coordinate system also require cell bounds to be present.
+    earth_radius : float, optional
+        Earth radius, assuming a sphere, in km.
+
+    Returns
+    -------
+    area : xarray DataArray
+        Cell area. If the earth radius is given, units are km^2, otherwise they are steradian (sr).
+    """
+    from .frontend import _get_lon_lat, ds_to_ESMFgrid  # noqa
+
+    grid, _, names = ds_to_ESMFgrid(ds, need_bounds=True)
+    field = ESMF.Field(grid)
+    field.get_area()  # compute area
+
+    # F-ordering to C-ordering
+    # copy the array to make sure it persists after ESMF object is freed
+    area = field.data.T.copy()
+    field.destroy()
+
+    # Wrap in xarray
+    area = xr.DataArray(
+        area,
+        dims=names,
+        attrs={
+            'units': 'sr',
+            'standard_name': 'cell_area',
+            'long_name': 'Cell area, assuming a sphere.',
+        },
+    )
+    # Fancy trick to get all related coordinates without needing to list them explicitly.
+    # We add all and let xarray choose which one to keep when selecting the variable
+    area = ds.coords.to_dataset().assign(area=area).area
+
+    if earth_radius is not None:
+        area = (area * earth_radius**2).assign_attrs(units='km2')
+    return area
