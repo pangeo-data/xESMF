@@ -1,7 +1,7 @@
 What's new
 ==========
 
-0.8.6 (unreleased)
+0.8.6 (2024-06-26)
 ------------------
 * New ``xe.util.cell_area`` utility to compute the cell area using ESMF's internal mechanism. (:pull:`372`, :issue:`369`) By `Jiawei Zhuang <https://github.com/JiaweiZhuang>`_  and `Pascal Bourgault <https://github.com/aulemahal>`_.
 * Compatibility with Numpy 2.0 (NaN vs nan) (:pull:`373`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
