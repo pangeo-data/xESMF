@@ -146,7 +146,8 @@ class Grid(ESMF.Grid):
 
     def get_shape(self, loc=ESMF.StaggerLoc.CENTER):
         """Return shape of grid for specified StaggerLoc"""
-        return tuple(self.size[loc])
+        # We cast explicitly to python's int (numpy >=2)
+        return tuple(map(int, self.size[loc]))
 
 
 class LocStream(ESMF.LocStream):
