@@ -1,7 +1,7 @@
 What's new
 ==========
 
-0.8.7 (unreleased)
+0.8.7 (2024-07-16)
 ------------------
 * Cast grid sizes to python's int (another Numpy 2.0 fix). (:pull:`377`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
 
