@@ -95,9 +95,6 @@ def _get_lon_lat_bounds(ds):
         lon_bnds = ds.cf.get_bounds('longitude')
         lat_bnds = ds.cf.get_bounds('latitude')
     except KeyError:  # bounds are not already present
-        if ds.cf['longitude'].ndim > 1:
-            # We cannot infer 2D bounds, raise KeyError as custom "lon_b" is missing.
-            raise KeyError('lon_b')
         lon_name = ds.cf['longitude'].name
         lat_name = ds.cf['latitude'].name
         ds = ds.cf.add_bounds([lon_name, lat_name])
@@ -795,7 +792,7 @@ class Regridder(BaseRegridder):
             where masked values are identified by 0, and non-masked values by 1.
 
             For conservative methods, if bounds are not present, they will be
-            computed using `cf-xarray` (only 1D coordinates are currently supported).
+            computed using `cf-xarray`.
 
             Shape can be 1D (n_lon,) and (n_lat,) for rectilinear grids,
             or 2D (n_y, n_x) for general curvilinear grids.
