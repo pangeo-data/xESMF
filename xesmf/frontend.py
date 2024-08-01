@@ -6,7 +6,9 @@ import warnings
 
 import cf_xarray as cfxr
 import numpy as np
+import sparse as sps
 import xarray as xr
+from shapely.geometry import LineString
 from xarray import DataArray, Dataset
 
 from .backend import Grid, LocStream, Mesh, add_corner, esmf_regrid_build, esmf_regrid_finalize
@@ -26,6 +28,30 @@ try:
     dask_array_type = (da.Array,)  # for isinstance checks
 except ImportError:
     dask_array_type = ()
+
+
+def subset_regridder(
+    ds_out, ds_in, method, in_dims, out_dims, locstream_in, locstream_out, periodic, **kwargs
+):
+    """Compute subset of weights"""
+    kwargs.pop('filename', None)  # Don't save subset of weights
+    kwargs.pop('reuse_weights', None)
+
+    # Renaming dims to original names for the subset regridding
+    if locstream_in:
+        ds_in = ds_in.rename({'x_in': in_dims[0]})
+    else:
+        ds_in = ds_in.rename({'y_in': in_dims[0], 'x_in': in_dims[1]})
+
+    if locstream_out:
+        ds_out = ds_out.rename({'x_out': out_dims[1]})
+    else:
+        ds_out = ds_out.rename({'y_out': out_dims[0], 'x_out': out_dims[1]})
+
+    regridder = Regridder(
+        ds_in, ds_out, method, locstream_in, locstream_out, periodic, parallel=False, **kwargs
+    )
+    return regridder.w
 
 
 def as_2d_mesh(lon, lat):
@@ -106,7 +132,12 @@ def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
 
     Returns
     -------
-    grid : ESMF.Grid object
+    grid
+        ESMF.Grid object
+    shape
+        Shape of the grid
+    dim_names
+        Dimension names of the grid
 
     """
     # use np.asarray(dr) instead of dr.values, so it also works for dictionary
@@ -214,7 +245,9 @@ class BaseRegridder(object):
         weights=None,
         ignore_degenerate=None,
         input_dims=None,
+        output_dims=None,
         unmapped_to_nan=False,
+        parallel=False,
     ):
         """
         Base xESMF regridding class supporting ESMF objects: `Grid`, `Mesh` and `LocStream`.
@@ -280,11 +313,21 @@ class BaseRegridder(object):
             If not given or if those are not found on the regridded object, regridding
             uses the two last dimensions of the object (or the last one for input LocStreams and Meshes).
 
+        output_dims : tuple of str, optional
+            A tuple of dimension names to look for when regridding DataArrays or Datasets.
+            If not given or if those are not found on the regridded object, regridding
+            uses the two last dimensions of the object (or the last one for output LocStreams and Meshes)
+
         unmapped_to_nan: boolean, optional
             Set values of unmapped points to `np.nan` instead of zero (ESMF default). This is useful for
             target cells lying outside of the source domain when no output mask is defined.
             If an output mask is defined, or regridding method is `nearest_s2d` or `nearest_d2s`,
             this option has no effect.
+
+        parallel: bool, optional
+            Are the weights generated in parallel with Dask. Default is False. When True, the weight
+            generation in the BaseRegridder is skipped and weights are generated in paralell in the
+            subsest_regridder instead.
 
         Returns
         -------
@@ -307,6 +350,12 @@ class BaseRegridder(object):
             raise ValueError(f'Wrong number of dimension names in `input_dims` ({len(input_dims)}.')
         self.in_horiz_dims = input_dims
 
+        if output_dims is not None and len(output_dims) != int(not self.sequence_out) + 1:
+            raise ValueError(
+                f'Wrong number of dimension names in `output dims` ({len(output_dims)}.'
+            )
+        self.out_horiz_dims = output_dims
+
         # record grid shape information
         # We need to invert Grid shapes to respect xESMF's convention (y, x).
         self.shape_in = self.grid_in.get_shape()[::-1]
@@ -318,28 +367,29 @@ class BaseRegridder(object):
         if reuse_weights and (filename is None) and (weights is None):
             raise ValueError('To reuse weights, you need to provide either filename or weights.')
 
-        if not reuse_weights and weights is None:
-            weights = self._compute_weights()  # Dictionary of weights
-        else:
-            weights = filename if filename is not None else weights
+        if not parallel:
+            if not reuse_weights and weights is None:
+                weights = self._compute_weights()  # Dictionary of weights
+            else:
+                weights = filename if filename is not None else weights
 
-        assert weights is not None
+            assert weights is not None
 
-        # Convert weights, whatever their format, to a sparse coo matrix
-        self.weights = read_weights(weights, self.n_in, self.n_out)
+            # Convert weights, whatever their format, to a sparse coo matrix
+            self.weights = read_weights(weights, self.n_in, self.n_out)
 
-        # replace zeros by NaN for weight matrix entries of unmapped target cells if specified or a mask is present
-        if (
-            (self.grid_out.mask is not None) and (self.grid_out.mask[0] is not None)
-        ) or unmapped_to_nan is True:
-            self.weights = add_nans_to_weights(self.weights)
+            # replace zeros by NaN for weight matrix entries of unmapped target cells if specified or a mask is present
+            if (
+                (self.grid_out.mask is not None) and (self.grid_out.mask[0] is not None)
+            ) or unmapped_to_nan is True:
+                self.weights = add_nans_to_weights(self.weights)
 
-        # follows legacy logic of writing weights if filename is provided
-        if filename is not None and not reuse_weights:
-            self.to_netcdf(filename=filename)
+            # follows legacy logic of writing weights if filename is provided
+            if filename is not None and not reuse_weights:
+                self.to_netcdf(filename=filename)
 
-        # set default weights filename if none given
-        self.filename = self._get_default_filename() if filename is None else filename
+            # set default weights filename if none given
+            self.filename = self._get_default_filename() if filename is None else filename
 
     @property
     def A(self):
@@ -353,6 +403,20 @@ class BaseRegridder(object):
         # Also print to make sure users notice this.
         print(message)
         return self.weights
+
+    @property
+    def w(self) -> xr.DataArray:
+        """Return weights as a 4D DataArray with dimensions (y_out, x_out, y_in, x_in).
+
+        ESMF stores the weights in a 2D array with dimensions (out_dim, in_dim), the size of the output and input
+        grids respectively (ny x nx). This property returns the weights reshaped as a 4D array to simplify
+        comparisons with the original grids.
+        """
+        # TODO: Add coords ?
+        s = self.shape_out + self.shape_in
+        data = self.weights.data.reshape(s)
+        dims = 'y_out', 'x_out', 'y_in', 'x_in'
+        return xr.DataArray(data, dims=dims)
 
     def _get_default_filename(self):
         # e.g. bilinear_400x600_300x400.nc
@@ -386,7 +450,7 @@ class BaseRegridder(object):
         esmf_regrid_finalize(regrid)  # only need weights, not regrid object
         return w
 
-    def __call__(self, indata, keep_attrs=False, skipna=False, na_thres=1.0):
+    def __call__(self, indata, keep_attrs=False, skipna=False, na_thres=1.0, output_chunks=None):
         """
         Apply regridding to input data.
 
@@ -432,6 +496,20 @@ class BaseRegridder(object):
             if `na_thres` is set to 1, all input values must be missing to
             mask the output value.
 
+        output_chunks: dict or tuple, optional
+            The desired chunks to have on the output along the spatial axes, if indata is a dask array.
+            Other non-spatial axes inherit the same chunks as indata.
+            Default behavior depends on the chunking of indata. If it is not chunked along
+            the spatial dimension, the output will also not be chunked,
+            equivalent to passing ``output_chunks=(-1, -1)``.
+            If it is chunked, the output will preserve the chunk sizes,
+            equivalent to passing ``output_chunks=ìndata.chunks``.
+            Chunks have to be specified for all spatial dimensions
+            of the output data otherwise regridding will fail. output_chunks can
+            either be a tuple the same size as the spatial axes of outdata or it
+            can be a dict with defined dims. If output_chunks is a dict, the
+            keys must match the dims of the output grid passed when initializing this Regridder.
+
         Returns
         -------
         outdata : Data type is the same as input data type, except for datasets.
@@ -451,14 +529,28 @@ class BaseRegridder(object):
 
         """
         if isinstance(indata, dask_array_type + (np.ndarray,)):
-            return self.regrid_array(indata, self.weights.data, skipna=skipna, na_thres=na_thres)
+            return self.regrid_array(
+                indata,
+                self.weights.data,
+                skipna=skipna,
+                na_thres=na_thres,
+                output_chunks=output_chunks,
+            )
         elif isinstance(indata, xr.DataArray):
             return self.regrid_dataarray(
-                indata, keep_attrs=keep_attrs, skipna=skipna, na_thres=na_thres
+                indata,
+                keep_attrs=keep_attrs,
+                skipna=skipna,
+                na_thres=na_thres,
+                output_chunks=output_chunks,
             )
         elif isinstance(indata, xr.Dataset):
             return self.regrid_dataset(
-                indata, keep_attrs=keep_attrs, skipna=skipna, na_thres=na_thres
+                indata,
+                keep_attrs=keep_attrs,
+                skipna=skipna,
+                na_thres=na_thres,
+                output_chunks=output_chunks,
             )
         else:
             raise TypeError('input must be numpy array, dask array, xarray DataArray or Dataset!')
@@ -483,10 +575,14 @@ class BaseRegridder(object):
 
         return outdata
 
-    def regrid_array(self, indata, weights, skipna=False, na_thres=1.0):
+    def regrid_array(self, indata, weights, skipna=False, na_thres=1.0, output_chunks=None):
         """See __call__()."""
         if self.sequence_in:
             indata = np.reshape(indata, (*indata.shape[:-1], 1, indata.shape[-1]))
+
+        # If output_chunk is dict, order output chunks to match order of out_horiz_dims and convert to tuple
+        if isinstance(output_chunks, dict):
+            output_chunks = tuple([output_chunks.get(key) for key in self.out_horiz_dims])
 
         kwargs = {
             'shape_in': self.shape_in,
@@ -497,19 +593,42 @@ class BaseRegridder(object):
 
         kwargs.update(skipna=skipna, na_thres=na_thres)
 
+        weights = self.weights.data.reshape(self.shape_out + self.shape_in)
         if isinstance(indata, dask_array_type):  # dask
-            weights = da.from_array(weights, chunks=weights.shape)
-            output_chunks = indata.chunks[:-2] + ((self.shape_out[0],), (self.shape_out[1],))
-
-            outdata = da.map_blocks(
-                self._regrid,
-                indata,
-                weights,
-                dtype=indata.dtype,
-                chunks=output_chunks,
-                meta=np.array((), dtype=indata.dtype),
-                **kwargs,
-            )
+            if output_chunks is None:
+                # Default : same chunk size as the input to preserve chunksize
+                # Unless the input is not chunked along the dimension (shape_in == in_chunk_size), in which case we do not chunk along the dimension
+                # This preserves the pre-0.8 behaviour.
+                output_chunks = tuple(
+                    min(chnkin, shpout) if shpin != chnkin else shpout
+                    for shpout, shpin, chnkin in zip(
+                        self.shape_out, self.shape_in, indata.chunksize[-2:]
+                    )
+                )
+                fac = np.prod(
+                    [np.ceil(shp / chnk) for shp, chnk in zip(self.shape_out, output_chunks)]
+                )
+                if fac > 4:  # Dask's built-in threshold is 10
+                    warnings.warn(
+                        (
+                            f'Regridding is increasing the number of chunks by a factor of {fac}, '
+                            'you might want to specify sizes in `output_chunks` in the regridder call. '
+                            f'Default behaviour is to preserve the chunk sizes from the input {indata.chunksize[-2:]}.'
+                        ),
+                        da.core.PerformanceWarning,
+                        stacklevel=3,
+                    )
+            if len(output_chunks) != len(self.shape_out):
+                if len(output_chunks) == 1 and self.sequence_out:
+                    output_chunks = (1, output_chunks[0])
+                else:
+                    raise ValueError(
+                        f'output_chunks must have same dimension as ds_out,'
+                        f' output_chunks dimension ({len(output_chunks)}) does not '
+                        f'match ds_out dimension ({len(self.shape_out)})'
+                    )
+            weights = da.from_array(weights, chunks=(output_chunks + indata.chunksize[-2:]))
+            outdata = self._regrid(indata, weights, **kwargs)
         else:  # numpy
             outdata = self._regrid(indata, weights, **kwargs)
         return outdata
@@ -528,11 +647,13 @@ class BaseRegridder(object):
         )
         return self.regrid_array(indata, self.weights.data, **kwargs)
 
-    def regrid_dataarray(self, dr_in, keep_attrs=False, skipna=False, na_thres=1.0):
+    def regrid_dataarray(
+        self, dr_in, keep_attrs=False, skipna=False, na_thres=1.0, output_chunks=None
+    ):
         """See __call__()."""
 
         input_horiz_dims, temp_horiz_dims = self._parse_xrinput(dr_in)
-        kwargs = dict(skipna=skipna, na_thres=na_thres)
+        kwargs = dict(skipna=skipna, na_thres=na_thres, output_chunks=output_chunks)
         dr_out = xr.apply_ufunc(
             self.regrid_array,
             dr_in,
@@ -546,13 +667,15 @@ class BaseRegridder(object):
 
         return self._format_xroutput(dr_out, temp_horiz_dims)
 
-    def regrid_dataset(self, ds_in, keep_attrs=False, skipna=False, na_thres=1.0):
+    def regrid_dataset(
+        self, ds_in, keep_attrs=False, skipna=False, na_thres=1.0, output_chunks=None
+    ):
         """See __call__()."""
 
         # get the first data variable to infer input_core_dims
         input_horiz_dims, temp_horiz_dims = self._parse_xrinput(ds_in)
 
-        kwargs = dict(skipna=skipna, na_thres=na_thres)
+        kwargs = dict(skipna=skipna, na_thres=na_thres, output_chunks=output_chunks)
 
         non_regriddable = [
             name
@@ -655,6 +778,7 @@ class Regridder(BaseRegridder):
         locstream_in=False,
         locstream_out=False,
         periodic=False,
+        parallel=False,
         **kwargs,
     ):
         """
@@ -698,6 +822,11 @@ class Regridder(BaseRegridder):
             Periodic in longitude? Default to False.
             Only useful for global grids with non-conservative regridding.
             Will be forced to False for conservative regridding.
+
+        parallel : bool, optional
+            Compute the weights in parallel with Dask. Default to False.
+            If True, weights are computed in parallel with Dask on subsets of the output grid using
+            chunks of the output grid.
 
         filename : str, optional
             Name for the weight file. The default naming scheme is::
@@ -759,7 +888,17 @@ class Regridder(BaseRegridder):
                 f'locstream output is only available for method in {methods_avail_ls_out}'
             )
 
-        # record basic switches
+        reuse_weights = kwargs.get('reuse_weights', False)
+
+        weights = kwargs.get('weights', None)
+
+        if parallel and (reuse_weights or weights is not None):
+            parallel = False
+            warnings.warn(
+                'Cannot use parallel=True when reuse_weights=True or when weights is not None. Building Regridder normally.'
+            )
+
+        # Record basic switches
         if method in ['conservative', 'conservative_normed']:
             need_bounds = True
             periodic = False  # bound shape will not be N+1 for periodic grid
@@ -769,10 +908,11 @@ class Regridder(BaseRegridder):
         # Ensure we have Datasets and not DataArrays.
         if isinstance(ds_in, xr.DataArray):
             ds_in = ds_in._to_temp_dataset()
+
         if isinstance(ds_out, xr.DataArray):
             ds_out = ds_out._to_temp_dataset()
 
-        # construct ESMF grid, with some shape checking
+        # Construct ESMF grid, with some shape checking
         if locstream_in:
             grid_in, shape_in, input_dims = ds_to_ESMFlocstream(ds_in)
         else:
@@ -780,14 +920,22 @@ class Regridder(BaseRegridder):
                 ds_in, need_bounds=need_bounds, periodic=periodic
             )
         if locstream_out:
-            grid_out, shape_out, _ = ds_to_ESMFlocstream(ds_out)
+            grid_out, shape_out, output_dims = ds_to_ESMFlocstream(ds_out)
         else:
-            grid_out, shape_out, _ = ds_to_ESMFgrid(ds_out, need_bounds=need_bounds)
+            grid_out, shape_out, output_dims = ds_to_ESMFgrid(ds_out, need_bounds=need_bounds)
 
         # Create the BaseRegridder
-        super().__init__(grid_in, grid_out, method, input_dims=input_dims, **kwargs)
+        super().__init__(
+            grid_in,
+            grid_out,
+            method,
+            input_dims=input_dims,
+            output_dims=output_dims,
+            parallel=parallel,
+            **kwargs,
+        )
 
-        # record output grid and metadata
+        # Record output grid and metadata
         lon_out, lat_out = _get_lon_lat(ds_out)
         if not isinstance(lon_out, DataArray):
             if lon_out.ndim == 2:
@@ -827,6 +975,124 @@ class Regridder(BaseRegridder):
                 self.out_coords.update({gm: ds_out[gm] for gm in grid_mapping if gm in ds_out})
         else:
             self.out_coords = {lat_out.name: lat_out, lon_out.name: lon_out}
+
+        if parallel:
+            self._init_para_regrid(ds_in, ds_out, kwargs)
+
+    def _init_para_regrid(self, ds_in, ds_out, kwargs):
+        # Check if we have bounds as variable and not coords, and add them to coords in both datasets
+        if 'lon_b' in ds_out.data_vars:
+            ds_out = ds_out.set_coords(['lon_b', 'lat_b'])
+        if 'lon_b' in ds_in.data_vars:
+            ds_in = ds_in.set_coords(['lon_b', 'lat_b'])
+        if not (set(self.out_horiz_dims) - {'dummy'}).issubset(ds_out.chunksizes.keys()):
+            raise ValueError(
+                'Using `parallel=True` requires the output grid to have chunks along all spatial dimensions. '
+                'If the dataset has no variables, consider adding an all-True spatial mask with appropriate chunks.'
+            )
+        # Drop everything in ds_out except mask or create mask if None. This is to prevent map_blocks loading unnecessary large data
+        if self.sequence_out:
+            ds_out_dims_drop = set(ds_out.variables).difference(ds_out.data_vars)
+            ds_out = ds_out.drop_dims(ds_out_dims_drop)
+        else:
+            if 'mask' in ds_out:
+                mask = ds_out.mask
+                ds_out = ds_out.coords.to_dataset()
+                ds_out['mask'] = mask
+            else:
+                ds_out_chunks = tuple([ds_out.chunksizes[i] for i in self.out_horiz_dims])
+                ds_out = ds_out.coords.to_dataset()
+                mask = da.ones(self.shape_out, dtype=bool, chunks=ds_out_chunks)
+                ds_out['mask'] = (self.out_horiz_dims, mask)
+
+            ds_out_dims_drop = set(ds_out.cf.coordinates.keys()).difference(
+                ['longitude', 'latitude']
+            )
+            ds_out = ds_out.cf.drop_dims(ds_out_dims_drop)
+
+        # Drop unnecessary variables in ds_in to save memory
+        if not self.sequence_in:
+            # Drop unnecessary dims
+            ds_in_dims_drop = set(ds_in.cf.coordinates.keys()).difference(['longitude', 'latitude'])
+            ds_in = ds_in.cf.drop_dims(ds_in_dims_drop)
+
+            # Drop unnecessary vars
+            ds_in = ds_in.coords.to_dataset()
+
+        # Ensure ds_in is not dask-backed
+        ds_in = ds_in.load()
+
+        # if bounds in ds_out, we switch to cf bounds for map_blocks
+        if 'lon_b' in ds_out and (ds_out.lon_b.ndim == ds_out.cf['longitude'].ndim):
+            ds_out = ds_out.assign_coords(
+                lon_bounds=cfxr.vertices_to_bounds(
+                    ds_out.lon_b, ('bounds', *ds_out.cf['longitude'].dims)
+                ),
+                lat_bounds=cfxr.vertices_to_bounds(
+                    ds_out.lat_b, ('bounds', *ds_out.cf['latitude'].dims)
+                ),
+            )
+            # Make cf-xarray aware of the new bounds
+            ds_out[ds_out.cf['longitude'].name].attrs['bounds'] = 'lon_bounds'
+            ds_out[ds_out.cf['latitude'].name].attrs['bounds'] = 'lat_bounds'
+            ds_out = ds_out.drop_dims(ds_out.lon_b.dims + ds_out.lat_b.dims)
+        # rename dims to avoid map_blocks confusing ds_in and ds_out dims.
+        if self.sequence_in:
+            ds_in = ds_in.rename({self.in_horiz_dims[0]: 'x_in'})
+        else:
+            ds_in = ds_in.rename({self.in_horiz_dims[0]: 'y_in', self.in_horiz_dims[1]: 'x_in'})
+
+        if self.sequence_out:
+            ds_out = ds_out.rename({self.out_horiz_dims[1]: 'x_out'})
+            out_chunks = ds_out.chunks.get('x_out')
+        else:
+            ds_out = ds_out.rename(
+                {self.out_horiz_dims[0]: 'y_out', self.out_horiz_dims[1]: 'x_out'}
+            )
+            out_chunks = [ds_out.chunks.get(k) for k in ['y_out', 'x_out']]
+
+        # Rename coords to avoid issues in xr.map_blocks
+        for coord in list(self.out_coords.keys()):
+            # If coords and dims are the same, renaming has already been done.
+            if coord not in self.out_horiz_dims:
+                ds_out = ds_out.rename({coord: coord + '_out'})
+
+        weights_dims = ('y_out', 'x_out', 'y_in', 'x_in')
+        templ = sps.zeros((self.shape_out + self.shape_in))
+        w_templ = xr.DataArray(templ, dims=weights_dims).chunk(
+            out_chunks
+        )  # template has same chunks as ds_out
+
+        w = xr.map_blocks(
+            subset_regridder,
+            ds_out,
+            args=[
+                ds_in,
+                self.method,
+                self.in_horiz_dims,
+                self.out_horiz_dims,
+                self.sequence_in,
+                self.sequence_out,
+                self.periodic,
+            ],
+            kwargs=kwargs,
+            template=w_templ,
+        )
+        w = w.compute(scheduler='processes')
+        weights = w.stack(out_dim=weights_dims[:2], in_dim=weights_dims[2:])
+        weights.name = 'weights'
+        self.weights = weights
+
+        # follows legacy logic of writing weights if filename is provided
+        if 'filename' in kwargs:
+            filename = kwargs['filename']
+        else:
+            filename = None
+        if filename is not None and not self.reuse_weights:
+            self.to_netcdf(filename=filename)
+
+        # set default weights filename if none given
+        self.filename = self._get_default_filename() if filename is None else filename
 
     def _format_xroutput(self, out, new_dims=None):
         if new_dims is not None:
@@ -877,7 +1143,7 @@ class SpatialAverager(BaseRegridder):
             Contain input and output grid coordinates. Look for variables
             ``lon``, ``lat``, ``lon_b`` and ``lat_b``.
 
-            Optionaly looks for ``mask``, in which case  the ESMF convention is used,
+            Optionally looks for ``mask``, in which case  the ESMF convention is used,
             where masked values are identified by 0, and non-masked values by 1.
 
             Shape can be 1D (n_lon,) and (n_lat,) for rectilinear grids,
@@ -950,6 +1216,9 @@ class SpatialAverager(BaseRegridder):
             self._lon_out_name = 'lon'
             self._lat_out_name = 'lat'
 
+        # Check length of polys segments
+        self._check_polys_length(polys)
+
         poly_centers = [poly.centroid.xy for poly in polys]
         self._lon_out = np.asarray([c[0][0] for c in poly_centers])
         self._lat_out = np.asarray([c[1][0] for c in poly_centers])
@@ -971,6 +1240,23 @@ class SpatialAverager(BaseRegridder):
             ignore_degenerate=ignore_degenerate,
             unmapped_to_nan=False,
         )
+
+    @staticmethod
+    def _check_polys_length(polys, threshold=1):
+        # Check length of polys segments, issue warning if too long
+        check_polys, check_holes, _, _ = split_polygons_and_holes(polys)
+        check_polys.extend(check_holes)
+        poly_segments = []
+        for check_poly in check_polys:
+            b = check_poly.boundary.coords
+            # Length of each segment
+            poly_segments.extend([LineString(b[k : k + 2]).length for k in range(len(b) - 1)])
+        if np.any(np.array(poly_segments) > threshold):
+            warnings.warn(
+                f'`polys` contains large (> {threshold}°) segments. This could lead to errors over large regions. For a more accurate average, segmentize (densify) your shapes with  `shapely.segmentize(polys, {threshold})`',
+                UserWarning,
+                stacklevel=2,
+            )
 
     def _compute_weights_and_area(self, mesh_out):
         """Return the weights and the area of the destination mesh cells."""
@@ -1037,6 +1323,19 @@ class SpatialAverager(BaseRegridder):
 
         # Combine weights for all the subgeometries belonging to the same geometry
         return _combine_weight_multipoly(w, area, geom_indices).T
+
+    @property
+    def w(self) -> xr.DataArray:
+        """Return weights as a 3D DataArray with dimensions (geom, y_in, x_in).
+
+        ESMF stores the weights in a 2D array with dimensions (out_dim, in_dim), the size of the output and input
+        grids respectively (ny x nx). This property returns the weights reshaped as a 3D array to simplify
+        comparisons with the original grids.
+        """
+        s = self.shape_out[1:2] + self.shape_in
+        data = self.weights.data.reshape(s)
+        dims = self.geom_dim_name, 'y_in', 'x_in'
+        return xr.DataArray(data, dims=dims)
 
     def _get_default_filename(self):
         # e.g. bilinear_400x600_300x400.nc

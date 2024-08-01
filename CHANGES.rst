@@ -1,6 +1,75 @@
 What's new
 ==========
 
+0.8.7 (2024-07-16)
+------------------
+* Cast grid sizes to python's int (another Numpy 2.0 fix). (:pull:`377`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
+
+0.8.6 (2024-06-26)
+------------------
+* New ``xe.util.cell_area`` utility to compute the cell area using ESMF's internal mechanism. (:pull:`372`, :issue:`369`) By `Jiawei Zhuang <https://github.com/JiaweiZhuang>`_  and `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Compatibility with Numpy 2.0 (NaN vs nan) (:pull:`373`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
+
+0.8.5 (2024-04-11)
+------------------
+* Reverted to the chunking behaviour of xESMF 0.7 for cases where the spatial dimensions are not chunked on the source data. (:pull:`348`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
+
+0.8.4 (2024-02-26)
+------------------
+* Fix regression from :pull:`332` that made ``Regridder`` fail with rectilinear datasets and ``parallel=True``. (:issue:`343`, :pull:`344`).
+* Allow Python 3.12 (and higher) again. (:pull:`345).
+
+0.8.3 (2024-02-20)
+------------------
+* Remove usage of private method of xarray that was removed in its 2024.02.0 version (:issue:`338`, :issue:`340`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
+
+Internal changes
+~~~~~~~~~~~~~~~~
+* Test against ESMF 8.6
+
+
+0.8.2 (2023-09-18)
+------------------
+
+Bug fixes
+~~~~~~~~~
+* Raise a meaningful error messages when the output grid has no chunks with `parallel=True` (:issue:`299`, :pull:`304`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Correct guess of output chunks for ``SpatialAverager``.
+
+0.8.1 (2023-09-05)
+------------------
+
+Bug fixes
+~~~~~~~~~
+* Change import to support shapely 1 and 2.
+
+0.8.0 (2023-09-01)
+------------------
+
+This release of xESMF improves support for parallelization with dask: weights can now be computed in parallel, and those weights can be applied over chunks spanning the horizontal grid dimensions. Previously, computing weights in parallel was only possible using MPI, and datasets could only be chunked over non-spatial dimensions.
+
+These new features are the outcome of `Charles Gauthier <https://github.com/charlesgauthier-udm>`_'s internship at `Ouranos <https://www.ouranos.ca/>`_ during the summer of 2023. Thanks to Charles for his hard work and sharp analysis, which led to a permanent position at Ouranos!
+
+
+New features
+~~~~~~~~~~~~
+* Added a check in SpatialAverager that warns user if they are using polygons with long segments that could cause errors (:pull:`293`). By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
+* Add an option (``parallel``) to generate regridding weights in parallel using dask (:pull:`290`). By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
+* Add the ability to apply weights using dask on chunked horizontal/core dimensions. The ``output_chunks`` argument to the  `Regridder` class
+  allows setting the chunk sizes of the output data (:pull:`280`). By `Charles Gauthier <https://github.com/charlesgauthier-udm>`_
+* Added a `w` property to the `Regridder` and `SpatialAverager` classes, returning the weights reshaped according to
+  the input and output grid dimensions. This is mostly intended for debugging and visualisation purposes (:pull:`276`). By `David Huard <https://github.com/huard>`_
+
+Documentation
+~~~~~~~~~~~~~
+* Move URLs from earthsystemcog.org to earthsystemmodeling.org (:pull:`292`).
+
+Internal changes
+~~~~~~~~~~~~~~~~
+* Remove Python 3.7 from the project classifiers
+* Build docs using Python 3.9
+
+
 0.7.1 (2023-04-03)
 ------------------
 

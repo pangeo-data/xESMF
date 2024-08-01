@@ -8,7 +8,7 @@ Here is a brief overview of other regridding tools that the authors are aware of
 They are all great tools and have helped the author a lot in both scientific research
 and xESMF development. Check them out if xESMF cannot suit your needs.
 
-- `ESMF <https://www.earthsystemcog.org/projects/esmf/>`_ (*Fortran package*)
+- `ESMF <https://earthsystemmodeling.org/docs/release/latest/ESMF_refdoc/>`_ (*Fortran package*)
 
 Although its name "Earth System Modeling Framework" doesn't indicate a regridding
 functionality, it actually contains a very powerful regridding engine.
@@ -16,12 +16,11 @@ It is widely used in Earth System Models (ESMs), serving as both the software in
 and the regridder for transforming data between the atmosphere, ocean, and land components.
 It can deal with general irregular meshes, in either 2D or 3D.
 
-ESMF is a huge beast, containing
-`one million lines of source code <https://www.earthsystemcog.org/projects/esmf/sloc_annual>`_.
+ESMF is a huge beast, containing one million lines of source code.
 Even just compiling it requires some effort.
 It is more for building ESMs than for data analysis.
 
-- `ESMPy <https://www.earthsystemcog.org/projects/esmpy/>`_ (*Python interface to ESMF*)
+- `ESMPy <http://earthsystemmodeling.org/esmpy/>`_ (*Python interface to ESMF*)
 
 ESMPy provides a much simpler way to use ESMF's regridding functionality.
 The greatest thing is, it is pre-compiled as a
@@ -48,7 +47,7 @@ and can be modified to support many cubed-sphere grid variations
 
 - `SCRIP <http://oceans11.lanl.gov/trac/SCRIP>`_ (*Fortran package*)
 
-An old pacakge, once popular but **no longer maintained** (long live SCRIP).
+An old package, once popular but **no longer maintained** (long live SCRIP).
 You should not use it now, but should know that it exists.
 Newer regridding packages often follow its standards --
 you will see "SCRIP format" here and there, for example in ESMF or TempestRemap.
@@ -64,8 +63,10 @@ that works for more grid types.
 - `Regridder in NCO <http://nco.sourceforge.net/nco.html#Regridding>`_
   (*command line tool*)
 
-- `Regridder in Iris <http://scitools.org.uk/iris/docs/v1.10.0/userguide/interpolation_and_regridding.html>`_
+- `Regridder in Iris <https://scitools-iris.readthedocs.io/en/v3.4.1/userguide/interpolation_and_regridding.html>`_
   (*Python package*)
 
-- `Regridder in UV-CDAT <https://uvcdat.llnl.gov/documentation/cdms/cdms_4.html>`_
+- `Regridder in xCDAT <https://xcdat.readthedocs.io/en/latest/generated/xcdat.regridder.accessor.RegridderAccessor.html>`_
   (*Python package*)
+
+ Offers regridding algorithms from xESMF and `regrid2`, originally from the CDAT `cdutil` package, it also includes code for vertical regridding.

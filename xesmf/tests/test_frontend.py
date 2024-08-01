@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import xarray as xr
 from numpy.testing import assert_allclose, assert_almost_equal, assert_equal
+from shapely import segmentize
 from shapely.geometry import MultiPolygon, Polygon
 
 import xesmf as xe
@@ -36,10 +37,13 @@ ds_out['data4D_ref'] = ds_in['time'] * ds_in['lev'] * ds_out['data_ref']
 
 # use non-divisible chunk size to catch edge cases
 ds_in_chunked = ds_in.chunk({'time': 3, 'lev': 2})
+ds_spatial_chunked = ds_in.chunk({'time': 3, 'lev': 2, 'y': 5, 'x': 9})
+ds_out_chunked = ds_out.chunk({'y': 5, 'x': 5})
 
 ds_locs = xr.Dataset()
 ds_locs['lat'] = xr.DataArray(data=[-20, -10, 0, 10], dims=('locations',))
 ds_locs['lon'] = xr.DataArray(data=[0, 5, 10, 15], dims=('locations',))
+ds_locs_chunked = ds_locs.chunk(2)
 
 
 # For polygon handling and spatial average
@@ -179,13 +183,35 @@ def test_existing_weights():
 
     # check fails on non-existent file
     with pytest.raises(OSError):
-        regridder_reuse = xe.Regridder(
-            ds_in, ds_out, method, reuse_weights=True, filename='fakewgts.nc'
-        )
+        xe.Regridder(ds_in, ds_out, method, reuse_weights=True, filename='fakewgts.nc')
 
     # check fails if no weights are provided
     with pytest.raises(ValueError):
-        regridder_reuse = xe.Regridder(ds_in, ds_out, method, reuse_weights=True)
+        xe.Regridder(ds_in, ds_out, method, reuse_weights=True)
+
+
+def test_regridder_w():
+    """Check that the `w` property for dimensioned weights works."""
+    regridder = xe.Regridder(ds_in, ds_out, method='bilinear')
+    w = regridder.w
+    assert w.shape == ds_out.lon.shape + ds_in.lon.shape
+
+    p = Polygon([(-10, -10), (10, -10), (10, 10), (-10, 10)])
+
+    averager = xe.SpatialAverager(ds_in, [p])
+    assert averager.w.shape == (1,) + ds_in.lon.shape
+
+    ds_in_cf = xe.util.grid_global(15, 15, cf=True)
+    ds_out_cf = xe.util.grid_global(30, 30, cf=True)
+
+    regridder_cf = xe.Regridder(ds_in_cf, ds_out_cf, method='bilinear')
+    w_cf = regridder_cf.w
+    assert w_cf.shape == (
+        ds_out_cf.lat.shape + ds_out_cf.lon.shape + ds_in_cf.lat.shape + ds_in_cf.lon.shape
+    )
+
+    averager = xe.SpatialAverager(ds_in_cf, [p, p])
+    assert averager.w.shape == (2,) + ds_in_cf.lat.shape + ds_in_cf.lon.shape
 
 
 def test_to_netcdf(tmp_path):
@@ -363,8 +389,8 @@ def test_regrid_cfbounds():
 def test_regrid_dataarray(use_cfxr):
     # xarray.DataArray containing in-memory numpy array
     if use_cfxr:
-        ds_in2 = ds_in.rename(lat='Latitude', lon='Longitude')
-        ds_out2 = ds_out.rename(lat='Latitude', lon='Longitude')
+        ds_in2 = ds_in.rename(lat='latitude', lon='longitude')
+        ds_out2 = ds_out.rename(lat='latitude', lon='longitude')
     else:
         ds_in2 = ds_in
         ds_out2 = ds_out
@@ -382,8 +408,8 @@ def test_regrid_dataarray(use_cfxr):
     assert np.max(np.abs(rel_err)) < 0.05
 
     # check metadata
-    lat_name = 'Latitude' if use_cfxr else 'lat'
-    lon_name = 'Longitude' if use_cfxr else 'lon'
+    lat_name = 'latitude' if use_cfxr else 'lat'
+    lon_name = 'longitude' if use_cfxr else 'lon'
     xr.testing.assert_identical(dr_out[lat_name], ds_out2[lat_name])
     xr.testing.assert_identical(dr_out[lon_name], ds_out2[lon_name])
 
@@ -481,23 +507,46 @@ def test_regrid_dask(request, scheduler):
     scheduler = request.getfixturevalue(scheduler)
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
-    indata = ds_in_chunked['data4D'].data
-    # Use ridiculous small chunk size value to be sure it _isn't_ impacting computation.
-    with dask.config.set({'array.chunk-size': '1MiB'}):
-        outdata = regridder(indata)
+    indata = ds_in_chunked['data'].data
+    outdata = regridder(indata)
 
     assert dask.is_dask_collection(outdata)
 
     # lazy dask arrays have incorrect shape attribute due to last chunk
     assert outdata.shape == indata.shape[:-2] + horiz_shape_out
-    assert outdata.chunksize == indata.chunksize[:-2] + horiz_shape_out
 
-    # Check that the number of tasks hasn't exploded.
-    n_task_in = len(indata.__dask_graph__().keys())
+    # Check that the number of tasks is as predicted
+    # ds_in has 1 chunk
+    # thus output also has 1 chunk (output is not chunked if input isn't)
+    # regridding adds 3 tasks, wrapping the weights adds 2
     n_task_out = len(outdata.__dask_graph__().keys())
-    assert (n_task_out / n_task_in) < 3
+    n_task_in = len(indata.__dask_graph__().keys())
+    assert n_task_out == n_task_in + 5
 
-    outdata_ref = ds_out['data4D_ref'].values
+    # Use very small chunks
+    indata_chunked = indata.rechunk((5, 6))  # Now has 9 chunks (5, 6)
+    outdata = regridder(indata_chunked)
+    # This is the case where we preserve chunk size
+    assert outdata.chunksize == indata_chunked.chunksize
+    n_task_out = len(outdata.__dask_graph__().keys())
+    n_task_in = len(indata_chunked.__dask_graph__().keys())
+    # input has 9 chunks
+    # output has 16
+    # Regridding adds 2 * 9 * 16 + 16 + 64 (I'm not sure I fully understand how dasks sums at the end)
+    # Wrapping the weights adds 9 * 16 + 1
+    assert n_task_out == n_task_in + 513
+
+    # Prescribe chunks
+    outdata = regridder(indata, output_chunks=(-1, 12))
+    n_task_out = len(outdata.__dask_graph__().keys())
+    n_task_in = len(indata.__dask_graph__().keys())
+    # input has 1 chunks
+    # output has 2
+    # Regridding adds 2 * 1 * 2 + 2
+    # Wrapping the weights adds 1 * 2 + 1
+    assert n_task_out == n_task_in + 9
+
+    outdata_ref = ds_out['data_ref'].values
     rel_err = (outdata.compute() - outdata_ref) / outdata_ref
     assert np.max(np.abs(rel_err)) < 0.05
 
@@ -536,7 +585,6 @@ def test_regrid_dataarray_dask(request, scheduler):
     assert dask.is_dask_collection(dr_out)
 
     assert dr_out.data.shape == dr_in.data.shape[:-2] + horiz_shape_out
-    assert dr_out.data.chunksize == dr_in.data.chunksize[:-2] + horiz_shape_out
 
     # data over broadcasting dimensions should agree
     assert_almost_equal(dr_in.values.mean(axis=(2, 3)), dr_out.values.mean(axis=(2, 3)), decimal=10)
@@ -568,6 +616,79 @@ def test_regrid_dataarray_dask_from_locstream(request, scheduler):
 
     outdata = regridder(ds_locs.chunk()['lat'])
     assert dask.is_dask_collection(outdata)
+
+
+def test_dask_output_chunks():
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
+
+    test_output_chunks_tuple = (10, 12)
+    test_output_chunks_dict = {'y': 10, 'x': 12}
+    indata = ds_spatial_chunked['data4D'].data  # Data chunked along spatial dims
+    # Use ridiculous small chunk size value to be sure it _isn't_ impacting computation.
+    with dask.config.set({'array.chunk-size': '1MiB'}):
+        outdata = regridder(indata)
+        outdata_spec_tuple = regridder(indata, output_chunks=test_output_chunks_tuple)
+        outdata_spec_dict = regridder(indata, output_chunks=test_output_chunks_dict)
+
+    assert dask.is_dask_collection(outdata)
+    assert dask.is_dask_collection(outdata_spec_tuple)
+    assert dask.is_dask_collection(outdata_spec_dict)
+
+    # Verify that the default chunking is correct
+    assert outdata.shape == indata.shape[:-2] + horiz_shape_out
+    assert outdata.chunksize == indata.chunksize
+
+    # Verify that we get specified outputchunks when the argument is provided
+    assert outdata_spec_tuple.shape == indata.shape[:-2] + horiz_shape_out
+    assert outdata_spec_tuple.chunksize == indata.chunksize[:-2] + test_output_chunks_tuple
+
+    assert outdata_spec_dict.shape == indata.shape[:-2] + horiz_shape_out
+    assert (
+        outdata_spec_dict.chunksize == indata.chunksize[:-2] + test_output_chunks_tuple
+    )  # dict should've been converted to tuple
+
+
+def test_para_weight_gen():
+    # Generating weights in serial and parallel
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
+    para_regridder = xe.Regridder(ds_in, ds_out_chunked, 'conservative', parallel=True)
+
+    # weights should be identical between serial and parallel
+    assert all(regridder.w.data.data == para_regridder.w.data.data)
+
+    # Should work with a rectilinear version too (where dims == coords)
+    ds_in_cf = xe.util.cf_grid_2d(-90, 90, 20, -45, 45, 12)
+    ds_out_cf = xe.util.cf_grid_2d(-90, 90, 15, -45, 45, 9)
+    ds_in_cf['data'] = xe.data.wave_smooth(ds_in_cf['lon'], ds_in_cf['lat'])
+    ds_out_cf['data_ref'] = xe.data.wave_smooth(ds_out_cf['lon'], ds_out_cf['lat']).chunk(
+        {'lat': 5, 'lon': 5}
+    )
+
+    # Generating weights in serial and parallel
+    regridder = xe.Regridder(ds_in_cf, ds_out_cf, 'conservative')
+    para_regridder = xe.Regridder(ds_in_cf, ds_out_cf, 'conservative', parallel=True)
+
+    # weights should be identical between serial and parallel
+    assert all(regridder.w.data.data == para_regridder.w.data.data)
+
+    # Ensure para weight gen works with locstream_in as well
+    reggrider_locs = xe.Regridder(ds_locs, ds_out_chunked, 'nearest_s2d', locstream_in=True)
+    para_regridder_locs = xe.Regridder(
+        ds_locs, ds_out_chunked, 'nearest_s2d', parallel=True, locstream_in=True
+    )
+    assert all(reggrider_locs.w.data.data == para_regridder_locs.w.data.data)
+
+    # Same as above with locstream_out
+    regridder_locs = xe.Regridder(ds_in, ds_locs, 'nearest_s2d', locstream_out=True)
+    para_regridder_locs = xe.Regridder(
+        ds_in, ds_locs_chunked, 'nearest_s2d', parallel=True, locstream_out=True
+    )
+    assert all(regridder_locs.w.data.data == para_regridder_locs.w.data.data)
+
+
+def test_para_weight_gen_errors():
+    with pytest.raises(ValueError, match='requires the output grid to have chunks'):
+        xe.Regridder(ds_in, ds_out, 'conservative', parallel=True)
 
 
 def test_regrid_dataset():
@@ -702,15 +823,41 @@ def test_ds_to_ESMFlocstream():
         locstream, shape, names = ds_to_ESMFlocstream(ds_bogus)
 
 
+@pytest.mark.parametrize('use_dask', [True, False])
 @pytest.mark.parametrize('poly,exp', list(zip(polys, exps_polys)))
-def test_spatial_averager(poly, exp):
+def test_spatial_averager(poly, exp, use_dask):
     if isinstance(poly, (Polygon, MultiPolygon)):
         poly = [poly]
-    savg = xe.SpatialAverager(ds_savg, poly, geom_dim_name='my_geom')
-    out = savg(ds_savg.abc)
+    if use_dask:
+        ds_in = ds_savg.chunk(lat=10)
+    else:
+        ds_in = ds_savg
+    savg = xe.SpatialAverager(ds_in, poly, geom_dim_name='my_geom')
+    out = savg(ds_in.abc)
     assert_allclose(out, exp, rtol=1e-3)
 
     assert 'my_geom' in out.dims
+
+
+def test_spatial_averager_with_zonal_region():
+    # We expect the spatial average for all regions to be one
+    zonal_south = Polygon([(0, -90), (10, 0), (0, 0)])
+    zonal_north = Polygon([(0, 90), (10, 0), (0, 0)])
+    zonal_short = Polygon([(0, -10), (10, -10), (10, 10), (0, 10)])
+    zonal_full = Polygon([(0, -90), (10, 0), (0, 90), (0, 0)])  # This yields 0... why?
+
+    polys = [zonal_south, zonal_north, zonal_short, zonal_full]
+    polys = segmentize(polys, 1)
+
+    # Create field of ones on a global grid
+    ds = xe.util.grid_global(20, 12, cf=True)
+    ds['a'] = xr.DataArray(
+        np.ones((ds.lon.size, ds.lat.size)),
+        coords={'lat': ds.lat, 'lon': ds.lon},
+        dims=('lon', 'lat'),
+    )
+    out = xe.SpatialAverager(ds, polys)(ds.a)
+    assert_allclose(out, 1, rtol=1e-3)
 
 
 def test_compare_weights_from_poly_and_grid():
@@ -853,3 +1000,10 @@ def test_spatial_averager_mask():
     savg = xe.SpatialAverager(dsm, [poly], geom_dim_name='my_geom')
     out = savg(dsm.abc)
     assert_allclose(out, 2, rtol=1e-3)
+
+
+def test_densify_polys():
+    # Check that using a large poly raises a warning
+    poly = Polygon([(-80, -40), (80, -40), (80, 40), (-80, 40)])  # Large poly
+    with pytest.warns(UserWarning):
+        xe.SpatialAverager(ds_in, [poly])
