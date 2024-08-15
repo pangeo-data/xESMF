@@ -1107,6 +1107,12 @@ class Regridder(BaseRegridder):
 
         return out
 
+    def __del__(self):
+        # Memory leak issue when regridding over a large number of datasets with xESMF
+        # https://github.com/JiaweiZhuang/xESMF/issues/53
+        self.grid_in.destroy()
+        self.grid_out.destroy()
+
 
 class SpatialAverager(BaseRegridder):
     def __init__(
@@ -1370,3 +1376,9 @@ class SpatialAverager(BaseRegridder):
         out.coords[self._lat_out_name] = xr.DataArray(self._lat_out, dims=(self.geom_dim_name,))
         out.attrs['regrid_method'] = self.method
         return out
+
+    def __del__(self):
+        # Memory leak issue when regridding over a large number of datasets with xESMF
+        # https://github.com/JiaweiZhuang/xESMF/issues/53
+        self.grid_in.destroy()
+        self.grid_out.destroy()

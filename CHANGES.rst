@@ -1,6 +1,10 @@
 What's new
 ==========
 
+0.8.8 (unreleased)
+------------------
+* Fix ESMpy memory issues by explictly freeing the Grid memory upon garbage collection of ``Regridder`` objects. By `Pascal Bourgault <https://github.com/aulemahal>`_.
+
 0.8.7 (2024-07-16)
 ------------------
 * Cast grid sizes to python's int (another Numpy 2.0 fix). (:pull:`377`) By `Pascal Bourgault <https://github.com/aulemahal>`_.
