@@ -1049,7 +1049,7 @@ class Regridder(BaseRegridder):
                 {self.out_horiz_dims[0]: 'y_out', self.out_horiz_dims[1]: 'x_out'}
             )
 
-        out_chunks = [ds_out.chunks.get(k) for k in ['y_out', 'x_out' ]]
+        out_chunks = [ds_out.chunks.get(k) for k in ['y_out', 'x_out']]
         in_chunks = [ds_in.chunks.get(k) for k in ['y_in', 'x_in']]
         chunks = out_chunks + in_chunks
 
