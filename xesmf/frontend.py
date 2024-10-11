@@ -1049,12 +1049,14 @@ class Regridder(BaseRegridder):
 
         if self.sequence_out:
             ds_out = ds_out.rename({self.out_horiz_dims[1]: 'x_out'})
-            out_chunks = ds_out.chunks.get('x_out')
         else:
             ds_out = ds_out.rename(
                 {self.out_horiz_dims[0]: 'y_out', self.out_horiz_dims[1]: 'x_out'}
             )
-            out_chunks = [ds_out.chunks.get(k) for k in ['y_out', 'x_out']]
+
+        out_chunks = [ds_out.chunks.get(k) for k in ['y_out', 'x_out']]
+        in_chunks = [ds_in.chunks.get(k) for k in ['y_in', 'x_in']]
+        chunks = out_chunks + in_chunks
 
         # Rename coords to avoid issues in xr.map_blocks
         for coord in list(self.out_coords.keys()):
@@ -1065,7 +1067,7 @@ class Regridder(BaseRegridder):
         weights_dims = ('y_out', 'x_out', 'y_in', 'x_in')
         templ = sps.zeros((self.shape_out + self.shape_in))
         w_templ = xr.DataArray(templ, dims=weights_dims).chunk(
-            out_chunks
+            chunks
         )  # template has same chunks as ds_out
 
         w = xr.map_blocks(
