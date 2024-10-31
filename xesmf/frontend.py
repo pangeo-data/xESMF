@@ -1049,9 +1049,9 @@ class Regridder(BaseRegridder):
                 {self.out_horiz_dims[0]: 'y_out', self.out_horiz_dims[1]: 'x_out'}
             )
 
-        out_chunks = [ds_out.chunks.get(k) for k in ['y_out', 'x_out']]
-        in_chunks = [ds_in.chunks.get(k) for k in ['y_in', 'x_in']]
-        chunks = out_chunks + in_chunks
+        out_chunks = {k: ds_out.chunks.get(k) for k in ['y_out', 'x_out']}
+        in_chunks = {k: ds_in.chunks.get(k) for k in ['y_in', 'x_in']}
+        chunks = out_chunks | in_chunks
 
         # Rename coords to avoid issues in xr.map_blocks
         for coord in list(self.out_coords.keys()):

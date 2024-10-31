@@ -4,6 +4,7 @@ What's new
 0.8.8 (unreleased)
 ------------------
 * Fix ESMpy memory issues by explictly freeing the Grid memory upon garbage collection of ``Regridder`` objects. By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Address deprecation for xarray 2024.10 in the parallel weight generation. By `Pascal Bourgault <https://github.com/aulemahal>`_.
 
 0.8.7 (2024-07-16)
 ------------------
