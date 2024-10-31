@@ -1112,8 +1112,9 @@ class Regridder(BaseRegridder):
     def __del__(self):
         # Memory leak issue when regridding over a large number of datasets with xESMF
         # https://github.com/JiaweiZhuang/xESMF/issues/53
-        self.grid_in.destroy()
-        self.grid_out.destroy()
+        if hasattr(self, 'grid_in'):  # If the init has failed, grid_in isn't there
+            self.grid_in.destroy()
+            self.grid_out.destroy()
 
 
 class SpatialAverager(BaseRegridder):
@@ -1324,7 +1325,10 @@ class SpatialAverager(BaseRegridder):
             w_int, area_int = self._compute_weights_and_area(mesh_int)
 
             # Append weights from holes as negative weights
-            w = xr.concat((w, -w_int), 'out_dim')
+            # In sparse >= 0.16, a fill_value of -0.0 is different from 0.0 and the concat would fail
+            inv_w_int = -w_int
+            inv_w_int.data.fill_value = 0.0
+            w = xr.concat((w, inv_w_int), 'out_dim')
 
             # Append areas
             area = np.concatenate([area, area_int])
@@ -1382,5 +1386,6 @@ class SpatialAverager(BaseRegridder):
     def __del__(self):
         # Memory leak issue when regridding over a large number of datasets with xESMF
         # https://github.com/JiaweiZhuang/xESMF/issues/53
-        self.grid_in.destroy()
-        self.grid_out.destroy()
+        if hasattr(self, 'grid_in'):  # If the init has failed, grid_in isn't there
+            self.grid_in.destroy()
+            self.grid_out.destroy()
