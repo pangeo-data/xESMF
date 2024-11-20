@@ -546,19 +546,15 @@ def esmf_regrid_finalize(regrid):
     regrid : ESMF.Regrid object
 
     """
-
+    # We do not destroy the Grids here, as they might be reused between multiple regrids
     regrid.destroy()
     regrid.srcfield.destroy()
     regrid.dstfield.destroy()
-    # regrid.srcfield.grid.destroy()
-    # regrid.dstfield.grid.destroy()
 
     # double check
     assert regrid.finalized
     assert regrid.srcfield.finalized
     assert regrid.dstfield.finalized
-    # assert regrid.srcfield.grid.finalized
-    # assert regrid.dstfield.grid.finalized
 
 
 # Deprecated as of version 0.5.0
