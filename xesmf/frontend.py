@@ -1312,6 +1312,7 @@ class SpatialAverager(BaseRegridder):
 
         # Get weights for external polygons
         w, area = self._compute_weights_and_area(grid_in, mesh_ext)
+        mesh_ext.destroy()  # release mesh memory
 
         # Get weights for interiors and append them to weights from exteriors as a negative contribution.
         if len(interiors) > 0 and not self.ignore_holes:
@@ -1319,6 +1320,7 @@ class SpatialAverager(BaseRegridder):
 
             # Get weights for interiors
             w_int, area_int = self._compute_weights_and_area(grid_in, mesh_int)
+            mesh_int.destroy()  # release mesh memory
 
             # Append weights from holes as negative weights
             # In sparse >= 0.16, a fill_value of -0.0 is different from 0.0 and the concat would fail
