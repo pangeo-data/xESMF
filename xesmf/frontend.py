@@ -334,17 +334,15 @@ class BaseRegridder(object):
         baseregridder : xESMF BaseRegridder object
 
         """
-        self.grid_in = grid_in
-        self.grid_out = grid_out
         self.method = method
         self.reuse_weights = reuse_weights
         self.extrap_method = extrap_method
         self.extrap_dist_exponent = extrap_dist_exponent
         self.extrap_num_src_pnts = extrap_num_src_pnts
         self.ignore_degenerate = ignore_degenerate
-        self.periodic = getattr(self.grid_in, 'periodic_dim', None) is not None
-        self.sequence_in = isinstance(self.grid_in, (LocStream, Mesh))
-        self.sequence_out = isinstance(self.grid_out, (LocStream, Mesh))
+        self.periodic = getattr(grid_in, 'periodic_dim', None) is not None
+        self.sequence_in = isinstance(grid_in, (LocStream, Mesh))
+        self.sequence_out = isinstance(grid_out, (LocStream, Mesh))
 
         if input_dims is not None and len(input_dims) != int(not self.sequence_in) + 1:
             raise ValueError(f'Wrong number of dimension names in `input_dims` ({len(input_dims)}.')
@@ -358,8 +356,8 @@ class BaseRegridder(object):
 
         # record grid shape information
         # We need to invert Grid shapes to respect xESMF's convention (y, x).
-        self.shape_in = self.grid_in.get_shape()[::-1]
-        self.shape_out = self.grid_out.get_shape()[::-1]
+        self.shape_in = grid_in.get_shape()[::-1]
+        self.shape_out = grid_out.get_shape()[::-1]
         self.n_in = self.shape_in[0] * self.shape_in[1]
         self.n_out = self.shape_out[0] * self.shape_out[1]
 
@@ -369,7 +367,7 @@ class BaseRegridder(object):
 
         if not parallel:
             if not reuse_weights and weights is None:
-                weights = self._compute_weights()  # Dictionary of weights
+                weights = self._compute_weights(grid_in, grid_out)  # Dictionary of weights
             else:
                 weights = filename if filename is not None else weights
 
@@ -380,7 +378,7 @@ class BaseRegridder(object):
 
             # replace zeros by NaN for weight matrix entries of unmapped target cells if specified or a mask is present
             if (
-                (self.grid_out.mask is not None) and (self.grid_out.mask[0] is not None)
+                (grid_out.mask is not None) and (grid_out.mask[0] is not None)
             ) or unmapped_to_nan is True:
                 self.weights = add_nans_to_weights(self.weights)
 
@@ -435,10 +433,10 @@ class BaseRegridder(object):
 
         return filename
 
-    def _compute_weights(self):
+    def _compute_weights(self, grid_in, grid_out):
         regrid = esmf_regrid_build(
-            self.grid_in,
-            self.grid_out,
+            grid_in,
+            grid_out,
             self.method,
             extrap_method=self.extrap_method,
             extrap_dist_exponent=self.extrap_dist_exponent,
@@ -934,6 +932,9 @@ class Regridder(BaseRegridder):
             parallel=parallel,
             **kwargs,
         )
+        # Weights are computed, we do not need the grids anymore
+        grid_in.destroy()
+        grid_out.destroy()
 
         # Record output grid and metadata
         lon_out, lat_out = _get_lon_lat(ds_out)
@@ -1109,13 +1110,6 @@ class Regridder(BaseRegridder):
 
         return out
 
-    def __del__(self):
-        # Memory leak issue when regridding over a large number of datasets with xESMF
-        # https://github.com/JiaweiZhuang/xESMF/issues/53
-        if hasattr(self, 'grid_in'):  # If the init has failed, grid_in isn't there
-            self.grid_in.destroy()
-            self.grid_out.destroy()
-
 
 class SpatialAverager(BaseRegridder):
     def __init__(
@@ -1249,6 +1243,9 @@ class SpatialAverager(BaseRegridder):
             ignore_degenerate=ignore_degenerate,
             unmapped_to_nan=False,
         )
+        # Weights are computed, we do not need the grids anymore
+        grid_in.destroy()
+        locstream_out.destroy()
 
     @staticmethod
     def _check_polys_length(polys, threshold=1):
@@ -1267,12 +1264,12 @@ class SpatialAverager(BaseRegridder):
                 stacklevel=2,
             )
 
-    def _compute_weights_and_area(self, mesh_out):
+    def _compute_weights_and_area(self, grid_in, mesh_out):
         """Return the weights and the area of the destination mesh cells."""
 
         # Build the regrid object
         regrid = esmf_regrid_build(
-            self.grid_in,
+            grid_in,
             mesh_out,
             method='conservative',
             ignore_degenerate=self.ignore_degenerate,
@@ -1286,10 +1283,9 @@ class SpatialAverager(BaseRegridder):
         regrid.dstfield.get_area()
         dstarea = regrid.dstfield.data.copy()
 
-        esmf_regrid_finalize(regrid)
         return w, dstarea
 
-    def _compute_weights(self):
+    def _compute_weights(self, grid_in, grid_out):
         """Return weight sparse matrix.
 
         This function first explodes the geometries into a flat list of Polygon exterior objects:
@@ -1315,14 +1311,16 @@ class SpatialAverager(BaseRegridder):
         mesh_ext = Mesh.from_polygons(exteriors)
 
         # Get weights for external polygons
-        w, area = self._compute_weights_and_area(mesh_ext)
+        w, area = self._compute_weights_and_area(grid_in, mesh_ext)
+        mesh_ext.destroy()  # release mesh memory
 
         # Get weights for interiors and append them to weights from exteriors as a negative contribution.
         if len(interiors) > 0 and not self.ignore_holes:
             mesh_int = Mesh.from_polygons(interiors)
 
             # Get weights for interiors
-            w_int, area_int = self._compute_weights_and_area(mesh_int)
+            w_int, area_int = self._compute_weights_and_area(grid_in, mesh_int)
+            mesh_int.destroy()  # release mesh memory
 
             # Append weights from holes as negative weights
             # In sparse >= 0.16, a fill_value of -0.0 is different from 0.0 and the concat would fail
@@ -1382,10 +1380,3 @@ class SpatialAverager(BaseRegridder):
         out.coords[self._lat_out_name] = xr.DataArray(self._lat_out, dims=(self.geom_dim_name,))
         out.attrs['regrid_method'] = self.method
         return out
-
-    def __del__(self):
-        # Memory leak issue when regridding over a large number of datasets with xESMF
-        # https://github.com/JiaweiZhuang/xESMF/issues/53
-        if hasattr(self, 'grid_in'):  # If the init has failed, grid_in isn't there
-            self.grid_in.destroy()
-            self.grid_out.destroy()
