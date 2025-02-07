@@ -10,3 +10,9 @@ python:
     - requirements: doc/requirements.txt
     - method: pip
       path: .
+
+sphinx:
+  configuration: doc/conf.py
+  # fail_on_warning might generate hard to fix error, in this case it can be
+  # disabled but this also means those errors will fail silently, choose wisely.
+  fail_on_warning: false
