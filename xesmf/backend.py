@@ -122,7 +122,7 @@ class Grid(ESMF.Grid):
         if ESMF.__version__ < '8.0.1':
             if pole_kind is not None:
                 raise ValueError('The `pole_kind` option requires esmpy >= 8.0.1')
-            pole_kind=None
+            pole_kind = None
 
         # ESMPy documentation claims that if staggerloc and coord_sys are None,
         # they will be set to default values (CENTER and SPH_DEG).

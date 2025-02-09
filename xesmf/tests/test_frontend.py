@@ -1011,36 +1011,34 @@ def test_densify_polys():
 
 def test_regrid_polekind():
 
+    import pathlib
     import tarfile
     import urllib.request
-    import pathlib
 
     # get file from figshare with sample OM4 (tripolar) data
-    url_om4_sample = "https://figshare.com/ndownloader/files/52228691"
-    fname = "xesmf_testing_OM4.tar.gz"
+    url_om4_sample = 'https://figshare.com/ndownloader/files/52228691'
+    fname = 'xesmf_testing_OM4.tar.gz'
     urllib.request.urlretrieve(url_om4_sample, fname)
 
     # extract and read data
-    tar = tarfile.open(fname, "r:gz")
+    tar = tarfile.open(fname, 'r:gz')
     tar.extractall()
     tar.close()
 
-    ds_in = xr.open_dataset("OM4_sample_sst.nc")
+    ds_in = xr.open_dataset('OM4_sample_sst.nc')
 
     # Open output grid specification
     ds_out = xe.util.grid_global(1, 1, cf=False, lon1=180)
 
     # Create regridder without specifying pole kind
-    base_regrid = xe.Regridder(ds_in, ds_out, 'bilinear',
-                               ignore_degenerate=True, periodic=True)
+    base_regrid = xe.Regridder(ds_in, ds_out, 'bilinear', ignore_degenerate=True, periodic=True)
     base_result = base_regrid(ds_in['sst'])
 
     # Add monopole grid information. 1 denotes monopole, 2 bipole
     ds_in['pole_kind'] = np.array([1, 1])
     ds_out['pole_kind'] = np.array([1, 1])
 
-    monopole_regrid = xe.Regridder(ds_in, ds_out, 'bilinear',
-                                   ignore_degenerate=True, periodic=True)
+    monopole_regrid = xe.Regridder(ds_in, ds_out, 'bilinear', ignore_degenerate=True, periodic=True)
     monopole_result = monopole_regrid(ds_in['sst'])
 
     # Check behavior unchanged
@@ -1049,8 +1047,7 @@ def test_regrid_polekind():
     # Add bipole grid information
     ds_in['pole_kind'] = np.array([1, 2], np.int32)
 
-    bipole_regrid = xe.Regridder(ds_in, ds_out, 'bilinear',
-                                 ignore_degenerate=True, periodic=True)
+    bipole_regrid = xe.Regridder(ds_in, ds_out, 'bilinear', ignore_degenerate=True, periodic=True)
     bipole_result = bipole_regrid(ds_in['sst'])
 
     # Confirm results have changed
@@ -1062,14 +1059,14 @@ def test_regrid_polekind():
     grad_monopole = np.gradient(monopole_result.isel(y=-2))
     grad_bipole = np.gradient(bipole_result.isel(y=-2))
 
-    rms_grad_monopole = (grad_monopole*grad_monopole).sum()
-    rms_grad_bipole = (grad_bipole*grad_bipole).sum()
+    rms_grad_monopole = (grad_monopole * grad_monopole).sum()
+    rms_grad_bipole = (grad_bipole * grad_bipole).sum()
 
     assert rms_grad_bipole < rms_grad_monopole
 
     # Clean up files
-    file_to_rem = pathlib.Path("OM4_sample_sst.nc")
+    file_to_rem = pathlib.Path('OM4_sample_sst.nc')
     file_to_rem.unlink()
-    file_to_rem = pathlib.Path("xesmf_testing_OM4.tar.gz")
+    file_to_rem = pathlib.Path('xesmf_testing_OM4.tar.gz')
     file_to_rem.unlink()
     return None
