@@ -962,18 +962,23 @@ class Regridder(BaseRegridder):
             self.out_horiz_dims = (lat_out.dims[0], lon_out.dims[0])
 
         if isinstance(ds_out, Dataset):
-            self.out_coords = {
-                name: crd
-                for name, crd in ds_out.coords.items()
-                if set(self.out_horiz_dims).issuperset(crd.dims)
-            }
+            out_coords = ds_out.coords.to_dataset()
             grid_mapping = {
                 var.attrs['grid_mapping']
                 for var in ds_out.data_vars.values()
                 if 'grid_mapping' in var.attrs
             }
-            if grid_mapping:
-                self.out_coords.update({gm: ds_out[gm] for gm in grid_mapping if gm in ds_out})
+            #  to keep : grid_mappings    and    non-scalar coords that have the spatial dims
+            self.out_coords = out_coords.drop_vars(
+                [
+                    name
+                    for name, crd in out_coords.coords.items()
+                    if not (
+                        (name in grid_mapping)
+                        or (len(crd.dims) > 0 and set(self.out_horiz_dims).issuperset(crd.dims))
+                    )
+                ]
+            )
         else:
             self.out_coords = {lat_out.name: lat_out, lon_out.name: lon_out}
 
@@ -1055,10 +1060,14 @@ class Regridder(BaseRegridder):
         chunks = out_chunks | in_chunks
 
         # Rename coords to avoid issues in xr.map_blocks
-        for coord in list(self.out_coords.keys()):
-            # If coords and dims are the same, renaming has already been done.
-            if coord not in self.out_horiz_dims:
-                ds_out = ds_out.rename({coord: coord + '_out'})
+        # If coords and dims are the same, renaming has already been done.
+        ds_out = ds_out.rename(
+            {
+                coord: coord + '_out'
+                for coord in self.out_coords.coords.keys()
+                if coord not in self.out_horiz_dims
+            }
+        )
 
         weights_dims = ('y_out', 'x_out', 'y_in', 'x_in')
         templ = sps.zeros((self.shape_out + self.shape_in))
@@ -1102,7 +1111,7 @@ class Regridder(BaseRegridder):
             # rename dimension name to match output grid
             out = out.rename({nd: od for nd, od in zip(new_dims, self.out_horiz_dims)})
 
-        out = out.assign_coords(**self.out_coords)
+        out = out.assign_coords(self.out_coords.coords)
         out.attrs['regrid_method'] = self.method
 
         if self.sequence_out:
