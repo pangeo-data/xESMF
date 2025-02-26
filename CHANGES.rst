@@ -4,6 +4,7 @@ What's new
 0.8.9 (unreleased)
 ------------------
 * Destroy grids explicitly once weights are computed. Do not store them in `grid_in` and  `grid_out` attributes. This fixes segmentation faults introduced by the memory fix of last version. By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Do not add scalar coordinates of the target grid to the regridded output (:issue:`417`, :pull:`418`). `xe.Regridder.out_coords` is now a dataset instead of a dictionary. By `Pascal Bourgault <https://github.com/aulemahal>`_.
 
 0.8.8 (2024-11-01)
 ------------------

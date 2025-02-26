@@ -732,17 +732,22 @@ def test_regrid_dataset_extracoords():
         x=np.arange(24),
         y=np.arange(20),  # coords to be transfered
         latitude_longitude=xr.DataArray(),  # grid_mapping
-        bogus=ds_out.lev * ds_out.lon,  # coord not to be transfered
+        bogus=ds_out.lev * ds_out.lon,  # coords not to be transfered
+        scalar1=1,  #
+        scalar2=1,  #
     )
     ds_out2['data_ref'].attrs['grid_mapping'] = 'latitude_longitude'
     ds_out2['data4D_ref'].attrs['grid_mapping'] = 'latitude_longitude'
 
+    ds_in2 = ds_in.assign_coords(scalar2=5)
     regridder = xe.Regridder(ds_in, ds_out2, 'conservative')
-    ds_result = regridder(ds_in)
+    ds_result = regridder(ds_in2)
 
     assert 'x' in ds_result.coords
     assert 'y' in ds_result.coords
     assert 'bogus' not in ds_result.coords
+    assert 'scalar1' not in ds_result.coords
+    assert ds_result.scalar2 == 5
     assert 'latitude_longitude' in ds_result.coords
 
 
