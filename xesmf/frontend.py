@@ -980,7 +980,7 @@ class Regridder(BaseRegridder):
                 ]
             )
         else:
-            self.out_coords = {lat_out.name: lat_out, lon_out.name: lon_out}
+            self.out_coords = xr.Dataset(coords={lat_out.name: lat_out, lon_out.name: lon_out})
 
         if parallel:
             self._init_para_regrid(ds_in, ds_out, kwargs)
