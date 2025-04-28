@@ -75,7 +75,8 @@ def test_mom6like_to_5x5():
         mom6like.rename({'xh': 'lon', 'yh': 'lat'}), grid_5x5, 'bilinear', periodic=True
     )
 
-    tos_regridded = regrid_to_5x5(mom6like['tos'])
+    with pytest.warns(UserWarning, match=r"Using dimensions \('yh', 'xh'\)"):
+        tos_regridded = regrid_to_5x5(mom6like['tos'])
     assert tos_regridded.shape == ((2, 36, 72))
 
 

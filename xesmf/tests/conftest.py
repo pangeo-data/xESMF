@@ -14,7 +14,7 @@ def processes_scheduler():
         yield
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def distributed_scheduler():
     from dask.distributed import Client, LocalCluster
 

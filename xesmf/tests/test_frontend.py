@@ -6,6 +6,7 @@ import dask
 import numpy as np
 import pytest
 import xarray as xr
+from dask.array.core import PerformanceWarning
 from numpy.testing import assert_allclose, assert_almost_equal, assert_equal
 from shapely import segmentize
 from shapely.geometry import MultiPolygon, Polygon
@@ -14,7 +15,7 @@ import xesmf as xe
 from xesmf.frontend import as_2d_mesh
 
 dask_schedulers = ['threaded_scheduler', 'processes_scheduler', 'distributed_scheduler']
-
+pytestmark = pytest.mark.filterwarnings('ignore:Input array is not C_CONTIGUOUS')
 
 # same test data as test_backend.py, but here we can use xarray DataSet
 ds_in = xe.util.grid_global(20, 12)
@@ -56,7 +57,7 @@ ds_savg = xr.Dataset(
     },
     data_vars={'abc': (('lon', 'lat'), [[1.0, 2.0], [3.0, 4.0], [2.0, 4.0]])},
 )
-polys = [
+polys_raw = [
     Polygon([[0.5, 0.5], [0.5, 1.5], [1.5, 0.5]]),  # Simple triangle polygon
     MultiPolygon(
         [
@@ -94,6 +95,15 @@ polys = [
         ),
     ],  # Combination of Polygon and MultiPolygon with two different areas
 ]
+
+
+def _segmentize(p):
+    if isinstance(p, list):
+        return list(map(_segmentize, p))
+    return segmentize(p, 1)
+
+
+polys = list(map(_segmentize, polys_raw))
 exps_polys = [1.75, 3, 2.1429, 4, 0, 2.5, [1.75, 3.6]]
 
 
@@ -196,7 +206,7 @@ def test_regridder_w():
     w = regridder.w
     assert w.shape == ds_out.lon.shape + ds_in.lon.shape
 
-    p = Polygon([(-10, -10), (10, -10), (10, 10), (-10, 10)])
+    p = segmentize(Polygon([(-10, -10), (10, -10), (10, 10), (-10, 10)]), 1)
 
     averager = xe.SpatialAverager(ds_in, [p])
     assert averager.w.shape == (1,) + ds_in.lon.shape
@@ -275,12 +285,14 @@ def test_conservative_without_bounds():
         xe.Regridder(ds_in.drop_vars('lon_b'), ds_out, 'conservative')
 
 
-def test_build_regridder_from_dict():
+def test_regridder_from_dict():
     lon_in = ds_in['lon'].values
     lat_in = ds_in['lat'].values
     lon_out = ds_out['lon'].values
     lat_out = ds_out['lat'].values
-    _ = xe.Regridder({'lon': lon_in, 'lat': lat_in}, {'lon': lon_out, 'lat': lat_out}, 'bilinear')
+    reg = xe.Regridder({'lon': lon_in, 'lat': lat_in}, {'lon': lon_out, 'lat': lat_out}, 'bilinear')
+    with pytest.warns(UserWarning, match=r"Using dimensions \('y', 'x'\) from data variable"):
+        reg(ds_in['data'])
 
 
 def test_regrid_periodic_wrong():
@@ -357,8 +369,8 @@ def test_regrid_with_1d_grid_infer_bounds():
     ds_out_1d = ds_2d_to_1d(ds_out).swap_dims(x='lon', y='lat')
 
     regridder = xe.Regridder(ds_in_1d, ds_out_1d, 'conservative', periodic=True)
-
-    dr_out = regridder(ds_in['data'])
+    with pytest.warns(UserWarning, match=r"Using dimensions \('y', 'x'\) from data variable"):
+        dr_out = regridder(ds_in['data'])
 
     # compare with provided-bounds solution
     dr_exp = xe.Regridder(ds_in, ds_out, 'conservative', periodic=True)(ds_in['data'])
@@ -433,7 +445,8 @@ def test_regrid_dataarray(use_cfxr):
 
     # test renamed dim
     if not use_cfxr:
-        dr_out_rn = regridder(ds_in2.rename(y='why')['data'])
+        with pytest.warns(UserWarning, match=r"Using dimensions \('why', 'x'\)"):
+            dr_out_rn = regridder(ds_in2.rename(y='why')['data'])
         xr.testing.assert_identical(dr_out, dr_out_rn)
 
 
@@ -443,14 +456,14 @@ def test_regrid_dataarray_endianess(use_dask):
     regridder = xe.Regridder(ds_in, ds_out, 'conservative')
 
     exp = regridder(ds_in['data'])  # Normal (little-endian)
-    # with pytest.warns(UserWarning, match='Input array has a dtype not supported'):
 
     if use_dask:
         indata = ds_in.data.astype('>f8').chunk()
     else:
         indata = ds_in.data.astype('>f8')
 
-    out = regridder(indata)  # big endian
+    with pytest.warns(UserWarning, match='Input array has a dtype not supported'):
+        out = regridder(indata)  # big endian
 
     # Results should be the same
     assert_equal(exp.values, out.values)
@@ -525,7 +538,11 @@ def test_regrid_dask(request, scheduler):
 
     # Use very small chunks
     indata_chunked = indata.rechunk((5, 6))  # Now has 9 chunks (5, 6)
-    outdata = regridder(indata_chunked)
+    with pytest.warns(
+        PerformanceWarning,
+        match=r'Regridding is increasing the number of chunks by a factor of 16.0',
+    ):
+        outdata = regridder(indata_chunked)
     # This is the case where we preserve chunk size
     assert outdata.chunksize == indata_chunked.chunksize
     n_task_out = len(outdata.__dask_graph__().keys())
@@ -625,7 +642,7 @@ def test_dask_output_chunks():
     test_output_chunks_dict = {'y': 10, 'x': 12}
     indata = ds_spatial_chunked['data4D'].data  # Data chunked along spatial dims
     # Use ridiculous small chunk size value to be sure it _isn't_ impacting computation.
-    with dask.config.set({'array.chunk-size': '1MiB'}):
+    with dask.config.set({'array.chunk-size': '1MiB'}), pytest.warns(PerformanceWarning):
         outdata = regridder(indata)
         outdata_spec_tuple = regridder(indata, output_chunks=test_output_chunks_tuple)
         outdata_spec_dict = regridder(indata, output_chunks=test_output_chunks_dict)
@@ -844,6 +861,11 @@ def test_spatial_averager(poly, exp, use_dask):
     assert 'my_geom' in out.dims
 
 
+def test_spatial_averager_warns():
+    with pytest.warns(UserWarning, match=r'contains large \(> 1°\) segments.'):
+        xe.SpatialAverager(ds_savg, [polys_raw[0]], geom_dim_name='my_geom')
+
+
 def test_spatial_averager_with_zonal_region():
     # We expect the spatial average for all regions to be one
     zonal_south = Polygon([(0, -90), (10, 0), (0, 0)])
@@ -852,7 +874,7 @@ def test_spatial_averager_with_zonal_region():
     zonal_full = Polygon([(0, -90), (10, 0), (0, 90), (0, 0)])  # This yields 0... why?
 
     polys = [zonal_south, zonal_north, zonal_short, zonal_full]
-    polys = segmentize(polys, 1)
+    polys = segmentize(polys, 0.9)
 
     # Create field of ones on a global grid
     ds = xe.util.grid_global(20, 12, cf=True)
@@ -865,6 +887,7 @@ def test_spatial_averager_with_zonal_region():
     assert_allclose(out, 1, rtol=1e-3)
 
 
+@pytest.mark.filterwarnings('ignore:`polys` contains large')
 def test_compare_weights_from_poly_and_grid():
     """Confirm that the weights are identical when they are computed from a grid->grid and grid->poly."""
 
@@ -1005,10 +1028,3 @@ def test_spatial_averager_mask():
     savg = xe.SpatialAverager(dsm, [poly], geom_dim_name='my_geom')
     out = savg(dsm.abc)
     assert_allclose(out, 2, rtol=1e-3)
-
-
-def test_densify_polys():
-    # Check that using a large poly raises a warning
-    poly = Polygon([(-80, -40), (80, -40), (80, 40), (-80, 40)])  # Large poly
-    with pytest.warns(UserWarning):
-        xe.SpatialAverager(ds_in, [poly])

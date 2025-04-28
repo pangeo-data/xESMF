@@ -1,6 +1,10 @@
 What's new
 ==========
 
+0.8.10 (unreleased)
+-------------------
+* Fix issue introduced by :pull:`418` for passing grids as dictionaries. (:issue:`428`, :pull:`429`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
+
 0.8.9 (2025-04-15)
 ------------------
 * Destroy grids explicitly once weights are computed. Do not store them in `grid_in` and  `grid_out` attributes. This fixes segmentation faults introduced by the memory fix of last version. By `Pascal Bourgault <https://github.com/aulemahal>`_.
