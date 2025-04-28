@@ -1,7 +1,7 @@
 What's new
 ==========
 
-0.8.10 (unreleased)
+0.8.10 (2025-04-29)
 -------------------
 * Fix issue introduced by :pull:`418` for passing grids as dictionaries. (:issue:`428`, :pull:`429`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
 
