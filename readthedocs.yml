@@ -4,6 +4,9 @@ build:
   os: "ubuntu-24.04"
   tools:
     python: "mambaforge-22.9"
+  jobs:
+    pre_install:
+      - conda list
 
 conda:
   environment: ci/environment.yml

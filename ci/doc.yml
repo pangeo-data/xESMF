@@ -10,12 +10,16 @@ dependencies:
   - shapely
   - sparse>=0.8.0
   - xarray>=0.17.0
-  # Testing and extras
-  - cftime
-  - codecov
-  - dask
-  - pip
-  - pre-commit
-  - pydap
-  - pytest
-  - pytest-cov
+  # Doc
+  - numpydoc
+  - geopandas
+  - descartes
+  - ipython
+  - Pygments>=2.6
+  - nbsphinx
+  - sphinx<7
+  - sphinx_rtd_theme
+  - cf_xarray
+  - docutils!=0.18
+  - pip:
+      - -e ../
