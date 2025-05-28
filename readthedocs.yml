@@ -9,7 +9,7 @@ build:
       - conda list
 
 conda:
-  environment: ci/environment.yml
+  environment: ci/doc.yml
 
 sphinx:
   configuration: doc/conf.py
