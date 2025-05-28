@@ -18,11 +18,12 @@ conservation (total mass should be conserved) and monotonicity (air density cann
 For emerging new grid types
 ---------------------------
 
-Non-orthogonal grids are becoming popular in numerical models
+Non-orthogonal grids are popular in numerical models
 (`Staniforth and Thuburn 2012 <http://onlinelibrary.wiley.com/doi/10.1002/qj.958/full>`_),
 but traditional tools often assume standard lat-lon grids.
 
-xESMF can regrid between general curvilinear (i.e. quadrilateral or "logically rectilinear") grids, like
+xESMF can regrid between general curvilinear (i.e. quadrilateral or "logically rectilinear") grids,
+as long as the geographic latitude and longitude can be given as 2D or 1D arrays. For example :
 
 - The `Cubed-Sphere <http://acmg.seas.harvard.edu/geos/cubed_sphere.html>`_ grid
   in `GFDL-FV3 <https://www.gfdl.noaa.gov/fv3/>`_

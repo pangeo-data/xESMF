@@ -5,4 +5,4 @@ numba >=0.55.2
 numpy>=1.16
 shapely
 sparse>=0.8.0
-xarray>=0.16.2
+xarray>=0.17.0
