@@ -17,6 +17,7 @@ So it would be helpful to catch some common mistakes in Python level.
 
 import os
 import warnings
+from collections.abc import Sequence
 
 try:
     import esmpy as ESMF
@@ -323,6 +324,7 @@ def esmf_regrid_build(
     extrap_dist_exponent=None,
     extrap_num_src_pnts=None,
     ignore_degenerate=None,
+    vector_regrid=None,
 ):
     """
     Create an ESMF.Regrid object, containing regridding weights.
@@ -381,9 +383,22 @@ def esmf_regrid_build(
         If False (default), raise error if grids contain degenerated cells
         (i.e. triangles or lines, instead of quadrilaterals)
 
+    vector_regrid : bool, optional
+        If True, treat a single extra (non-spatial) dimension in the source and
+        destination data fields as the components of a vector. (If True and
+        there is more than one extra dimension in either the source or
+        destination data fields, an error will be raised.) If not specified,
+        defaults to False.
+
+        Only vector dimensions of size 2 are supported. The first entry is
+        interpreted as the east component and the second as the north component.
+        i.e., ``extra_dims`` must be ``[2]``.
+
+        Requires ESMPy 8.9.0 or newer.
+
     Returns
     -------
-    grid : ESMF.Grid object
+    regrid : ESMF.Regrid object
 
     """
 
@@ -428,6 +443,14 @@ def esmf_regrid_build(
         if not isinstance(destgrid, ESMF.Mesh) and not destgrid.has_corners:
             raise ValueError(
                 'destination grid has no corner information. ' 'cannot use conservative regridding.'
+            )
+
+    if vector_regrid:
+        # Check this ESMPy requirement in order to give a more helpful error message if it
+        # isn't met
+        if not (isinstance(extra_dims, Sequence) and len(extra_dims) == 1 and extra_dims[0] == 2):
+            raise ValueError(
+                '`vector_regrid` currently requires `extra_dims` to be `[2]`'
             )
 
     # ESMF.Regrid requires Field (Grid+data) as input, not just Grid.
@@ -480,6 +503,12 @@ def esmf_regrid_build(
     )
     if allow_masked_values:
         kwargs.update(dict(src_mask_values=[0], dst_mask_values=[0]))
+    # Only add the vector_regrid argument if it is given and true; this supports backwards
+    # compatibility with versions of ESMPy prior to 8.9.0 that do not have this option.
+    # (If the user explicitly sets the vector_regrid argument, however, that will still be
+    # passed through; this will lead to an exception with older ESMPy versions.)
+    if vector_regrid:
+        kwargs['vector_regrid'] = vector_regrid
 
     regrid = ESMF.Regrid(sourcefield, destfield, **kwargs)
 
