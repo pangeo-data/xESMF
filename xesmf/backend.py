@@ -449,9 +449,7 @@ def esmf_regrid_build(
         # Check this ESMPy requirement in order to give a more helpful error message if it
         # isn't met
         if not (isinstance(extra_dims, Sequence) and len(extra_dims) == 1 and extra_dims[0] == 2):
-            raise ValueError(
-                '`vector_regrid` currently requires `extra_dims` to be `[2]`'
-            )
+            raise ValueError('`vector_regrid` currently requires `extra_dims` to be `[2]`')
 
     # ESMF.Regrid requires Field (Grid+data) as input, not just Grid.
     # Extra dimensions are specified when constructing the Field objects,
