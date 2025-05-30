@@ -295,6 +295,36 @@ def test_read_weights(tmp_path):
         read_weights(ds.drop_vars('col'), lon_in.size, lon_out.size)
 
 
+def test_vector_regrid():
+    grid_in = Grid.from_xarray(lon_in.T, lat_in.T)
+    grid_out = Grid.from_xarray(lon_out.T, lat_out.T)
+    data_in_vec = np.stack(
+        [np.cos(data_in) * np.sign(lat_in), np.sin(data_in) * np.sign(lon_in)], axis=0
+    )
+
+    try:
+        regrid_vec = esmf_regrid_build(
+            grid_in, grid_out, 'bilinear', extra_dims=[2], vector_regrid=True
+        )
+    except TypeError:
+        pytest.skip('vector_regrid argument not supported by ESMPy versions < 8.9')
+    assert regrid_vec.vector_regrid is True
+    data_out_vec = esmf_regrid_apply(regrid_vec, data_in_vec.T).T
+
+    regrid_nonvec = esmf_regrid_build(grid_in, grid_out, 'bilinear', extra_dims=[2])
+    assert regrid_nonvec.vector_regrid in (None, False)
+    data_out_nonvec = esmf_regrid_apply(regrid_nonvec, data_in_vec.T).T
+
+    # The result of vector regridding should differ from the result of non-vector
+    # regridding, but not by much. (This threshold of 0.1 was determined empirically and
+    # may need to be adjusted if details of the test inputs change.)
+    assert np.array_equal(data_out_vec, data_out_nonvec) is False
+    assert np.max(np.abs(data_out_vec - data_out_nonvec)) < 0.1
+
+    esmf_regrid_finalize(regrid_vec)
+    esmf_regrid_finalize(regrid_nonvec)
+
+
 def test_deprecated():
     from xesmf.backend import esmf_grid, esmf_locstream
 
