@@ -314,7 +314,7 @@ class Mesh(ESMF.Mesh):
         return (self.size[loc], 1)
 
 
-def esmf_regrid_build(
+def esmf_regrid_build(  # noqa: C901
     sourcegrid,
     destgrid,
     method,
