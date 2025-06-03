@@ -52,7 +52,6 @@ Notes about ESMpy
 
 * ESMpy 8.4 is only compatible with xESMF >= 0.7.
 * ESMpy must be installed through Conda or compiled manually; it is not available through PyPI.  When installing xESMF with pip, the ESMpy package must be manually installed first.
-* When installing ESMpy 8.4 through conda, the environment must be _activated_ before the package is used, which often means deactivating and re-activating it. See this `xESMF issue <https://github.com/pangeo-data/xESMF/issues/224>`_ and the related `ESMpy issue <https://github.com/conda-forge/esmf-feedstock/issues/91>`_.
 
 Testing your installation
 -------------------------
@@ -61,7 +60,7 @@ xESMF itself is a lightweight package, but its dependency ESMPy is a quite heavy
 
 .. code-block:: bash
 
-    $ pip install pytest
+    $ conda install pytest
     $ pytest -v --pyargs xesmf  # should all pass
 
 A common cause of error (especially for HPC cluster users) is that pre-installed modules like NetCDF, MPI, and ESMF are incompatible with the conda-installed equivalents. Make sure you have a clean environment when running ``conda install`` (do not ``module load`` other libraries). See `this issue <https://github.com/JiaweiZhuang/xESMF/issues/55#issuecomment-514298498>`_ for more discussions.
@@ -69,7 +68,8 @@ A common cause of error (especially for HPC cluster users) is that pre-installed
 Notes for Windows users
 -----------------------
 
-The ESMPy conda package is currently only available for Linux and Mac OSX.
+The ESMPy conda package is usually only available for Linux and Mac OSX.
+Builds for windows have been made for some versions (8.4.2).
 Windows users can try the
 `Linux subsystem <https://docs.microsoft.com/en-us/windows/wsl/about>`_
 or `docker-miniconda <https://hub.docker.com/r/continuumio/miniconda3/>`_ .
@@ -77,12 +77,9 @@ or `docker-miniconda <https://hub.docker.com/r/continuumio/miniconda3/>`_ .
 Installing scientific software on Windows can often be a pain, and
 `Docker <https://www.docker.com>`_ is a pretty good workaround.
 It takes some time to learn but worths the effort.
-Check out this `tutorial on using Docker with Anaconda
-<https://towardsdatascience.com/
-how-docker-can-help-you-become-a-more-effective-data-scientist-7fc048ef91d5>`_.
+Check out this `tutorial on using Docker with Anaconda <https://towardsdatascience.com/how-docker-can-help-you-become-a-more-effective-data-scientist-7fc048ef91d5>`_.
 
-This problem is being investigated.
-See `this other issue <https://github.com/conda-forge/esmpy-feedstock/issues/8>`_.
+This problem is being investigated. See `this other issue <https://github.com/conda-forge/esmf-feedstock/pull/1198>`_.
 
 Install development version from GitHub repo
 --------------------------------------------
