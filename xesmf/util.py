@@ -407,3 +407,13 @@ def cell_area(ds, earth_radius=None):
     if earth_radius is not None:
         area = (area * earth_radius**2).assign_attrs(units='km2')
     return area
+
+
+def _get_edge_indices_2d(nlons, nlats):
+    """Get edge indices for a 2D nlats x nlons grid."""
+    edge_mask = np.zeros((nlats, nlons), dtype=bool)
+    edge_mask[:1, :] = True
+    edge_mask[-1:, :] = True
+    edge_mask[:, :1] = True
+    edge_mask[:, -1:] = True
+    return np.where(edge_mask.ravel())[0]
