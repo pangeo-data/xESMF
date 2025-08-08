@@ -1028,3 +1028,100 @@ def test_spatial_averager_mask():
     savg = xe.SpatialAverager(dsm, [poly], geom_dim_name='my_geom')
     out = savg(dsm.abc)
     assert_allclose(out, 2, rtol=1e-3)
+
+
+def test_post_mask_source():
+    # Define source and target grids
+    ds_in = xr.Dataset(
+        {'lat': (['lat'], np.linspace(1, 10, 10)), 'lon': (['lon'], np.linspace(1, 10, 10))}
+    )
+    ds_out = xr.Dataset(
+        {'lat': (['lat'], np.linspace(0, 15, 20)), 'lon': (['lon'], np.linspace(0, 15, 20))}
+    )
+
+    # Build regridder with post_source_mask='domain_edge'
+    regridder = xe.Regridder(ds_in, ds_out, 'nearest_s2d', post_mask_source='domain_edge')
+
+    # Regridding
+    da_in = xr.DataArray(np.ones((10, 10)), dims=['lat', 'lon'])
+    da_in[0, :] = 10  # top edge
+    da_in[-1, :] = 10  # bottom edge
+    da_out = regridder(da_in)
+
+    # Check that edge values (10) did not make it into the result
+    assert not np.any(da_out.values > 1), 'Edge contributions were not removed'
+
+    # Check that cells outside the original domain are 0
+    lat_mask = (ds_out.lat >= 10) | (ds_out.lat <= 1)
+    lon_mask = (ds_out.lon >= 10) | (ds_out.lon <= 1)
+    assert np.all(da_out.sel(lat=lat_mask).values == 0)
+    assert np.all(da_out.sel(lon=lon_mask).values == 0)
+
+
+def test_post_mask_source_exceptions():
+    # LocStream source should give an exception
+    ds_src = xr.Dataset(
+        {
+            'lat': (['location'], np.linspace(-90, 90, 5)),
+            'lon': (['location'], np.linspace(-180, 180, 5)),
+        }
+    )
+    ds_dst = xe.util.grid_global(5, 5)
+    with pytest.raises(ValueError, match="post_mask_source='domain_edge' is only supported.*"):
+        xe.Regridder(
+            ds_src, ds_dst, 'nearest_s2d', post_mask_source='domain_edge', locstream_in=True
+        )
+
+    # Not using an array-like should give an exception
+    ds_src = xe.util.grid_global(10, 10)
+
+    class NotArrayLike:
+        def __array__(self, dtype=None):
+            raise ValueError
+
+    with pytest.raises(TypeError, match='must be array-like of integers'):
+        xe.Regridder(ds_src, ds_dst, 'bilinear', post_mask_source=NotArrayLike())
+
+    # Not using integer indices should give an exception
+    bad_index_mask = np.array([0.1, 2.5, 3.7])
+    with pytest.raises(TypeError, match='must be of integer type'):
+        xe.Regridder(ds_src, ds_dst, 'bilinear', post_mask_source=bad_index_mask)
+
+
+def test_post_mask_source_parallel_mode():
+    # Create source and destination grids
+    ds_src = xe.util.grid_global(10, 10)
+    ds_dst = xe.util.grid_global(15, 15)
+
+    # Chunk destination data to enable parallel mode
+    mask = np.ones((12, 24))
+    ds_dst['mask'] = xr.DataArray(data=mask, dims=('y', 'x'))
+    ds_dst = ds_dst.chunk({'y': 12, 'x': 12})
+
+    # Define source data with known values
+    data = xr.DataArray(
+        np.ones((18, 36)),
+        dims=['y', 'x'],
+        coords={'lat': ds_src['lat'], 'lon': ds_src['lon']},
+    )
+
+    # Choose some source indices to mask (e.g., corners)
+    mask_indices = np.array([0, 1, 2, 3, 4])
+
+    # Create regridder with post_mask_source and parallel=True
+    regridder = xe.Regridder(
+        ds_src,
+        ds_dst,
+        'nearest_s2d',
+        post_mask_source=mask_indices,
+        parallel=True,
+        unmapped_to_nan=True,
+    )
+
+    # Regrid and compute the result
+    result = regridder(data).compute()
+
+    # Assert that the result contains NaNs
+    assert result.shape == (12, 24)
+    assert isinstance(result, xr.DataArray)
+    assert result.isnull().any()
