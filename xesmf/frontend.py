@@ -334,20 +334,24 @@ class BaseRegridder(object):
         post_mask_source : str or array-like, optional
             Optionally applies a post-processing step to remove selected source grid cells from
             contributing to the regridding weight matrix.
+
             Note: This differs from the typical masking approach, which prevents source cells from
-            being used during weight generation. Here, the regridding weights are modified after
+            being used during weight generation. Here, the regridding weights are modified *after*
             creation to remove the contribution of specified source grid cells.
-            - If set to `"domain_edge"`, the outermost edge cells of the source grid are
-                automatically detected and their contribution to the regridding weights
-                is removed. This is useful to avoid extrapolation beyond the domain boundary
-                when using the nearest-neighbor method `'nearest_s2d'`,
-                particularly when remapping from a smaller to a larger domain (as is common
-                with regional source grids like CORDEX). Only supported for 'Grid' type ESMF
-                objects as source grid.
+
+            Options:
+
+            - If set to ``"domain_edge"``, the outermost edge cells of the source grid are
+              automatically detected and their contribution to the regridding weights is removed.
+              This is useful to avoid extrapolation beyond the domain boundary when using the
+              nearest-neighbor method ``'nearest_s2d'``, particularly when remapping from a smaller
+              to a larger domain (as is common with regional source grids like CORDEX).
+              Only supported for ``Grid`` type ESMF objects as source grid.
             - If an array-like of integers is provided, it is interpreted as flat indices
-                (i.e., 1D indices of the flattened source grid) identifying source cells
-                whose contribution to the regridding weights should be removed.
-            Default is `None`, meaning no masking is applied.
+              (i.e., 1D indices of the flattened source grid) identifying source cells
+              whose contribution to the regridding weights should be removed.
+
+            Default is ``None``, meaning no post-weight-generation source grid cell masking is applied.
 
         Returns
         -------
@@ -927,20 +931,25 @@ class Regridder(BaseRegridder):
         post_mask_source : str or array-like, optional
             Optionally applies a post-processing step to remove selected source grid cells from
             contributing to the regridding weight matrix.
+
             Note: This differs from the typical masking approach, which prevents source cells from
-            being used during weight generation. Here, the regridding weights are modified after
+            being used during weight generation. Here, the regridding weights are modified *after*
             creation to remove the contribution of specified source grid cells.
-            - If set to `"domain_edge"`, the outermost edge cells of the source grid are
-                automatically detected and their contribution to the regridding weights
-                is removed. This is useful to avoid extrapolation beyond the domain boundary
-                when using the nearest-neighbor method `'nearest_s2d'`,
-                particularly when remapping from a smaller to a larger domain (as is common
-                with regional source grids like CORDEX). Only supported for 'Grid' type ESMF
-                objects as source grid.
+
+            Options:
+
+            - If set to ``"domain_edge"``, the outermost edge cells of the source grid are
+              automatically detected and their contribution to the regridding weights is removed.
+              This is useful to avoid extrapolation beyond the domain boundary when using the
+              nearest-neighbor method ``'nearest_s2d'``, particularly when remapping from a smaller
+              to a larger domain (as is common with regional source grids like CORDEX).
+              Only supported for ``Grid`` type ESMF objects as source grid.
+
             - If an array-like of integers is provided, it is interpreted as flat indices
-                (i.e., 1D indices of the flattened source grid) identifying source cells
-                whose contribution to the regridding weights should be removed.
-            Default is `None`, meaning no masking is applied.
+              (i.e., 1D indices of the flattened source grid) identifying source cells
+              whose contribution to the regridding weights should be removed.
+
+            Default is ``None``, meaning no post-weight-generation source grid cell masking is applied.
 
         Returns
         -------
