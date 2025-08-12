@@ -380,11 +380,16 @@ class BaseRegridder(object):
             # Optionally post-apply output mask for LocStream input and Grid output
             # as xesmf.backend.esmf_regrid_build filters the output mask in that case
             # (ESMF does not support output masks for LocStream input and Grid output)
+            # Only method supported is `nearest_s2d`:
+            #   For other methods the masking approach may lead to unexpected results
+            #   as the weights are applied post weight generation and other methods may have
+            #   the source-target mapping depending on the location of masked cells.
             if (
                 isinstance(grid_in, LocStream)
                 and isinstance(grid_out, Grid)
                 and grid_out.mask is not None
                 and grid_out.mask[0] is not None
+                and method == 'nearest_s2d'
             ):
                 self.weights = post_apply_target_mask_to_weights(self.weights, grid_out.mask[0])
 
