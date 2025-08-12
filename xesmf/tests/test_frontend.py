@@ -1028,3 +1028,36 @@ def test_spatial_averager_mask():
     savg = xe.SpatialAverager(dsm, [poly], geom_dim_name='my_geom')
     out = savg(dsm.abc)
     assert_allclose(out, 2, rtol=1e-3)
+
+
+def test_locstream_input_grid_output_with_target_mask_applied():
+    # Create locstream input (6 coordinate points)
+    locstream_in = xr.Dataset(
+        {'var': xr.DataArray(np.ones((6)), dims=['location'])},
+        coords={
+            'lat': ('location', np.linspace(0, 5, 6)),
+            'lon': ('location', np.linspace(0, 10, 6)),
+        },
+    )
+
+    # Create Grid output with target mask (3x3 grid)
+    ds_out = xe.util.cf_grid_2d(0, 10, 10.0 / 3.0, 0, 5, 5.0 / 3.0)
+    target_mask_2d = np.ones((3, 3), dtype=bool)
+    target_mask_2d[-1, :] = False
+    ds_out['target_mask'] = xr.DataArray(target_mask_2d, dims=['lat', 'lon'])
+
+    # Create Grid output with target mask (3x3 grid)
+    ds_out = xe.util.cf_grid_2d(0, 10, 10.0 / 3.0, 0, 5, 5.0 / 3.0)
+    target_mask_2d = np.ones((3, 3), dtype=bool)
+    target_mask_2d[-1, :] = False
+    ds_out['mask'] = xr.DataArray(target_mask_2d, dims=['lat', 'lon'])
+
+    # Generate weights
+    regridder = xe.Regridder(
+        ds_in=locstream_in, ds_out=ds_out, method='nearest_s2d', locstream_in=True
+    )
+
+    # Apply weights and check results - the northmost cells should be masked
+    da_out = regridder(locstream_in)['var']
+    assert np.all(np.isnan(da_out[-1, :]))
+    assert np.all(da_out[:-1, :] == 1)

@@ -201,6 +201,60 @@ def apply_weights(weights, indata, shape_in, shape_out):
     return outdata
 
 
+def post_apply_target_mask_to_weights(weights, target_mask_2d):
+    """
+    Set all contributions to masked target grid cells to zero.
+
+    Parameters
+    ----------
+    weights : DataArray backed by a sparse.COO array
+      Sparse weights matrix.
+    target_mask_2d : array-like
+        Mask array of shape (nx, ny) for the target grid.
+        False / 0 indicates a masked cell whose weights shall be set to zero.
+
+    Returns
+    -------
+    DataArray backed by a sparse.COO array
+      Modified sparse weights matrix with all rows corresponding to masked target cells set to zero.
+
+    Notes
+    -----
+    This defines a post-processing step applied after ESMF weight generation.
+    It is useful in cases where ESMF/ESMPy masks cannot be used directly,
+    which is the case when source or target are LocStream objects / sequences.
+    """
+    # Ensure mask can be converted to array
+    try:
+        target_mask_2d = np.asarray(target_mask_2d, dtype=weights.data.data.dtype)
+    except Exception as e:
+        raise TypeError(
+            '`target_mask_2d` must be array-like and convertible to a numeric/boolean array'
+        ) from e
+
+    # Validate dimensionality and shape
+    if target_mask_2d.ndim != 2:
+        raise ValueError(f"`target_mask_2d` must be 2D, got shape {target_mask_2d.shape}")
+    n_target, n_source = weights.data.shape
+    if target_mask_2d.size != n_target:
+        raise ValueError(
+            f"Mismatch: weight matrix has {n_target} target cells, "
+            f"but mask has {target_mask_2d.size} elements."
+        )
+
+    # Flatten mask array to align with weight matrix target index (Fortran order for ESMF layout)
+    target_mask_flat = target_mask_2d.ravel(order='F')
+
+    # Multiply row-wise by mask to zero out weights of masked target cells
+    W = weights.data * target_mask_flat[:, None]
+
+    # Create weights DataArray backed by sparse.COO
+    weights = xr.DataArray(
+        sps.COO(coords=W.coords, data=W.data, shape=W.shape), dims=('out_dim', 'in_dim')
+    )
+    return weights
+
+
 def add_nans_to_weights(weights):
     """Add nan in empty rows of the regridding weights sparse matrix.
 

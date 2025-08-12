@@ -18,6 +18,7 @@ from .smm import (
     add_nans_to_weights,
     apply_weights,
     check_shapes,
+    post_apply_target_mask_to_weights,
     read_weights,
 )
 from .util import LAT_CF_ATTRS, LON_CF_ATTRS, split_polygons_and_holes
@@ -375,6 +376,17 @@ class BaseRegridder(object):
 
             # Convert weights, whatever their format, to a sparse coo matrix
             self.weights = read_weights(weights, self.n_in, self.n_out)
+
+            # Optionally post-apply output mask for LocStream input and Grid output
+            # as xesmf.backend.esmf_regrid_build filters the output mask in that case
+            # (ESMF does not support output masks for LocStream input and Grid output)
+            if (
+                isinstance(grid_in, LocStream)
+                and isinstance(grid_out, Grid)
+                and grid_out.mask is not None
+                and grid_out.mask[0] is not None
+            ):
+                self.weights = post_apply_target_mask_to_weights(self.weights, grid_out.mask[0])
 
             # replace zeros by NaN for weight matrix entries of unmapped target cells if specified or a mask is present
             if (
