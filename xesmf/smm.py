@@ -229,17 +229,17 @@ def post_apply_target_mask_to_weights(weights, target_mask_2d):
         target_mask_2d = np.asarray(target_mask_2d, dtype=weights.data.data.dtype)
     except Exception as e:
         raise TypeError(
-            '`target_mask_2d` must be array-like and convertible to a numeric/boolean array'
+            "Argument 'target_mask_2d' must be array-like and convertible to a numeric/boolean array"
         ) from e
 
     # Validate dimensionality and shape
     if target_mask_2d.ndim != 2:
-        raise ValueError(f"`target_mask_2d` must be 2D, got shape {target_mask_2d.shape}")
+        raise ValueError(f"Argument 'target_mask_2d' must be 2D, got shape {target_mask_2d.shape}")
     n_target, n_source = weights.data.shape
     if target_mask_2d.size != n_target:
         raise ValueError(
             f"Mismatch: weight matrix has {n_target} target cells, "
-            f"but mask has {target_mask_2d.size} elements."
+            f"but mask has {target_mask_2d.size} elements"
         )
 
     # Flatten mask array to align with weight matrix target index (Fortran order for ESMF layout)

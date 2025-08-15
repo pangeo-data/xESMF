@@ -64,12 +64,24 @@ def test_post_apply_target_mask_to_weights_exceptions():
     valid_mask = np.array([[True, False]])
 
     # Mask not array-like
-    with pytest.raises(TypeError):
+    with pytest.raises(
+        TypeError,
+        match="Argument 'target_mask_2d' must be array-like and convertible to a numeric/boolean array",
+    ):
         xe.smm.post_apply_target_mask_to_weights(weights, 'not_array_like')
 
     # Shape mismatch
     wrong_shape_mask = np.array([[True, False, True]])
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match='Mismatch: weight matrix has 2 target cells, but mask has 3 elements'
+    ):
+        xe.smm.post_apply_target_mask_to_weights(weights, wrong_shape_mask)
+
+    # Mask not 2D
+    wrong_shape_mask = np.array([[[True]], [[True]]])
+    with pytest.raises(
+        ValueError, match="Argument 'target_mask_2d' must be 2D, got shape \\(2, 1, 1\\)"
+    ):
         xe.smm.post_apply_target_mask_to_weights(weights, wrong_shape_mask)
 
     # That should work
