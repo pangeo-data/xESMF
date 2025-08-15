@@ -1087,6 +1087,11 @@ def test_post_mask_source_exceptions():
     with pytest.raises(TypeError, match='must be of integer type'):
         xe.Regridder(ds_src, ds_dst, 'bilinear', post_mask_source=bad_index_mask)
 
+    # Using out of bounds indices should give an exception
+    bad_index_mask = np.array([100, 200, 300, 400, 500, 600, 700])
+    with pytest.raises(ValueError, match='indices are out of valid range \\[0, 648\\)'):
+        xe.Regridder(ds_src, ds_dst, 'bilinear', post_mask_source=bad_index_mask)
+
 
 def test_post_mask_source_parallel_mode():
     # Create source and destination grids

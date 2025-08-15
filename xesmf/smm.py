@@ -236,15 +236,18 @@ def mask_source_indices(weights, source_indices_to_mask):
     """
     Remove entries in a sparse.COO weight matrix that map from masked source indices.
 
-    Parameters:
-        weights: DataArray backed by a sparse.COO array
-            Sparse weights matrix.
-        source_indices_to_mask: array-like
-            Flat indices of source grid cells whose contribution should be removed
-            (eg. output of xesmf.util._get_edge_indices_2d)
+    Parameters
+    ----------
+    weights: DataArray backed by a sparse.COO array
+      Sparse weights matrix.
+    source_indices_to_mask: array-like
+      Flat indices of source grid cells whose contribution should be removed
+      (eg. output of xesmf.util._get_edge_indices_2d)
 
-    Returns:
-        DataArray backed by a sparse.COO array: New weight matrix with masked source contributions removed
+    Returns
+    -------
+    DataArray backed by a sparse.COO array:
+      New weight matrix with masked source contributions removed
     """
     # Extract the sparse.COO remapping weight matrix (ntarget, nsource)
     W = weights.data
@@ -289,6 +292,7 @@ def gen_mask_from_weights(weights, nlat, nlon):
     ----------
     weights : DataArray backed by a sparse.COO array
       Sparse weights matrix.
+
     Returns
     -------
     numpy.ndarray of type numpy.int32 and of shape (nlat, nlon)
