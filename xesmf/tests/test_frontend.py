@@ -890,7 +890,7 @@ def test_spatial_averager_with_zonal_region():
 @pytest.mark.filterwarnings('ignore:`polys` contains large')
 def test_compare_weights_from_poly_and_grid():
     """Confirm that the weights are identical when they are computed from a grid->grid and grid->poly."""
-    pytest.importskip(
+    pytest.importorskip(
         'cf_xarray', minversion='0.10.9', reason='cf-xarray 0.10.8 broken for singleton coordinates'
     )
     # Global grid
