@@ -890,12 +890,14 @@ def test_spatial_averager_with_zonal_region():
 @pytest.mark.filterwarnings('ignore:`polys` contains large')
 def test_compare_weights_from_poly_and_grid():
     """Confirm that the weights are identical when they are computed from a grid->grid and grid->poly."""
-
+    pytest.importskip(
+        'cf_xarray', minversion='0.10.9', reason='cf-xarray 0.10.8 broken for singleton coordinates'
+    )
     # Global grid
     ds = xe.util.grid_global(20, 12, cf=True)
 
     # A single destination tile
-    tile = xe.util.cf_grid_2d(-40, -80, -40, 0, 80, 80)
+    tile = xe.util.cf_grid_2d(-40, -120, -40, 0, -80, 80)
     ds['a'] = xr.DataArray(
         np.ones((ds.lon.size, ds.lat.size)),
         coords={'lat': ds.lat, 'lon': ds.lon},
@@ -907,6 +909,9 @@ def test_compare_weights_from_poly_and_grid():
     y1, y2 = tile.lat_bounds.isel(lat=0)
     poly = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
 
+    from IPython import embed
+
+    embed()
     # Regrid using two identical destination grids (in theory)
     rgrid = xe.Regridder(ds, tile, method='conservative')
     rpoly = xe.SpatialAverager(ds, [poly])
