@@ -1,6 +1,10 @@
 What's new
 ==========
 
+0.9.0 (unreleased)
+------------------
+* Added support for target masks when regridding LocStream to Grid with nearest_s2d (:pull:`445`). By `Martin Schupfner <https://github.com/sol1105>`_.
+
 0.8.10 (2025-04-29)
 -------------------
 * Fix issue introduced by :pull:`418` for passing grids as dictionaries. (:issue:`428`, :pull:`429`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
