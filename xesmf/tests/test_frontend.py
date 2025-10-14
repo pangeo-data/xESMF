@@ -909,9 +909,6 @@ def test_compare_weights_from_poly_and_grid():
     y1, y2 = tile.lat_bounds.isel(lat=0)
     poly = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
 
-    from IPython import embed
-
-    embed()
     # Regrid using two identical destination grids (in theory)
     rgrid = xe.Regridder(ds, tile, method='conservative')
     rpoly = xe.SpatialAverager(ds, [poly])
