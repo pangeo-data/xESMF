@@ -137,7 +137,7 @@ class Grid(ESMF.Grid):
             grid_mask = mask.astype(np.int32)
             if not (grid_mask.shape == lon.shape):
                 raise ValueError(
-                    'mask must have the same shape as the latitude/longitude'
+                    'mask must have the same shape as the latitude/longitude '
                     'coordinates, got: mask.shape = %s, lon.shape = %s' % (mask.shape, lon.shape)
                 )
             grid.add_item(ESMF.GridItem.MASK, staggerloc=ESMF.StaggerLoc.CENTER, from_file=False)

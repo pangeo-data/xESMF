@@ -44,6 +44,19 @@ def test_cell_area():
     assert_almost_equal(area.sum(), np.pi * 4)
 
 
+def test_get_edge_indices_2d():
+    ny, nx = 3, 5
+    edge_inds = xe.util._get_edge_indices_2d(nx, ny)
+
+    # Flat indices: [0,  1,  2,  3,  4,
+    #                5,  6,  7,  8,  9,
+    #                10, 11, 12, 13, 14]
+    # Expected: all indices but 6, 7, 8
+    expected = np.array([0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14])
+
+    assert np.array_equal(np.sort(edge_inds), expected)
+
+
 def test_simple_tripolar_grid():
     lon, lat = xe.util.simple_tripolar_grid(360, 180, lat_cap=60, lon_cut=-300.0)
 
