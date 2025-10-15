@@ -4,6 +4,8 @@ What's new
 0.9.0 (unreleased)
 ------------------
 * Added ``Regridder`` option ``post_mask_source`` to mask contributions of specified source grid cells, with a special setting for masking domain edge cells to avoid extrapolation with ``nearest_s2d`` when remapping to a larger domain (``post_mask_source = 'domain_edge'``, :pull:`444`). By `Martin Schupfner <https://github.com/sol1105>`_.
+* Added support for target masks when regridding ``LocStream`` to ``Grid`` with ``nearest_s2d`` (:pull:`445`). By `Martin Schupfner <https://github.com/sol1105>`_.
+* ``xesmf.util.cf_grid_2d`` returns bounds as coordinates, as ``grid_2d`` does and as usually expected. (:pull:`453`). `By `Pascal Bourgault <https://github.com/aulemahal>`_.
 
 0.8.10 (2025-04-29)
 -------------------

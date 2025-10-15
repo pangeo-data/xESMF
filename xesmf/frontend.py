@@ -19,6 +19,7 @@ from .smm import (
     apply_weights,
     check_shapes,
     mask_source_indices,
+    post_apply_target_mask_to_weights,
     read_weights,
 )
 from .util import LAT_CF_ATTRS, LON_CF_ATTRS, _get_edge_indices_2d, split_polygons_and_holes
@@ -430,6 +431,22 @@ class BaseRegridder(object):
 
             # Convert weights, whatever their format, to a sparse coo matrix
             self.weights = read_weights(weights, self.n_in, self.n_out)
+
+            # Optionally post-apply output mask for LocStream input and Grid output
+            # as xesmf.backend.esmf_regrid_build filters the output mask in that case
+            # (ESMF does not support output masks for LocStream input and Grid output)
+            # Only method supported is `nearest_s2d`:
+            #   For other methods the masking approach may lead to unexpected results
+            #   as the weights are applied post weight generation and other methods may have
+            #   the source-target mapping depending on the location of masked cells.
+            if (
+                isinstance(grid_in, LocStream)
+                and isinstance(grid_out, Grid)
+                and grid_out.mask is not None
+                and grid_out.mask[0] is not None
+                and method == 'nearest_s2d'
+            ):
+                self.weights = post_apply_target_mask_to_weights(self.weights, grid_out.mask[0])
 
             # Optionally apply post_mask_source to manipulate the weights and removing
             #  the contribution of the specified source cells

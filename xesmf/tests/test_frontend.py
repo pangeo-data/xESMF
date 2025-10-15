@@ -890,12 +890,14 @@ def test_spatial_averager_with_zonal_region():
 @pytest.mark.filterwarnings('ignore:`polys` contains large')
 def test_compare_weights_from_poly_and_grid():
     """Confirm that the weights are identical when they are computed from a grid->grid and grid->poly."""
-
+    pytest.importorskip(
+        'cf_xarray', minversion='0.10.9', reason='cf-xarray 0.10.8 broken for singleton coordinates'
+    )
     # Global grid
     ds = xe.util.grid_global(20, 12, cf=True)
 
     # A single destination tile
-    tile = xe.util.cf_grid_2d(-40, -80, -40, 0, 80, 80)
+    tile = xe.util.cf_grid_2d(-40, -80, -40, 0, -80, -80)
     ds['a'] = xr.DataArray(
         np.ones((ds.lon.size, ds.lat.size)),
         coords={'lat': ds.lat, 'lon': ds.lon},
@@ -911,30 +913,18 @@ def test_compare_weights_from_poly_and_grid():
     rgrid = xe.Regridder(ds, tile, method='conservative')
     rpoly = xe.SpatialAverager(ds, [poly])
 
-    # Normally, weights should be identical, but this fails
-    np.testing.assert_array_almost_equal(rgrid.weights.data.todense(), rpoly.weights.data.todense())
-
     # Visualize the weights
     wg = np.reshape(rgrid.weights.data.todense(), ds.a.T.shape)
     wp = np.reshape(rpoly.weights.data.todense(), ds.a.T.shape)
 
-    ds['wg'] = (('lat', 'lon'), wg)
-    ds['wp'] = (('lat', 'lon'), wp)
-
-    # Figure of weights in two cases
-    # from matplotlib import pyplot as plt
-    # fig, (ax1, ax2) = plt.subplots(1, 2)
-    # ds.wg.plot(ax=ax1); ds.wp.plot(ax=ax2)
-    # ax1.set_title("Regridder weights")
-    # ax2.set_title("SpatialAverager weights")
-    # plt.show()
+    # Normally, weights should be identical, but this fails
+    np.testing.assert_array_almost_equal(wg, wp)
 
     # Check that source area affects weights
-    i = ds.indexes['lon'].get_indexer([-55], method='nearest')[0]
-    j1 = ds.indexes['lat'].get_indexer([12], method='nearest')[0]
-    j2 = ds.indexes['lat'].get_indexer([72], method='nearest')[0]
-    assert ds.wg.isel(lon=i, lat=j1) > ds.wg.isel(lon=i, lat=j2)
-    assert ds.wp.isel(lon=i, lat=j1).data > ds.wp.isel(lon=i, lat=j2).data  # Fails
+    ds['wg'] = (('lat', 'lon'), wg)
+    ds['wp'] = (('lat', 'lon'), wp)
+    # i.e. weights are larger for a cell closer to the equator, considering two completely covered cells
+    assert ds.wg.sel(lon=-70, lat=-60) > ds.wg.sel(lon=-70, lat=-72)
 
 
 def test_polys_to_ESMFmesh():
@@ -1130,3 +1120,36 @@ def test_post_mask_source_parallel_mode():
     assert result.shape == (12, 24)
     assert isinstance(result, xr.DataArray)
     assert result.isnull().any()
+
+
+def test_locstream_input_grid_output_with_target_mask_applied():
+    # Create locstream input (6 coordinate points)
+    locstream_in = xr.Dataset(
+        {'var': xr.DataArray(np.ones((6)), dims=['location'])},
+        coords={
+            'lat': ('location', np.linspace(0, 5, 6)),
+            'lon': ('location', np.linspace(0, 10, 6)),
+        },
+    )
+
+    # Create Grid output with target mask (3x3 grid)
+    ds_out = xe.util.cf_grid_2d(0, 10, 10.0 / 3.0, 0, 5, 5.0 / 3.0)
+    target_mask_2d = np.ones((3, 3), dtype=bool)
+    target_mask_2d[-1, :] = False
+    ds_out['target_mask'] = xr.DataArray(target_mask_2d, dims=['lat', 'lon'])
+
+    # Create Grid output with target mask (3x3 grid)
+    ds_out = xe.util.cf_grid_2d(0, 10, 10.0 / 3.0, 0, 5, 5.0 / 3.0)
+    target_mask_2d = np.ones((3, 3), dtype=bool)
+    target_mask_2d[-1, :] = False
+    ds_out['mask'] = xr.DataArray(target_mask_2d, dims=['lat', 'lon'])
+
+    # Generate weights
+    regridder = xe.Regridder(
+        ds_in=locstream_in, ds_out=ds_out, method='nearest_s2d', locstream_in=True
+    )
+
+    # Apply weights and check results - the northmost cells should be masked
+    da_out = regridder(locstream_in)['var']
+    assert np.all(np.isnan(da_out[-1, :]))
+    assert np.all(da_out[:-1, :] == 1)
