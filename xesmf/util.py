@@ -121,8 +121,6 @@ def cf_grid_2d(lon0_b, lon1_b, d_lon, lat0_b, lat1_b, d_lat):
                 {'bounds': 'lat_bounds', **LAT_CF_ATTRS},
             ),
             'latitude_longitude': xr.DataArray(),
-        },
-        data_vars={
             'lon_bounds': vertices_to_bounds(lon_b_1d, ('bound', 'lon')),
             'lat_bounds': vertices_to_bounds(lat_b_1d, ('bound', 'lat')),
         },
