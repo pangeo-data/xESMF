@@ -939,6 +939,10 @@ class Regridder(BaseRegridder):
         else:
             grid_out, shape_out, output_dims = ds_to_ESMFgrid(ds_out, need_bounds=need_bounds)
 
+        # Add input/output dims if included in kwargs
+        input_dims = kwargs.pop('input_dims', None)
+        output_dims = kwargs.pop('output_dims', None)
+
         # Create the BaseRegridder
         super().__init__(
             grid_in,
