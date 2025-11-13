@@ -20,7 +20,7 @@ def wave_smooth(lon, lat):
         2D wave field
 
     Notes
-    -------
+    -----
     Equation from [1]_ [2]_:
 
     .. math:: Y_2^2 = 2 + \cos^2(\\theta) \cos(2 \phi)
