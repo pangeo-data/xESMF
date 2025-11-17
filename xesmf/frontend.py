@@ -156,7 +156,7 @@ def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
 
     if 'mask' in ds:
         # Ensure mask has same dim order as coordinates, and then tranpose for F-order, as below
-        mask = np.asarray(ds['mask'].transpose(*dim_names).T)
+        mask = np.asarray(ds['mask'].transpose(*reversed(dim_names)))
     else:
         mask = None
 
@@ -874,7 +874,7 @@ class Regridder(BaseRegridder):
             CF-bounds (shape (n, 2) or (n, m, 4)) are also accepted if they are
             accessible through the cf-xarray accessor.
 
-            If either dataset includes a 2d mask variable, that will also be
+            If either dataset includes a 2d ``mask`` variable, that will also be
             used to inform the regridding.
 
             If DataArrays are passed, the are simply converted to Datasets.
