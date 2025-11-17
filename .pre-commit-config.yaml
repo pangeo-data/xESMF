@@ -18,7 +18,7 @@ repos:
       - id: black
 
   - repo: https://github.com/keewis/blackdoc
-    rev: v0.4.3
+    rev: v0.4.5
     hooks:
       - id: blackdoc
 
@@ -28,7 +28,7 @@ repos:
       - id: flake8
 
   - repo: https://github.com/PyCQA/isort
-    rev: 6.1.0
+    rev: 7.0.0
     hooks:
       - id: isort
 
@@ -50,7 +50,7 @@ repos:
           ]
 
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: v2.7.0
+    rev: v2.11.0
     hooks:
       - id: pyproject-fmt
 
