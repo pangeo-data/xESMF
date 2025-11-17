@@ -87,3 +87,7 @@ skip = [
   "setup.py",
   "doc/conf.py",
 ]
+
+[tool.pyproject-fmt]
+# maximum Python version to use when generating version specifiers
+max_supported_python = "3.13"
