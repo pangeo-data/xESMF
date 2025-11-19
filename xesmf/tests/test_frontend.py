@@ -1154,13 +1154,16 @@ def test_locstream_input_grid_output_with_target_mask_applied():
     assert np.all(np.isnan(da_out[-1, :]))
     assert np.all(da_out[:-1, :] == 1)
 
+
 def test_input_output_dims():
     # Create source and destination grids with non-standard dimension names
     ds_in1 = ds_in.rename({'x': 'x1', 'y': 'y1'})
     ds_out1 = ds_out.rename({'x': 'x2', 'y': 'y2'})
-    
+
     # Create regridder specifying input_dims and output_dims
-    regridder = xe.Regridder(ds_in1, ds_out1, 'conservative',input_dims = ('y1','x1'), output_dims = ('y2','x2'))
+    regridder = xe.Regridder(
+        ds_in1, ds_out1, 'conservative', input_dims=('y1', 'x1'), output_dims=('y2', 'x2')
+    )
 
     # Regrid data
     ds_result = regridder(ds_in1)
