@@ -1157,3 +1157,22 @@ def test_locstream_input_grid_output_with_target_mask_applied():
     da_out = regridder(locstream_in)['var']
     assert np.all(np.isnan(da_out[-1, :]))
     assert np.all(da_out[:-1, :] == 1)
+
+
+def test_input_output_dims():
+    # The only way that inputs_dims is necessary is when numpy arrays are passed through dictionaries
+    grid_in = {'lon': ds_in.lon.values, 'lat': ds_in.lat.values}
+    grid_out = {'lon': ds_out.lon.values, 'lat': ds_out.lat.values}
+
+    regridder = xe.Regridder(
+        grid_in, grid_out, 'bilinear', input_dims=('y', 'x'), output_dims=('y2', 'x2')
+    )
+    ds_result = regridder(ds_in.data.T)
+
+    # Check the dimensions of the output
+    assert 'y2' in ds_result.dims
+    assert 'x2' in ds_result.dims
+
+    # Check that the shapes match the output grid
+    assert ds_result['y2'].shape == ds_out['y'].shape
+    assert ds_result['x2'].shape == ds_out['x'].shape
