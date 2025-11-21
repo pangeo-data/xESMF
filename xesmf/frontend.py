@@ -879,6 +879,10 @@ class Regridder(BaseRegridder):
 
             If DataArrays are passed, the are simply converted to Datasets.
 
+            If dictionaries of numpy arrays are passed, one should pass
+            ``input_dims`` and/or ``output_dims`` to the call so that regridding
+            from and to xarray objects is possible.
+
         method : str
             Regridding method. Options are
 
@@ -1042,7 +1046,9 @@ class Regridder(BaseRegridder):
         # Record output grid and metadata
         lon_out, lat_out = _get_lon_lat(ds_out)
         if not isinstance(lon_out, DataArray):
-            if lon_out.ndim == 2:
+            if output_dims is not None:
+                dims = [output_dims, output_dims]
+            elif lon_out.ndim == 2:
                 dims = [('y', 'x'), ('y', 'x')]
             elif self.sequence_out:
                 dims = [('locations',), ('locations',)]

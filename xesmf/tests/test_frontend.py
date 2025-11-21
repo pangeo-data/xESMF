@@ -1160,22 +1160,19 @@ def test_locstream_input_grid_output_with_target_mask_applied():
 
 
 def test_input_output_dims():
-    # Create source and destination grids with non-standard dimension names
-    ds_in1 = ds_in.rename({'x': 'x1', 'y': 'y1'})
-    ds_out1 = ds_out.rename({'x': 'x2', 'y': 'y2'})
+    # The only way that inputs_dims is necessary is when numpy arrays are passed through dictionaries
+    grid_in = {'lon': ds_in.lon.values, 'lat': ds_in.lat.values}
+    grid_out = {'lon': ds_out.lon.values, 'lat': ds_out.lat.values}
 
-    # Create regridder specifying input_dims and output_dims
     regridder = xe.Regridder(
-        ds_in1, ds_out1, 'conservative', input_dims=('y1', 'x1'), output_dims=('y2', 'x2')
+        grid_in, grid_out, 'bilinear', input_dims=('y', 'x'), output_dims=('y2', 'x2')
     )
-
-    # Regrid data
-    ds_result = regridder(ds_in1)
+    ds_result = regridder(ds_in.data.T)
 
     # Check the dimensions of the output
     assert 'y2' in ds_result.dims
     assert 'x2' in ds_result.dims
 
     # Check that the shapes match the output grid
-    assert ds_result['y2'].shape == ds_out1['y2'].shape
-    assert ds_result['x2'].shape == ds_out1['x2'].shape
+    assert ds_result['y2'].shape == ds_out['y'].shape
+    assert ds_result['x2'].shape == ds_out['x'].shape
