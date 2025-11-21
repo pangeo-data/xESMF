@@ -56,7 +56,7 @@ def test_gen_mask_from_weights():
 
     # Create random mask for ds_out
     mask = np.random.randint(low=0, high=2, size=(5, 10), dtype=np.int32)
-    ds_out['mask'] = xr.DataArray(data=mask, dims=['lat', 'lon'])
+    ds_out['mask'] = xr.DataArray(data=mask, dims=['y', 'x'])
 
     # Create remapping weights
     Weights = xe.Regridder(ds_in, ds_out, method='bilinear').weights

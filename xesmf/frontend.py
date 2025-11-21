@@ -155,15 +155,13 @@ def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
     lon, lat = as_2d_mesh(np.asarray(lon), np.asarray(lat))
 
     if 'mask' in ds:
-        mask = np.asarray(ds['mask'])
+        # Ensure mask has same dim order as coordinates, and then tranpose for F-order, as below
+        mask = np.asarray(ds['mask'].transpose(*reversed(dim_names)))
     else:
         mask = None
 
     # tranpose the arrays so they become Fortran-ordered
-    if mask is not None:
-        grid = Grid.from_xarray(lon.T, lat.T, periodic=periodic, mask=mask.T)
-    else:
-        grid = Grid.from_xarray(lon.T, lat.T, periodic=periodic, mask=None)
+    grid = Grid.from_xarray(lon.T, lat.T, periodic=periodic, mask=mask)
 
     if need_bounds:
         lon_b, lat_b = _get_lon_lat_bounds(ds)
@@ -876,7 +874,7 @@ class Regridder(BaseRegridder):
             CF-bounds (shape (n, 2) or (n, m, 4)) are also accepted if they are
             accessible through the cf-xarray accessor.
 
-            If either dataset includes a 2d mask variable, that will also be
+            If either dataset includes a 2d ``mask`` variable, that will also be
             used to inform the regridding.
 
             If DataArrays are passed, the are simply converted to Datasets.

@@ -796,9 +796,13 @@ def test_regrid_dataset_to_locstream():
     regridder(ds_in)
 
 
-def test_build_regridder_with_masks():
+@pytest.mark.parametrize('transpose', [True, False])
+def test_build_regridder_with_masks(transpose):
     dsi = ds_in.copy()
-    dsi['mask'] = xr.DataArray(np.random.randint(2, size=ds_in['data'].shape), dims=('y', 'x'))
+    mask = xr.DataArray(np.random.randint(2, size=ds_in['data'].shape), dims=('y', 'x'))
+    if transpose:
+        mask = mask.T
+    dsi['mask'] = mask
     # 'patch' is too slow to test
     for method in [
         'bilinear',
