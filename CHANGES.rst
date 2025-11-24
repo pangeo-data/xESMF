@@ -1,10 +1,13 @@
 What's new
 ==========
 
-0.9.0 (unreleased)
+0.9.0 (2025-11-21)
 ------------------
+* Added ``Regridder`` option ``post_mask_source`` to mask contributions of specified source grid cells, with a special setting for masking domain edge cells to avoid extrapolation with ``nearest_s2d`` when remapping to a larger domain (``post_mask_source = 'domain_edge'``, :pull:`444`). By `Martin Schupfner <https://github.com/sol1105>`_.
 * Added support for target masks when regridding ``LocStream`` to ``Grid`` with ``nearest_s2d`` (:pull:`445`). By `Martin Schupfner <https://github.com/sol1105>`_.
-* ``xesmf.util.cf_grid_2d`` returns bounds as coordinates, as ``grid_2d`` does and as usually expected. (:pull:`453`). `By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* ``xesmf.util.cf_grid_2d`` returns bounds as coordinates, as ``grid_2d`` does and as usually expected. (:pull:`453`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Accept masks in "X, Y" order (:issue:`447`, :pull:`456`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Correctly use arguments ``input_dims`` and ``output_dims`` in ``Regridder`` when grids are defined as dictionaries of numpy arrays (:issue:`362`, :pull:`455`). By `Aaron G Meyer <https://github.com/agmeyer4>`_.
 
 0.8.10 (2025-04-29)
 -------------------
@@ -37,7 +40,7 @@ What's new
 0.8.4 (2024-02-26)
 ------------------
 * Fix regression from :pull:`332` that made ``Regridder`` fail with rectilinear datasets and ``parallel=True``. (:issue:`343`, :pull:`344`).
-* Allow Python 3.12 (and higher) again. (:pull:`345).
+* Allow Python 3.12 (and higher) again. (:pull:`345`).
 
 0.8.3 (2024-02-20)
 ------------------

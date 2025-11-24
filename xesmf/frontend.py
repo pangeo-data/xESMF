@@ -18,10 +18,15 @@ from .smm import (
     add_nans_to_weights,
     apply_weights,
     check_shapes,
+    mask_source_indices,
     post_apply_target_mask_to_weights,
     read_weights,
 )
+<<<<<<< HEAD
 from .util import LAT_CF_ATTRS, LON_CF_ATTRS, split_polygons_and_holes, _unname_dataset, _rename_dataset
+=======
+from .util import LAT_CF_ATTRS, LON_CF_ATTRS, _get_edge_indices_2d, split_polygons_and_holes
+>>>>>>> master
 
 try:
     import dask.array as da
@@ -146,15 +151,13 @@ def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
     lon, lat = as_2d_mesh(np.asarray(lon), np.asarray(lat))
 
     if 'mask' in ds:
-        mask = np.asarray(ds['mask'])
+        # Ensure mask has same dim order as coordinates, and then tranpose for F-order, as below
+        mask = np.asarray(ds['mask'].transpose(*reversed(dim_names)))
     else:
         mask = None
 
     # tranpose the arrays so they become Fortran-ordered
-    if mask is not None:
-        grid = Grid.from_xarray(lon.T, lat.T, periodic=periodic, mask=mask.T)
-    else:
-        grid = Grid.from_xarray(lon.T, lat.T, periodic=periodic, mask=None)
+    grid = Grid.from_xarray(lon.T, lat.T, periodic=periodic, mask=mask)
 
     if need_bounds:
         lon_b, lat_b = _get_lon_lat_bounds(ds)
@@ -241,6 +244,7 @@ class BaseRegridder(object):
         output_dims=None,
         unmapped_to_nan=False,
         parallel=False,
+        post_mask_source=None,
     ):
         """
         Base xESMF regridding class supporting ESMF objects: `Grid`, `Mesh` and `LocStream`.
@@ -322,6 +326,28 @@ class BaseRegridder(object):
             generation in the BaseRegridder is skipped and weights are generated in paralell in the
             subsest_regridder instead.
 
+        post_mask_source : str or array-like, optional
+            Optionally applies a post-processing step to remove selected source grid cells from
+            contributing to the regridding weight matrix.
+
+            Note: This differs from the typical masking approach, which prevents source cells from
+            being used during weight generation. Here, the regridding weights are modified *after*
+            creation to remove the contribution of specified source grid cells.
+
+            Options:
+
+            - If set to ``"domain_edge"``, the outermost edge cells of the source grid are
+              automatically detected and their contribution to the regridding weights is removed.
+              This is useful to avoid extrapolation beyond the domain boundary when using the
+              nearest-neighbor method ``'nearest_s2d'``, particularly when remapping from a smaller
+              to a larger domain (as is common with regional source grids like CORDEX).
+              Only supported for ``Grid`` type ESMF objects as source grid.
+            - If an array-like of integers is provided, it is interpreted as flat indices
+              (i.e., 1D indices of the flattened source grid) identifying source cells
+              whose contribution to the regridding weights should be removed.
+
+            Default is ``None``, meaning no post-weight-generation source grid cell masking is applied.
+
         Returns
         -------
         baseregridder : xESMF BaseRegridder object
@@ -354,9 +380,40 @@ class BaseRegridder(object):
         self.n_in = self.shape_in[0] * self.shape_in[1]
         self.n_out = self.shape_out[0] * self.shape_out[1]
 
+        # Validate post_mask_source
+        self.post_mask_source = None
+        if isinstance(post_mask_source, str) and post_mask_source == 'domain_edge':
+            if self.sequence_in:
+                raise ValueError(
+                    "post_mask_source='domain_edge' is only supported for 'Grid' type ESMF objects "
+                    'as source grid (i.e. structured - rectilinear or curvilinear - grids. '
+                    f"Grid type detected: {type(grid_in)}"
+                )
+            self.post_mask_source = _get_edge_indices_2d(self.shape_in[1], self.shape_in[0])
+        elif post_mask_source is not None:
+            try:
+                self.post_mask_source = np.asarray(post_mask_source)
+            except Exception as e:
+                raise TypeError(
+                    f"`post_mask_source` must be array-like of integers. Got: {type(post_mask_source)}"
+                ) from e
+            if self.post_mask_source is not None and not np.issubdtype(
+                self.post_mask_source.dtype, np.integer
+            ):
+                raise TypeError(
+                    f"`post_mask_source` must be of integer type. Got dtype: {self.post_mask_source.dtype}"
+                )
+
         # some logic about reusing weights with either filename or weights args
         if reuse_weights and (filename is None) and (weights is None):
             raise ValueError('To reuse weights, you need to provide either filename or weights.')
+
+        # decide whether unmapped cells should be mapped to NaN
+        self.unmapped_to_nan = False
+        if (
+            (grid_out.mask is not None) and (grid_out.mask[0] is not None)
+        ) or unmapped_to_nan is True:
+            self.unmapped_to_nan = True
 
         if not parallel:
             if not reuse_weights and weights is None:
@@ -385,10 +442,13 @@ class BaseRegridder(object):
             ):
                 self.weights = post_apply_target_mask_to_weights(self.weights, grid_out.mask[0])
 
+            # Optionally apply post_mask_source to manipulate the weights and removing
+            #  the contribution of the specified source cells
+            if self.post_mask_source is not None:
+                self.weights = mask_source_indices(self.weights, self.post_mask_source)
+
             # replace zeros by NaN for weight matrix entries of unmapped target cells if specified or a mask is present
-            if (
-                (grid_out.mask is not None) and (grid_out.mask[0] is not None)
-            ) or unmapped_to_nan is True:
+            if self.unmapped_to_nan:
                 self.weights = add_nans_to_weights(self.weights)
 
             # follows legacy logic of writing weights if filename is provided
@@ -810,10 +870,14 @@ class Regridder(BaseRegridder):
             CF-bounds (shape (n, 2) or (n, m, 4)) are also accepted if they are
             accessible through the cf-xarray accessor.
 
-            If either dataset includes a 2d mask variable, that will also be
+            If either dataset includes a 2d ``mask`` variable, that will also be
             used to inform the regridding.
 
             If DataArrays are passed, the are simply converted to Datasets.
+
+            If dictionaries of numpy arrays are passed, one should pass
+            ``input_dims`` and/or ``output_dims`` to the call so that regridding
+            from and to xarray objects is possible.
 
         method : str
             Regridding method. Options are
@@ -879,6 +943,29 @@ class Regridder(BaseRegridder):
             If an output mask is defined, or regridding method is `nearest_s2d` or `nearest_d2s`,
             this option has no effect.
 
+        post_mask_source : str or array-like, optional
+            Optionally applies a post-processing step to remove selected source grid cells from
+            contributing to the regridding weight matrix.
+
+            Note: This differs from the typical masking approach, which prevents source cells from
+            being used during weight generation. Here, the regridding weights are modified *after*
+            creation to remove the contribution of specified source grid cells.
+
+            Options:
+
+            - If set to ``"domain_edge"``, the outermost edge cells of the source grid are
+              automatically detected and their contribution to the regridding weights is removed.
+              This is useful to avoid extrapolation beyond the domain boundary when using the
+              nearest-neighbor method ``'nearest_s2d'``, particularly when remapping from a smaller
+              to a larger domain (as is common with regional source grids like CORDEX).
+              Only supported for ``Grid`` type ESMF objects as source grid.
+
+            - If an array-like of integers is provided, it is interpreted as flat indices
+              (i.e., 1D indices of the flattened source grid) identifying source cells
+              whose contribution to the regridding weights should be removed.
+
+            Default is ``None``, meaning no post-weight-generation source grid cell masking is applied.
+
         Returns
         -------
         regridder : xESMF regridder object
@@ -931,6 +1018,12 @@ class Regridder(BaseRegridder):
         else:
             grid_out, shape_out, output_dims = ds_to_ESMFgrid(ds_out, need_bounds=need_bounds)
 
+        # Add input/output dims if included in kwargs
+        if 'input_dims' in kwargs:
+            input_dims = kwargs.pop('input_dims')
+        if 'output_dims' in kwargs:
+            output_dims = kwargs.pop('output_dims')
+
         # Create the BaseRegridder
         super().__init__(
             grid_in,
@@ -941,6 +1034,7 @@ class Regridder(BaseRegridder):
             parallel=parallel,
             **kwargs,
         )
+
         # Weights are computed, we do not need the grids anymore
         grid_in.destroy()
         grid_out.destroy()
@@ -948,7 +1042,9 @@ class Regridder(BaseRegridder):
         # Record output grid and metadata
         lon_out, lat_out = _get_lon_lat(ds_out)
         if not isinstance(lon_out, DataArray):
-            if lon_out.ndim == 2:
+            if output_dims is not None:
+                dims = [output_dims, output_dims]
+            elif lon_out.ndim == 2:
                 dims = [('y', 'x'), ('y', 'x')]
             elif self.sequence_out:
                 dims = [('locations',), ('locations',)]
@@ -992,6 +1088,7 @@ class Regridder(BaseRegridder):
             self.out_coords = xr.Dataset(coords={lat_out.name: lat_out, lon_out.name: lon_out})
 
         if parallel:
+            # Generate the weights in parallel
             self._init_para_regrid(ds_in, ds_out, kwargs)
 
     def _init_para_regrid(self, ds_in, ds_out, kwargs):
@@ -1065,6 +1162,12 @@ class Regridder(BaseRegridder):
             chunks
         )  # template has same chunks as ds_out
 
+        # If post_mask_source is specified, set it to None, as it needs to be dealt with
+        #   for the final weights only
+        if 'post_mask_source' in kwargs:
+            kwargs['post_mask_source'] = None
+
+        # Compute weights in parallel
         w = xr.map_blocks(
             subset_regridder,
             ds_out,
@@ -1084,6 +1187,15 @@ class Regridder(BaseRegridder):
         weights = w.stack(out_dim=weights_dims[:2], in_dim=weights_dims[2:])
         weights.name = 'weights'
         self.weights = weights
+
+        # Optionally apply post_mask_source to manipulate the weights and removing
+        #  the contribution of the specified source cells
+        if self.post_mask_source is not None:
+            self.weights = mask_source_indices(self.weights, self.post_mask_source)
+            # replace zeros by NaN for weight matrix entries of unmapped target cells
+            #   if specified or a mask is present
+            if self.unmapped_to_nan:
+                self.weights = add_nans_to_weights(self.weights)
 
         # follows legacy logic of writing weights if filename is provided
         if 'filename' in kwargs:

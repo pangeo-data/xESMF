@@ -407,6 +407,16 @@ def cell_area(ds, earth_radius=None):
     return area
 
 
+def _get_edge_indices_2d(nlons, nlats):
+    """Get edge indices for a 2D nlats x nlons grid."""
+    edge_mask = np.zeros((nlats, nlons), dtype=bool)
+    edge_mask[:1, :] = True
+    edge_mask[-1:, :] = True
+    edge_mask[:, :1] = True
+    edge_mask[:, -1:] = True
+    return np.where(edge_mask.ravel())[0]
+
+
 def _unname_dataset(ds, sequence, dims, suffix):
     """Rename everything in a dataset so that it can be aligned without modification with another."""
     if sequence:

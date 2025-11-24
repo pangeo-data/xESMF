@@ -210,8 +210,8 @@ def post_apply_target_mask_to_weights(weights, target_mask_2d):
     weights : DataArray backed by a sparse.COO array
       Sparse weights matrix.
     target_mask_2d : array-like
-        Mask array of shape (nx, ny) for the target grid.
-        False / 0 indicates a masked cell whose weights shall be set to zero.
+      Mask array of shape (nx, ny) for the target grid.
+      False / 0 indicates a masked cell whose weights shall be set to zero.
 
     Returns
     -------
@@ -280,6 +280,86 @@ def add_nans_to_weights(weights):
     new = sps.COO(np.hstack((coo.coords, new_coords)), np.hstack((coo.data, new_data)), coo.shape, fill_value=coo.fill_value)
     weights = weights.copy(data=new)
     return weights
+
+
+def mask_source_indices(weights, source_indices_to_mask):
+    """
+    Remove entries in a sparse.COO weight matrix that map from masked source indices.
+
+    Parameters
+    ----------
+    weights: DataArray backed by a sparse.COO array
+      Sparse weights matrix.
+    source_indices_to_mask: array-like
+      Flat indices of source grid cells whose contribution should be removed
+      (eg. output of xesmf.util._get_edge_indices_2d)
+
+    Returns
+    -------
+    DataArray backed by a sparse.COO array:
+      New weight matrix with masked source contributions removed
+    """
+    # Extract the sparse.COO remapping weight matrix (ntarget, nsource)
+    W = weights.data
+
+    # W.coords is a 2D array with shape (2, N), holding the non-zero entries in the
+    #   sparse matrix. Rows being [0] target_idx, [1] source_idx.
+    tgt_idx = W.coords[0]
+    src_idx = W.coords[1]
+    # Each W.data[i] represents the weight from source_idx[i] to target_idx[i]
+    data = W.data
+
+    # Validate source_indices_to_mask
+    n_source = W.shape[1]
+    invalid = np.asarray(source_indices_to_mask) >= n_source
+    if np.any(invalid) or np.any(np.asarray(source_indices_to_mask) < 0):
+        raise ValueError(
+            f"Some of the provided source indices are out of valid range [0, {n_source}). "
+            f"Invalid indices: {np.asarray(source_indices_to_mask)[invalid]}"
+        )
+
+    # Boolean mask for the source_idx - False for masked source indices
+    mask = ~np.isin(src_idx, source_indices_to_mask)
+
+    # Create new sparse matrix with only non-masked entries
+    data_masked = data[mask]
+    # Create new coordinates array by vertical (row-wise) stacking of the new target and source indices
+    coords_masked = np.vstack([tgt_idx[mask], src_idx[mask]])
+
+    # Create new sparse weight matrix and assign it to the weights DataArray
+    weights = xr.DataArray(
+        sps.COO(coords_masked, data_masked, shape=W.shape), dims=('out_dim', 'in_dim')
+    )
+
+    return weights
+
+
+def gen_mask_from_weights(weights, nlat, nlon):
+    """Generate a 2D mask from the regridding weights sparse matrix.
+    This function will generate a 2D binary mask out of a regridding weights sparse matrix.
+
+    Parameters
+    ----------
+    weights : DataArray backed by a sparse.COO array
+      Sparse weights matrix.
+
+    Returns
+    -------
+    numpy.ndarray of type numpy.int32 and of shape (nlat, nlon)
+        Binary mask.
+    """
+    # Taken from @trondkr and adapted by @raphaeldussin to use `lil`.
+    # lil matrix is better than CSR when changing sparsity
+    m = weights.data.to_scipy_sparse().tolil()
+
+    # Create mask ndarray of ones and fill with 0-elements
+    mask = np.ones((nlat, nlon), dtype=np.int32).ravel()
+    for krow in range(len(m.rows)):
+        if any([np.isnan(x) for x in m.data[krow]]):
+            mask[krow] = 0
+
+    # Reshape and return
+    return mask.reshape((nlat, nlon))
 
 
 def _combine_weight_multipoly(weights, areas, indexes):
