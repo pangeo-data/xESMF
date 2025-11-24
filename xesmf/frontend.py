@@ -22,11 +22,7 @@ from .smm import (
     post_apply_target_mask_to_weights,
     read_weights,
 )
-<<<<<<< HEAD
-from .util import LAT_CF_ATTRS, LON_CF_ATTRS, split_polygons_and_holes, _unname_dataset, _rename_dataset
-=======
-from .util import LAT_CF_ATTRS, LON_CF_ATTRS, _get_edge_indices_2d, split_polygons_and_holes
->>>>>>> master
+from .util import LAT_CF_ATTRS, LON_CF_ATTRS, _get_edge_indices_2d, split_polygons_and_holes, _unname_dataset, _rename_dataset
 
 try:
     import dask.array as da
