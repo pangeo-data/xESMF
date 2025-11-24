@@ -446,9 +446,11 @@ def _rename_dataset(ds, sequence, dims, suffix):
     """Restore coordinate names from an "unnamed" dataset"""
     ds = ds.rename(
         {
-            coord: coord[:-(len(suffix) + 1)]
+            coord: coord[: -(len(suffix) + 1)]
             for coord in ds.coords.keys()
-            if coord not in dims and coord.endswith('_' + suffix) and coord not in (f'y_{suffix}', f'x_{suffix}')
+            if coord not in dims
+            and coord.endswith('_' + suffix)
+            and coord not in (f'y_{suffix}', f'x_{suffix}')
         }
     )
     if sequence:

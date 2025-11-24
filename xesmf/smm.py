@@ -277,7 +277,12 @@ def add_nans_to_weights(weights):
     unmapped_rows = set(np.arange(coo.shape[0])) - set(coo.coords[0])
     new_coords = np.array([list(unmapped_rows), [0] * len(unmapped_rows)], dtype=coo.coords.dtype)
     new_data = np.full((len(unmapped_rows),), np.nan)
-    new = sps.COO(np.hstack((coo.coords, new_coords)), np.hstack((coo.data, new_data)), coo.shape, fill_value=coo.fill_value)
+    new = sps.COO(
+        np.hstack((coo.coords, new_coords)),
+        np.hstack((coo.data, new_data)),
+        coo.shape,
+        fill_value=coo.fill_value,
+    )
     weights = weights.copy(data=new)
     return weights
 
