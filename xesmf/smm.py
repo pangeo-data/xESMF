@@ -272,17 +272,13 @@ def add_nans_to_weights(weights):
     DataArray backed by a sparse.COO array
       Sparse weights matrix.
     """
-
-    # Taken from @trondkr and adapted by @raphaeldussin to use `lil`.
-    # lil matrix is better than CSR when changing sparsity
-    m = weights.data.to_scipy_sparse().tolil()
-    # replace empty rows by one nan value at element 0 (arbitrary)
-    # so that remapped element become nan instead of zero
-    for krow in range(len(m.rows)):
-        m.rows[krow] = [0] if m.rows[krow] == [] else m.rows[krow]
-        m.data[krow] = [np.nan] if m.data[krow] == [] else m.data[krow]
-    # update regridder weights (in COO)
-    weights = weights.copy(data=sps.COO.from_scipy_sparse(m))
+    # Taken from @trondkr and adapted by @raphaeldussin to use `lil`, translated to COO by @aulemahal
+    coo = weights.data
+    unmapped_rows = set(np.arange(coo.shape[0])) - set(coo.coords[0])
+    new_coords = np.array([list(unmapped_rows), [0] * len(unmapped_rows)], dtype=coo.coords.dtype)
+    new_data = np.full((len(unmapped_rows),), np.nan)
+    new = sps.COO(np.hstack((coo.coords, new_coords)), np.hstack((coo.data, new_data)), coo.shape, fill_value=coo.fill_value)
+    weights = weights.copy(data=new)
     return weights
 
 
