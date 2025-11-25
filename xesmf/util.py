@@ -425,7 +425,7 @@ def _unname_dataset(ds, sequence, dims, suffix):
     else:
         ds = ds.rename({dims[0]: f'y{suffix}', dims[1]: f'x{suffix}'})
     if ds[f'x{suffix}'].attrs.get('bounds'):
-        ds = ds.rename({ds[f'x_{suffix}'].attrs['bounds']: f'x{suffix}_bounds'})
+        ds = ds.rename({ds[f'x{suffix}'].attrs['bounds']: f'x{suffix}_bounds'})
         ds[f'x{suffix}'].attrs['bounds'] = f'x{suffix}_bounds'
     if not sequence and ds[f'y{suffix}'].attrs.get('bounds'):
         ds = ds.rename({ds[f'y{suffix}'].attrs['bounds']: f'y{suffix}_bounds'})
