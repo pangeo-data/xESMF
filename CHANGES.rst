@@ -3,7 +3,7 @@ What's new
 
 0.9.1 (2025-11-25)
 ------------------
-* Remove scipy-dependent code in ``add_nans_to_weight`` (:pull:`461`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Rewrote ``xe.smm.add_nans_to_weight`` (called when ``unmapped_to_nan`` is True)to remove scipy-dependent code, which also resulted in a significant (>=4x) speedup of that step (:pull:`461`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
 * Fix some name collision issues in the parallel regridder initialisation (:pull:`461`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
 
 0.9.0 (2025-11-21)
