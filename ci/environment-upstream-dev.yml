@@ -6,11 +6,11 @@ dependencies:
   - codecov
   - dask
   - esmpy
+  - netcdf4
   - numba
   - numpy
   - pip
   - pre-commit
-  - pydap
   - pytest
   - pytest-cov
   - shapely

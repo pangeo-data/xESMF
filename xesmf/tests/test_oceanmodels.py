@@ -78,28 +78,3 @@ def test_mom6like_to_5x5():
     with pytest.warns(UserWarning, match=r"Using dimensions \('yh', 'xh'\)"):
         tos_regridded = regrid_to_5x5(mom6like['tos'])
     assert tos_regridded.shape == ((2, 36, 72))
-
-
-@pytest.mark.testcases
-def test_mom6_to_1x1():
-    """check regridding of MOM6 to regular lon/lat"""
-
-    dataurl = 'http://35.188.34.63:8080/thredds/dodsC/OM4p5/'
-    mom6 = xr.open_dataset(
-        f'{dataurl}/ocean_monthly_z.200301-200712.nc4',
-        chunks={'time': 1, 'z_l': 1},
-        drop_variables=['average_DT', 'average_T1', 'average_T2'],
-        decode_times=False,
-        engine='pydap',
-    )
-
-    grid_1x1 = xr.Dataset()
-    grid_1x1['lon'] = xr.DataArray(data=0.5 + np.arange(360), dims=('x'))
-    grid_1x1['lat'] = xr.DataArray(data=0.5 - 90 + np.arange(180), dims=('y'))
-
-    regrid_to_1x1 = xesmf.Regridder(
-        mom6.rename({'geolon': 'lon', 'geolat': 'lat'}), grid_1x1, 'bilinear', periodic=True
-    )
-
-    thetao_1x1 = regrid_to_1x1(mom6['thetao'])
-    assert np.allclose(thetao_1x1.isel(time=0, z_l=0, x=200, y=100).values, 27.15691922)

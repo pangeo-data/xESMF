@@ -2,8 +2,9 @@ name: xesmf
 channels:
   - conda-forge
 dependencies:
-  - python>=3.8
+  - python>=3.11
   - cf_xarray>=0.5.1
+  - dask
   - esmpy
   - numba >=0.55.2
   - numpy >=1.16
@@ -13,9 +14,8 @@ dependencies:
   # Testing and extras
   - cftime
   - codecov
-  - dask
+  - netcdf4
   - pip
   - pre-commit
-  - pydap
   - pytest
   - pytest-cov
