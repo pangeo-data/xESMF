@@ -274,6 +274,7 @@ def add_nans_to_weights(weights):
     """
     # Taken from @trondkr and adapted by @raphaeldussin to use `lil`, translated to COO by @aulemahal
     coo = weights.data
+    # Replace rows with no weights with a NaN at element 0, so that remapped elements are NaNs instead of zeros.  
     unmapped_rows = set(np.arange(coo.shape[0])) - set(coo.coords[0])
     new_coords = np.array([list(unmapped_rows), [0] * len(unmapped_rows)], dtype=coo.coords.dtype)
     new_data = np.full((len(unmapped_rows),), np.nan)
