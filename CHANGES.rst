@@ -1,10 +1,10 @@
 What's new
 ==========
 
-0.9.1 (unreleased)
+0.9.1 (2025-11-25)
 ------------------
-* Remove scipy-dependent code in ``add_nans_to_weight``. By `Pascal Bourgault <https://github.com/aulemahal>`_.
-* Fix some name collision issues in the parallel regridder initialisation. By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Remove scipy-dependent code in ``add_nans_to_weight`` (:pull:`461`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Fix some name collision issues in the parallel regridder initialisation (:pull:`461`). By `Pascal Bourgault <https://github.com/aulemahal>`_.
 
 0.9.0 (2025-11-21)
 ------------------
