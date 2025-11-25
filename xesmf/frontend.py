@@ -46,8 +46,8 @@ def subset_regridder(
     kwargs.pop('filename', None)  # Don't save subset of weights
     kwargs.pop('reuse_weights', None)
 
-    ds_in = _rename_dataset(ds_in, locstream_in, in_dims, 'in')
-    ds_out = _rename_dataset(ds_out, locstream_out, out_dims, 'out')
+    ds_in = _rename_dataset(ds_in, locstream_in, in_dims, '_in')
+    ds_out = _rename_dataset(ds_out, locstream_out, out_dims, '_out')
 
     regridder = Regridder(
         ds_in, ds_out, method, locstream_in, locstream_out, periodic, parallel=False, **kwargs
@@ -1152,8 +1152,8 @@ class Regridder(BaseRegridder):
             ds_out[ds_out.cf['latitude'].name].attrs['bounds'] = 'lat_bounds'
             ds_out = ds_out.drop_dims(ds_out.lon_b.dims + ds_out.lat_b.dims)
         # rename dims to avoid map_blocks confusing ds_in and ds_out dims.
-        ds_in = _unname_dataset(ds_in, self.sequence_in, self.in_horiz_dims, 'in')
-        ds_out = _unname_dataset(ds_out, self.sequence_out, self.out_horiz_dims, 'out')
+        ds_in = _unname_dataset(ds_in, self.sequence_in, self.in_horiz_dims, '_in')
+        ds_out = _unname_dataset(ds_out, self.sequence_out, self.out_horiz_dims, '_out')
 
         out_chunks = {k: ds_out.chunks.get(k) for k in ['y_out', 'x_out']}
         in_chunks = {k: ds_in.chunks.get(k) for k in ['y_in', 'x_in']}

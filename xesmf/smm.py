@@ -274,10 +274,14 @@ def add_nans_to_weights(weights):
     """
     # Taken from @trondkr and adapted by @raphaeldussin to use `lil`, translated to COO by @aulemahal
     coo = weights.data
-    # Replace rows with no weights with a NaN at element 0, so that remapped elements are NaNs instead of zeros.  
+    # Replace rows with no weights with a NaN at element 0, so that remapped elements are NaNs instead of zeros.
+    # Fin rows with no entry in the weights, the unmapped ones
     unmapped_rows = set(np.arange(coo.shape[0])) - set(coo.coords[0])
+    # Generate one coord bper unmapped row
     new_coords = np.array([list(unmapped_rows), [0] * len(unmapped_rows)], dtype=coo.coords.dtype)
+    # Assign a NaN to the new coord so the scalar product of that row gives a NaN
     new_data = np.full((len(unmapped_rows),), np.nan)
+    # Recreate the new COO weights matrix
     new = sps.COO(
         np.hstack((coo.coords, new_coords)),
         np.hstack((coo.data, new_data)),

@@ -421,22 +421,22 @@ def _unname_dataset(ds, sequence, dims, suffix):
     """Rename everything in a dataset so that it can be aligned without modification with another."""
     if sequence:
         dim = list(set(dims) - {'dummy'})[0]
-        ds = ds.rename({dim: f'x_{suffix}'})
+        ds = ds.rename({dim: f'x{suffix}'})
     else:
-        ds = ds.rename({dims[0]: f'y_{suffix}', dims[1]: f'x_{suffix}'})
-    if ds[f'x_{suffix}'].attrs.get('bounds'):
-        ds = ds.rename({ds[f'x_{suffix}'].attrs['bounds']: 'x_bounds'})
-        ds[f'x_{suffix}'].attrs['bounds'] = 'x_bounds'
-    if not sequence and ds[f'y_{suffix}'].attrs.get('bounds'):
-        ds = ds.rename({ds[f'y_{suffix}'].attrs['bounds']: 'y_bounds'})
-        ds[f'y_{suffix}'].attrs['bounds'] = 'y_bounds'
+        ds = ds.rename({dims[0]: f'y{suffix}', dims[1]: f'x{suffix}'})
+    if ds[f'x{suffix}'].attrs.get('bounds'):
+        ds = ds.rename({ds[f'x_{suffix}'].attrs['bounds']: f'x{suffix}_bounds'})
+        ds[f'x{suffix}'].attrs['bounds'] = f'x{suffix}_bounds'
+    if not sequence and ds[f'y{suffix}'].attrs.get('bounds'):
+        ds = ds.rename({ds[f'y{suffix}'].attrs['bounds']: f'y{suffix}_bounds'})
+        ds[f'y{suffix}'].attrs['bounds'] = f'y{suffix}_bounds'
 
     # If coords and dims are the same, renaming has already been done.
     ds = ds.rename(
         {
-            coord: coord + '_' + suffix
+            coord: coord + suffix
             for coord in ds.coords.keys()
-            if coord not in (f'y_{suffix}', f'x_{suffix}')
+            if coord not in (f'y{suffix}', f'x{suffix}')
         }
     )
     return ds
@@ -446,15 +446,15 @@ def _rename_dataset(ds, sequence, dims, suffix):
     """Restore coordinate names from an "unnamed" dataset"""
     ds = ds.rename(
         {
-            coord: coord[: -(len(suffix) + 1)]
+            coord: coord.rstrip(suffix)
             for coord in ds.coords.keys()
             if coord not in dims
-            and coord.endswith('_' + suffix)
-            and coord not in (f'y_{suffix}', f'x_{suffix}')
+            and coord.endswith(suffix)
+            and coord not in (f'y{suffix}', f'x{suffix}')
         }
     )
     if sequence:
-        ds = ds.rename({f'x_{suffix}': dims[0]})
+        ds = ds.rename({f'x{suffix}': dims[0]})
     else:
-        ds = ds.rename({f'y_{suffix}': dims[0], f'x_{suffix}': dims[1]})
+        ds = ds.rename({f'y{suffix}': dims[0], f'x{suffix}': dims[1]})
     return ds
