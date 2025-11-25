@@ -22,7 +22,14 @@ from .smm import (
     post_apply_target_mask_to_weights,
     read_weights,
 )
-from .util import LAT_CF_ATTRS, LON_CF_ATTRS, _get_edge_indices_2d, split_polygons_and_holes
+from .util import (
+    LAT_CF_ATTRS,
+    LON_CF_ATTRS,
+    _get_edge_indices_2d,
+    _rename_dataset,
+    _unname_dataset,
+    split_polygons_and_holes,
+)
 
 try:
     import dask.array as da
@@ -39,16 +46,8 @@ def subset_regridder(
     kwargs.pop('filename', None)  # Don't save subset of weights
     kwargs.pop('reuse_weights', None)
 
-    # Renaming dims to original names for the subset regridding
-    if locstream_in:
-        ds_in = ds_in.rename({'x_in': in_dims[0]})
-    else:
-        ds_in = ds_in.rename({'y_in': in_dims[0], 'x_in': in_dims[1]})
-
-    if locstream_out:
-        ds_out = ds_out.rename({'x_out': out_dims[1]})
-    else:
-        ds_out = ds_out.rename({'y_out': out_dims[0], 'x_out': out_dims[1]})
+    ds_in = _rename_dataset(ds_in, locstream_in, in_dims, '_in')
+    ds_out = _rename_dataset(ds_out, locstream_out, out_dims, '_out')
 
     regridder = Regridder(
         ds_in, ds_out, method, locstream_in, locstream_out, periodic, parallel=False, **kwargs
@@ -1153,31 +1152,12 @@ class Regridder(BaseRegridder):
             ds_out[ds_out.cf['latitude'].name].attrs['bounds'] = 'lat_bounds'
             ds_out = ds_out.drop_dims(ds_out.lon_b.dims + ds_out.lat_b.dims)
         # rename dims to avoid map_blocks confusing ds_in and ds_out dims.
-        if self.sequence_in:
-            ds_in = ds_in.rename({self.in_horiz_dims[0]: 'x_in'})
-        else:
-            ds_in = ds_in.rename({self.in_horiz_dims[0]: 'y_in', self.in_horiz_dims[1]: 'x_in'})
-
-        if self.sequence_out:
-            ds_out = ds_out.rename({self.out_horiz_dims[1]: 'x_out'})
-        else:
-            ds_out = ds_out.rename(
-                {self.out_horiz_dims[0]: 'y_out', self.out_horiz_dims[1]: 'x_out'}
-            )
+        ds_in = _unname_dataset(ds_in, self.sequence_in, self.in_horiz_dims, '_in')
+        ds_out = _unname_dataset(ds_out, self.sequence_out, self.out_horiz_dims, '_out')
 
         out_chunks = {k: ds_out.chunks.get(k) for k in ['y_out', 'x_out']}
         in_chunks = {k: ds_in.chunks.get(k) for k in ['y_in', 'x_in']}
         chunks = out_chunks | in_chunks
-
-        # Rename coords to avoid issues in xr.map_blocks
-        # If coords and dims are the same, renaming has already been done.
-        ds_out = ds_out.rename(
-            {
-                coord: coord + '_out'
-                for coord in self.out_coords.coords.keys()
-                if coord not in self.out_horiz_dims
-            }
-        )
 
         weights_dims = ('y_out', 'x_out', 'y_in', 'x_in')
         templ = sps.zeros((self.shape_out + self.shape_in))

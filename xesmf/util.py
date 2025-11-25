@@ -415,3 +415,46 @@ def _get_edge_indices_2d(nlons, nlats):
     edge_mask[:, :1] = True
     edge_mask[:, -1:] = True
     return np.where(edge_mask.ravel())[0]
+
+
+def _unname_dataset(ds, sequence, dims, suffix):
+    """Rename everything in a dataset so that it can be aligned without modification with another."""
+    if sequence:
+        dim = list(set(dims) - {'dummy'})[0]
+        ds = ds.rename({dim: f'x{suffix}'})
+    else:
+        ds = ds.rename({dims[0]: f'y{suffix}', dims[1]: f'x{suffix}'})
+    if ds[f'x{suffix}'].attrs.get('bounds'):
+        ds = ds.rename({ds[f'x{suffix}'].attrs['bounds']: f'x{suffix}_bounds'})
+        ds[f'x{suffix}'].attrs['bounds'] = f'x{suffix}_bounds'
+    if not sequence and ds[f'y{suffix}'].attrs.get('bounds'):
+        ds = ds.rename({ds[f'y{suffix}'].attrs['bounds']: f'y{suffix}_bounds'})
+        ds[f'y{suffix}'].attrs['bounds'] = f'y{suffix}_bounds'
+
+    # If coords and dims are the same, renaming has already been done.
+    ds = ds.rename(
+        {
+            coord: coord + suffix
+            for coord in ds.coords.keys()
+            if coord not in (f'y{suffix}', f'x{suffix}')
+        }
+    )
+    return ds
+
+
+def _rename_dataset(ds, sequence, dims, suffix):
+    """Restore coordinate names from an "unnamed" dataset"""
+    ds = ds.rename(
+        {
+            coord: coord.rstrip(suffix)
+            for coord in ds.coords.keys()
+            if coord not in dims
+            and coord.endswith(suffix)
+            and coord not in (f'y{suffix}', f'x{suffix}')
+        }
+    )
+    if sequence:
+        ds = ds.rename({f'x{suffix}': dims[0]})
+    else:
+        ds = ds.rename({f'y{suffix}': dims[0], f'x{suffix}': dims[1]})
+    return ds
