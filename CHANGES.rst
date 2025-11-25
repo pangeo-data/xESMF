@@ -1,6 +1,11 @@
 What's new
 ==========
 
+0.9.1 (unreleased)
+------------------
+* Remove scipy-dependent code in ``add_nans_to_weight``. By `Pascal Bourgault <https://github.com/aulemahal>`_.
+* Fix some name collision issues in the parallel regridder initialisation. By `Pascal Bourgault <https://github.com/aulemahal>`_.
+
 0.9.0 (2025-11-21)
 ------------------
 * Added ``Regridder`` option ``post_mask_source`` to mask contributions of specified source grid cells, with a special setting for masking domain edge cells to avoid extrapolation with ``nearest_s2d`` when remapping to a larger domain (``post_mask_source = 'domain_edge'``, :pull:`444`). By `Martin Schupfner <https://github.com/sol1105>`_.

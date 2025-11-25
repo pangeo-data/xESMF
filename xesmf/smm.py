@@ -260,7 +260,8 @@ def add_nans_to_weights(weights):
 
     By default, empty rows in the weights sparse matrix are interpreted as zeroes. This can become problematic
     when the field being interpreted has legitimate null values. This function inserts nan values in each row to
-    make sure empty weights are propagated as nans instead of zeros.
+    make sure empty weights are propagated as nans instead of zeros. It also removes unnecessary entries, ones
+    where the data is the same as the fill value (0).
 
     Parameters
     ----------
@@ -272,17 +273,30 @@ def add_nans_to_weights(weights):
     DataArray backed by a sparse.COO array
       Sparse weights matrix.
     """
+    # Taken from @trondkr and adapted by @raphaeldussin to use `lil`, translated to COO by @aulemahal
+    coo = weights.data
+    coords = coo.coords
+    data = coo.data
+    # Remove unnecessary entries (roundtrip through scipy's lil did that implicitely)
+    coords = coords[:, data != coo.fill_value]
+    data = data[data != coo.fill_value]
 
-    # Taken from @trondkr and adapted by @raphaeldussin to use `lil`.
-    # lil matrix is better than CSR when changing sparsity
-    m = weights.data.to_scipy_sparse().tolil()
-    # replace empty rows by one nan value at element 0 (arbitrary)
-    # so that remapped element become nan instead of zero
-    for krow in range(len(m.rows)):
-        m.rows[krow] = [0] if m.rows[krow] == [] else m.rows[krow]
-        m.data[krow] = [np.nan] if m.data[krow] == [] else m.data[krow]
-    # update regridder weights (in COO)
-    weights = weights.copy(data=sps.COO.from_scipy_sparse(m))
+    # Replace rows with no weights with a NaN at element 0, so that remapped elements are NaNs instead of zeros.
+    # Fin rows with no entry in the weights, the unmapped ones
+    unmapped_rows = set(np.arange(coo.shape[0])) - set(coords[0])
+    # Generate one coord bper unmapped row
+    new_coords = np.array([list(unmapped_rows), [0] * len(unmapped_rows)], dtype=coords.dtype)
+    # Assign a NaN to the new coord so the scalar product of that row gives a NaN
+    new_data = np.full((len(unmapped_rows),), np.nan)
+
+    # Recreate the new COO weights matrix
+    new = sps.COO(
+        np.hstack((coords, new_coords)),
+        np.hstack((data, new_data)),
+        coo.shape,
+        fill_value=coo.fill_value,
+    )
+    weights = weights.copy(data=new)
     return weights
 
 
