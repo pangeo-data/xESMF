@@ -354,30 +354,34 @@ def mask_source_indices(weights, source_indices_to_mask):
 
 def gen_mask_from_weights(weights, nlat, nlon):
     """Generate a 2D mask from the regridding weights sparse matrix.
+
     This function will generate a 2D binary mask out of a regridding weights sparse matrix.
+    The mask shows which pixels of the output grid are mapped in the input grid.
+    This is only feasible when the regridder weights have been created with ``unmapped_to_nan=True``.
+
 
     Parameters
     ----------
     weights : DataArray backed by a sparse.COO array
-      Sparse weights matrix.
+      Sparse weights matrix, as computed by the `Regridder`.
+    nlat, nlon: int
+      Shape of the final matrix.
+      nlat * nlon must be equal to the size of the `out_dim` dimension of the weights.
 
     Returns
     -------
     numpy.ndarray of type numpy.int32 and of shape (nlat, nlon)
         Binary mask.
+
+    Examples
+    --------
+    This function acts on lower level inputs, but the regridder has all information needed to construct a DataArray.
+
+    >>> reg = xe.Regridder(ds_in, ds_out, 'bilinear', unmapped_to_nan=True)
+    >>> mask = xe.smm.gen_mask_from_weights(reg.weights, *reg.shape_out)
+    >>> mask_da = xr.DataArray(mask, dims=reg.out_horiz_dims, coords=reg.out_coords.coords)
     """
-    # Taken from @trondkr and adapted by @raphaeldussin to use `lil`.
-    # lil matrix is better than CSR when changing sparsity
-    m = weights.data.to_scipy_sparse().tolil()
-
-    # Create mask ndarray of ones and fill with 0-elements
-    mask = np.ones((nlat, nlon), dtype=np.int32).ravel()
-    for krow in range(len(m.rows)):
-        if any([np.isnan(x) for x in m.data[krow]]):
-            mask[krow] = 0
-
-    # Reshape and return
-    return mask.reshape((nlat, nlon))
+    return 1 * (~weights.isnull().any('in_dim').data.todense().reshape(nlat, nlon))
 
 
 def _combine_weight_multipoly(weights, areas, indexes):
