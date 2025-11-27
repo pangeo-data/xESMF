@@ -1,6 +1,14 @@
 What's new
 ==========
 
+0.9.2 (2025-11-27)
+------------------
+This release drops support for Python < 3.11. xESMF aims to preserve support for older python and ESMF version as long as possible with its reduced maintaining team. The most recent windows release of ESMF is currently 8.4.2 and new versions of xESMF will support it as long as it is not updated.
+
+* Rewrote ``xe.smm.gen_mask_from_weights`` to remove scipy-dependent code.
+* Fix the CI reenable testing with previous python versions.
+* Avoid a ``SpatialAverager`` bug that happens when polygon segments have a length of exactly 1 on ESMF 8.4.2. The bug is not actually fixed in xESMF, but "segmentizing" the polygons with 0.99 seems to fix the issue.
+
 0.9.1 (2025-11-25)
 ------------------
 * Rewrote ``xe.smm.add_nans_to_weight`` (called when ``unmapped_to_nan`` is True)to remove scipy-dependent code, which also resulted in a significant (>=4x) speedup of that step (:pull:`461`). By `Pascal Bourgault <https://github.com/aulemahal>`_.

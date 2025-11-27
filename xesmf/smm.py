@@ -354,7 +354,11 @@ def mask_source_indices(weights, source_indices_to_mask):
 
 def gen_mask_from_weights(weights, nlat, nlon):
     """Generate a 2D mask from the regridding weights sparse matrix.
+
     This function will generate a 2D binary mask out of a regridding weights sparse matrix.
+    The mask shows which pixels of the output grid are mapped in the input grid.
+    This is only feasible when the regridder weights have been created with ``unmapped_to_nan=True``.
+
 
     Parameters
     ----------
@@ -368,6 +372,14 @@ def gen_mask_from_weights(weights, nlat, nlon):
     -------
     numpy.ndarray of type numpy.int32 and of shape (nlat, nlon)
         Binary mask.
+
+    Examples
+    --------
+    This function acts on lower level inputs, but the regridder has all information needed to construct a DataArray.
+
+    >>> reg = xe.Regridder(ds_in, ds_out, 'bilinear', unmapped_to_nan=True)
+    >>> mask = xe.smm.gen_mask_from_weights(reg.weights, *reg.shape_out)
+    >>> mask_da = xr.DataArray(mask, dims=reg.out_horiz_dims, coords=reg.out_coords.coords)
     """
     return 1 * (~weights.isnull().any('in_dim').data.todense().reshape(nlat, nlon))
 

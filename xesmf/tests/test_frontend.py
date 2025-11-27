@@ -100,7 +100,7 @@ polys_raw = [
 def _segmentize(p):
     if isinstance(p, list):
         return list(map(_segmentize, p))
-    return segmentize(p, 1)
+    return segmentize(p, 0.99)
 
 
 polys = list(map(_segmentize, polys_raw))
