@@ -3,7 +3,7 @@ What's new
 
 0.9.2 (2025-11-27)
 ------------------
-This release drops support for Python < 3.11. xESMF aims to preserve support for older python and ESMF version as long as possible with its reduced maintaining team. The most recent windows release of ESMF is currently 8.4.2 and new versions of xESMF will support it as long as it is not updated.
+This release drops support for Python < 3.11. xESMF aims to preserve support for older python and ESMF version as long as possible with its reduced maintaining team. The most recent windows release of ESMF is currently 8.4.2 and new versions of xESMF will support it as long as it is not updated. All fixes in :pull:`463`, by `Pascal Bourgault <https://github.com/aulemahal>`_.
 
 * Rewrote ``xe.smm.gen_mask_from_weights`` to remove scipy-dependent code.
 * Fix the CI reenable testing with previous python versions.
