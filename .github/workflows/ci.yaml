@@ -60,7 +60,7 @@ jobs:
         run: |
           python -m pytest --cov=./ --cov-report=xml --verbose
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5.5.1
+        uses: codecov/codecov-action@v5.5.2
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
