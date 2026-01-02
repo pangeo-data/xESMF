@@ -32,7 +32,7 @@ jobs:
           python -m pip install --upgrade build
 
       - name: Build binary wheel
-        run: python -m build --sdist --wheel . --outdir dist
+        run: python -m build --sdist . --outdir dist
 
       - name: CheckFiles
         run: |
