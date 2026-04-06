@@ -43,12 +43,10 @@ packages = [
 license-files = [
   "LICENSE",
 ]
-
-[tool.setuptools.dynamic]
-dependencies = { file = [
+dynamic.dependencies = { file = [
   "requirements.txt",
 ] }
-readme = { file = "README.rst", content-type = "text/x-rst" }
+dynamic.readme = { file = "README.rst", content-type = "text/x-rst" }
 
 [tool.setuptools_scm]
 write_to = "xesmf/_version.py"
@@ -58,7 +56,7 @@ tag_regex = "^(?P<prefix>v)?(?P<version>[^\\+]+)(?P<suffix>.*)?$"
 [tool.black]
 line-length = 100
 target-version = [
-  'py311',
+  "py311",
 ]
 skip-string-normalization = true
 
