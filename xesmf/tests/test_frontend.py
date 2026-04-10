@@ -250,7 +250,7 @@ def test_to_netcdf(tmp_path, unmapped_to_nan):
     del e.attrs['title']
 
     # ESMF added attributes in 8.9.1
-    if Version(esmf_version) < '8.9.1':
+    if Version(esmf_version) < Version('8.9.1'):
         x = x.drop_attrs()
         e = e.drop_attrs()
 
