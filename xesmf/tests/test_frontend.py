@@ -321,8 +321,8 @@ def ds_2d_to_1d(ds):
     'data_in',
     [
         pytest.param(np.array(ds_in['data']), id='np.ndarray'),
-        pytest.param(xr.DataArray(ds_in['data']), id='xr.DataArray input'),
-        pytest.param(xr.Dataset(ds_in[['data']]), id='xr.Dataset input'),
+        pytest.param(ds_in['data'].copy(), id='xr.DataArray input'),
+        pytest.param(ds_in[['data']].copy(), id='xr.Dataset input'),
         pytest.param(ds_in['data'].chunk(), id='da.Array input'),
     ],
 )
