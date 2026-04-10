@@ -241,7 +241,10 @@ def test_to_netcdf(tmp_path):
     esmf_regrid_build(grid_in, grid_out, method=method, filename=str(efn))
 
     x = xr.open_dataset(xfn)
+    del x.attrs['title']
+    del x.attrs['xesmf_version']
     e = xr.open_dataset(efn)
+    del e.attrs['title']
     xr.testing.assert_identical(x, e)
 
 
@@ -262,7 +265,10 @@ def test_to_netcdf_nans(tmp_path):
     esmf_regrid_build(grid_in, grid_out, method=method, filename=str(efn))
 
     x = xr.open_dataset(xfn)
+    del x.attrs['title']
+    del x.attrs['xesmf_version']
     e = xr.open_dataset(efn)
+    del e.attrs['title']
 
     # Reformat to sparse COO matrix
     smat = xe.smm.read_weights(e, np.prod(ds_in['lon'].shape), np.prod(ds_out['lon'].shape))
@@ -274,7 +280,8 @@ def test_to_netcdf_nans(tmp_path):
             'S': (['n_s'], smat.data.data),
             'row': (['n_s'], smat.data.coords[0, :] + 1),
             'col': (['n_s'], smat.data.coords[1, :] + 1),
-        }
+        },
+        attrs=e.attrs,
     )
     # Comparison
     xr.testing.assert_identical(x, e_nans)
