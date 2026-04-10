@@ -323,6 +323,7 @@ def esmf_regrid_build(  # noqa: C901
     extrap_method=None,
     extrap_dist_exponent=None,
     extrap_num_src_pnts=None,
+    extrap_num_levels=None,
     ignore_degenerate=None,
     vector_regrid=None,
 ):
@@ -420,6 +421,7 @@ def esmf_regrid_build(  # noqa: C901
     extrap_dict = {
         'inverse_dist': ESMF.ExtrapMethod.NEAREST_IDAVG,
         'nearest_s2d': ESMF.ExtrapMethod.NEAREST_STOD,
+        'creep_fill': ESMF.ExtrapMethod.CREEP_FILL,
         None: None,
     }
     try:
@@ -428,7 +430,17 @@ def esmf_regrid_build(  # noqa: C901
         raise KeyError(
             '`extrap_method` should be chosen from ' '{}'.format(list(extrap_dict.keys()))
         )
-
+    # CREEP_FILL requires a finite number of fill levels and is unsupported
+    # for conservative regridding methods.
+    if extrap_method == 'creep_fill':
+        if extrap_num_levels is None:
+            raise ValueError(
+                '`extrap_num_levels` must be provided when `extrap_method="creep_fill"`.'
+            )
+        if method in ['conservative', 'conservative_normed']:
+            raise ValueError(
+                '`extrap_method="creep_fill"` is not supported with conservative regridding methods.'
+            )
     # until ESMPy updates ESMP_FieldRegridStoreFile, extrapolation is not possible
     # if files are written on disk
     if (extrap_method is not None) & (filename is not None):
@@ -497,6 +509,7 @@ def esmf_regrid_build(  # noqa: C901
         extrap_method=esmf_extrap_method,
         extrap_dist_exponent=extrap_dist_exponent,
         extrap_num_src_pnts=extrap_num_src_pnts,
+        extrap_num_levels=extrap_num_levels,
         factors=filename is None,
     )
     if allow_masked_values:

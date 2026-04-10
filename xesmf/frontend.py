@@ -241,6 +241,7 @@ class BaseRegridder(object):
         extrap_method=None,
         extrap_dist_exponent=None,
         extrap_num_src_pnts=None,
+        extrap_num_levels=None,
         weights=None,
         ignore_degenerate=None,
         input_dims=None,
@@ -361,6 +362,7 @@ class BaseRegridder(object):
         self.extrap_method = extrap_method
         self.extrap_dist_exponent = extrap_dist_exponent
         self.extrap_num_src_pnts = extrap_num_src_pnts
+        self.extrap_num_levels = extrap_num_levels
         self.ignore_degenerate = ignore_degenerate
         self.periodic = getattr(grid_in, 'periodic_dim', None) is not None
         self.sequence_in = isinstance(grid_in, (LocStream, Mesh))
@@ -513,6 +515,7 @@ class BaseRegridder(object):
             extrap_method=self.extrap_method,
             extrap_dist_exponent=self.extrap_dist_exponent,
             extrap_num_src_pnts=self.extrap_num_src_pnts,
+            extrap_num_levels=self.extrap_num_levels,
             ignore_degenerate=self.ignore_degenerate,
         )
 
