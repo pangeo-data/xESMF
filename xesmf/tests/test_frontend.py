@@ -7,7 +7,9 @@ import numpy as np
 import pytest
 import xarray as xr
 from dask.array.core import PerformanceWarning
+from esmpy import __version__ as esmf_version
 from numpy.testing import assert_allclose, assert_almost_equal, assert_equal
+from packaging.version import Version
 from shapely import segmentize
 from shapely.geometry import MultiPolygon, Polygon
 
@@ -224,13 +226,14 @@ def test_regridder_w():
     assert averager.w.shape == (2,) + ds_in_cf.lat.shape + ds_in_cf.lon.shape
 
 
-def test_to_netcdf(tmp_path):
+@pytest.mark.parametrize(unmapped_to_nan=[True, False])
+def test_to_netcdf(tmp_path, unmapped_to_nan):
     from xesmf.backend import Grid, esmf_regrid_build
 
     # Let the frontend write the weights to disk
     xfn = tmp_path / 'ESMF_weights.nc'
     method = 'bilinear'
-    regridder = xe.Regridder(ds_in, ds_out, method, unmapped_to_nan=False)
+    regridder = xe.Regridder(ds_in, ds_out, method, unmapped_to_nan=unmapped_to_nan)
     regridder.to_netcdf(filename=xfn)
 
     grid_in = Grid.from_xarray(ds_in['lon'].values.T, ds_in['lat'].values.T)
@@ -245,46 +248,28 @@ def test_to_netcdf(tmp_path):
     del x.attrs['xesmf_version']
     e = xr.open_dataset(efn)
     del e.attrs['title']
+
+    # ESMF added attributes in 8.9.1
+    if Version(esmf_version) < '8.9.1':
+        x = x.drop_attrs()
+        e = e.drop_attrs()
+
+    if unmapped_to_nan:
+        # Reformat to sparse COO matrix
+        smat = xe.smm.read_weights(e, np.prod(ds_in['lon'].shape), np.prod(ds_out['lon'].shape))
+        # Add NaNs to weights
+        smat = xe.smm.add_nans_to_weights(smat)
+        # Updating the dataset
+        e = xr.Dataset(
+            {
+                'S': (['n_s'], smat.data.data),
+                'row': (['n_s'], smat.data.coords[0, :] + 1),
+                'col': (['n_s'], smat.data.coords[1, :] + 1),
+            },
+            attrs=e.attrs,
+        )
+
     xr.testing.assert_identical(x, e)
-
-
-def test_to_netcdf_nans(tmp_path):
-    from xesmf.backend import Grid, esmf_regrid_build
-
-    # Let the frontend write the weights to disk
-    xfn = tmp_path / 'ESMF_weights_nans.nc'
-    method = 'bilinear'
-    regridder = xe.Regridder(ds_in, ds_out, method, unmapped_to_nan=True)
-    regridder.to_netcdf(filename=xfn)
-
-    grid_in = Grid.from_xarray(ds_in['lon'].values.T, ds_in['lat'].values.T)
-    grid_out = Grid.from_xarray(ds_out['lon'].values.T, ds_out['lat'].values.T)
-
-    # Let the ESMPy backend write the weights to disk
-    efn = tmp_path / 'weights_nans.nc'
-    esmf_regrid_build(grid_in, grid_out, method=method, filename=str(efn))
-
-    x = xr.open_dataset(xfn)
-    del x.attrs['title']
-    del x.attrs['xesmf_version']
-    e = xr.open_dataset(efn)
-    del e.attrs['title']
-
-    # Reformat to sparse COO matrix
-    smat = xe.smm.read_weights(e, np.prod(ds_in['lon'].shape), np.prod(ds_out['lon'].shape))
-    # Add NaNs to weights
-    smat = xe.smm.add_nans_to_weights(smat)
-    # Updating the dataset
-    e_nans = xr.Dataset(
-        {
-            'S': (['n_s'], smat.data.data),
-            'row': (['n_s'], smat.data.coords[0, :] + 1),
-            'col': (['n_s'], smat.data.coords[1, :] + 1),
-        },
-        attrs=e.attrs,
-    )
-    # Comparison
-    xr.testing.assert_identical(x, e_nans)
 
 
 def test_conservative_without_bounds():
