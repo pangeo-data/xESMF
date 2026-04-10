@@ -24,6 +24,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering",
 ]
 dynamic = [
@@ -43,12 +44,10 @@ packages = [
 license-files = [
   "LICENSE",
 ]
-
-[tool.setuptools.dynamic]
-dependencies = { file = [
+dynamic.dependencies = { file = [
   "requirements.txt",
 ] }
-readme = { file = "README.rst", content-type = "text/x-rst" }
+dynamic.readme = { file = "README.rst", content-type = "text/x-rst" }
 
 [tool.setuptools_scm]
 write_to = "xesmf/_version.py"
@@ -58,7 +57,7 @@ tag_regex = "^(?P<prefix>v)?(?P<version>[^\\+]+)(?P<suffix>.*)?$"
 [tool.black]
 line-length = 100
 target-version = [
-  'py311',
+  "py311",
 ]
 skip-string-normalization = true
 
@@ -87,4 +86,4 @@ skip = [
 
 [tool.pyproject-fmt]
 # maximum Python version to use when generating version specifiers
-max_supported_python = "3.13"
+max_supported_python = "3.14"

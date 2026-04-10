@@ -27,6 +27,8 @@ jobs:
           - python-version: "3.12"
             esmf-version: 8.6
           - python-version: "3.13"
+            esmf-version: 8.8
+          - python-version: "3.14"
             esmf-version: 8.9
     steps:
       - name: Cancel previous runs
