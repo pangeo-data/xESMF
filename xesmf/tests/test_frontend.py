@@ -226,7 +226,7 @@ def test_regridder_w():
     assert averager.w.shape == (2,) + ds_in_cf.lat.shape + ds_in_cf.lon.shape
 
 
-@pytest.mark.parametrize(unmapped_to_nan=[True, False])
+@pytest.mark.parametrize('unmapped_to_nan', [True, False])
 def test_to_netcdf(tmp_path, unmapped_to_nan):
     from xesmf.backend import Grid, esmf_regrid_build
 
