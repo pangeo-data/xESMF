@@ -38,7 +38,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v6
       - name: Create conda environment
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           cache-downloads: true
           micromamba-version: "latest"
@@ -80,7 +80,7 @@ jobs:
           access_token: ${{ github.token }}
       - uses: actions/checkout@v6
       - name: Create conda environment
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           cache-downloads: true
           micromamba-version: "latest"
