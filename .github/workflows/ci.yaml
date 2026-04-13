@@ -38,7 +38,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v6
       - name: Create conda environment
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           cache-downloads: true
           micromamba-version: "latest"
@@ -62,7 +62,7 @@ jobs:
         run: |
           python -m pytest --cov=./ --cov-report=xml --verbose
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5.5.2
+        uses: codecov/codecov-action@v6.0.0
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
@@ -80,7 +80,7 @@ jobs:
           access_token: ${{ github.token }}
       - uses: actions/checkout@v6
       - name: Create conda environment
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           cache-downloads: true
           micromamba-version: "latest"
