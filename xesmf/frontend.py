@@ -204,6 +204,53 @@ def ds_to_ESMFlocstream(ds):
     return locstream, (1,) + lon.shape, dim_names
 
 
+def ds_to_ESMFmesh(ds):
+    """
+    Convert xarray DataSet or dictionary to ESMF.Mesh object.
+
+    Parameters
+    ----------
+    ds : xarray DataSet or dictionary
+        Contains variables ``node_lon``, ``node_lat``, ``face_node_connectivity``,
+        ``face_lon`` and ``face_lat``.
+
+    Returns
+    -------
+    mesh
+        ESMF.Mesh object
+    shape
+        Shape of the mesh as ``(1, n_face)``
+    dim_names
+        Dimension names of the face coordinates
+    """
+
+    node_lon = ds['node_lon']
+    node_lat = ds['node_lat']
+    face_node_connectivity = ds['face_node_connectivity']
+    face_lon = ds['face_lon']
+    face_lat = ds['face_lat']
+
+    if hasattr(face_lon, 'dims'):
+        dim_names = face_lon.dims
+    else:
+        dim_names = None
+
+    fill_value = getattr(face_node_connectivity, 'attrs', {}).get('_FillValue', -1)
+    start_index = getattr(face_node_connectivity, 'attrs', {}).get('start_index', None)
+
+    mesh = Mesh.from_ugrid(
+        np.asarray(node_lon),
+        np.asarray(node_lat),
+        np.asarray(face_node_connectivity),
+        np.asarray(face_lon),
+        np.asarray(face_lat),
+        fill_value=fill_value,
+        start_index=start_index,
+    )
+
+    return mesh, (1, np.asarray(face_lon).size), dim_names
+
+
 def polys_to_ESMFmesh(polys):
     """
     Convert a sequence of shapely Polygons to a ESMF.Mesh object.
@@ -879,6 +926,8 @@ class Regridder(BaseRegridder):
         method,
         locstream_in=False,
         locstream_out=False,
+        mesh_in=False,
+        mesh_out=False,
         periodic=False,
         parallel=False,
         **kwargs,
@@ -1018,8 +1067,13 @@ class Regridder(BaseRegridder):
         regridder : xESMF regridder object
         """
         methods_avail_ls_in = ['nearest_s2d', 'nearest_d2s']
+        methods_avail_mesh_in = ['bilinear', 'patch', 'nearest_s2d', 'nearest_d2s']
         methods_avail_ls_out = ['bilinear', 'patch'] + methods_avail_ls_in
 
+        if mesh_in and method not in methods_avail_mesh_in:
+            raise ValueError(
+                f'mesh input is only available for method in {methods_avail_mesh_in}'
+            )
         if locstream_in and method not in methods_avail_ls_in:
             raise ValueError(
                 f'locstream input is only available for method in {methods_avail_ls_in}'
@@ -1028,6 +1082,12 @@ class Regridder(BaseRegridder):
             raise ValueError(
                 f'locstream output is only available for method in {methods_avail_ls_out}'
             )
+        if mesh_out:
+            raise ValueError('mesh output is not implemented yet')
+        if mesh_in and method in ['conservative', 'conservative_normed']:
+            raise ValueError('conservative regridding for mesh input is not implemented yet')
+        if mesh_in and parallel:
+            raise NotImplementedError('parallel weight generation for mesh input is not implemented yet')
 
         reuse_weights = kwargs.get('reuse_weights', False)
 
@@ -1056,6 +1116,8 @@ class Regridder(BaseRegridder):
         # Construct ESMF grid, with some shape checking
         if locstream_in:
             grid_in, shape_in, input_dims = ds_to_ESMFlocstream(ds_in)
+        elif mesh_in:
+            grid_in, shape_in, input_dims = ds_to_ESMFmesh(ds_in)
         else:
             grid_in, shape_in, input_dims = ds_to_ESMFgrid(
                 ds_in, need_bounds=need_bounds, periodic=periodic
