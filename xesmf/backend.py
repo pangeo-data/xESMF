@@ -231,6 +231,107 @@ def add_corner(grid, lon_b, lat_b):
 
 
 class Mesh(ESMF.Mesh):
+    @staticmethod
+    def _lonlat_to_xyz(lon_deg, lat_deg):
+        lon = np.radians(lon_deg)
+        lat = np.radians(lat_deg)
+        x = np.cos(lat) * np.cos(lon)
+        y = np.cos(lat) * np.sin(lon)
+        z = np.sin(lat)
+        return x, y, z
+    
+    @classmethod
+    def from_ugrid(
+        cls,
+        node_lon,
+        node_lat,
+        face_node_connectivity,
+        face_lon,
+        face_lat,
+        fill_value=None,
+        start_index=None,
+    ):
+        node_lon = np.asarray(node_lon, dtype=np.float64)
+        node_lat = np.asarray(node_lat, dtype=np.float64)
+        face_node_connectivity = np.asarray(face_node_connectivity, dtype=np.int64)
+        face_lon = np.asarray(face_lon, dtype=np.float64)
+        face_lat = np.asarray(face_lat, dtype=np.float64)
+
+        if node_lon.ndim != 1 or node_lat.ndim != 1:
+            raise ValueError("node_lon and node_lat must be 1D")
+        if node_lon.shape != node_lat.shape:
+            raise ValueError("node_lon and node_lat must have the same shape")
+        if face_node_connectivity.ndim != 2:
+            raise ValueError("face_node_connectivity must be 2D")
+        if face_lon.ndim != 1 or face_lat.ndim != 1:
+            raise ValueError("face_lon and face_lat must be 1D")
+        if face_lon.shape != face_lat.shape:
+            raise ValueError("face_lon and face_lat must have the same shape")
+        if face_lon.size != face_node_connectivity.shape[0]:
+            raise ValueError("face coordinates must match number of faces")
+        if fill_value is None:
+            fill_value = -1
+
+        valid = face_node_connectivity != fill_value
+        n_nodes_per_face = valid.sum(axis=1).astype(np.int32)
+
+        if np.any(n_nodes_per_face < 3):
+            raise ValueError("each face must contain at least 3 valid nodes")
+
+        conn = face_node_connectivity.copy()
+
+        if start_index is None:
+            valid_conn = conn[valid]
+            if valid_conn.size == 0:
+                raise ValueError("face_node_connectivity contains no valid entries")
+            start_index = 0 if valid_conn.min() == 0 else 1
+
+        conn[valid] = conn[valid] - start_index
+
+        if conn[valid].min() < 0 or conn[valid].max() >= node_lon.size:
+            raise ValueError("face_node_connectivity contains out-of-range node indices")
+
+        node_x, node_y, node_z = cls._lonlat_to_xyz(node_lon, node_lat)
+        face_x, face_y, face_z = cls._lonlat_to_xyz(face_lon, face_lat)
+
+        mesh = cls(parametric_dim=2, spatial_dim=3)
+
+        num_node = node_lon.size
+        node_ids = np.arange(1, num_node + 1, dtype=np.int32)
+
+        node_coords = np.empty(num_node * 3, dtype=np.float64)
+        node_coords[0::3] = node_x
+        node_coords[1::3] = node_y
+        node_coords[2::3] = node_z
+
+        node_owners = np.zeros(num_node, dtype=np.int32)
+        mesh.add_nodes(num_node, node_ids, node_coords, node_owners)
+
+        elem_count = face_node_connectivity.shape[0]
+        elem_ids = np.arange(1, elem_count + 1, dtype=np.int32)
+        elem_types = n_nodes_per_face.astype(np.int32)
+
+        flat_conn = []
+        for row, n in zip(conn, n_nodes_per_face):
+            flat_conn.extend(np.asarray(row[:n][::-1], dtype=np.int32).tolist())
+
+        elem_conn = np.asarray(flat_conn, dtype=np.int32)
+
+        elem_coords = np.empty(elem_count * 3, dtype=np.float64)
+        elem_coords[0::3] = face_x
+        elem_coords[1::3] = face_y
+        elem_coords[2::3] = face_z
+
+        mesh.add_elements(
+            elem_count,
+            elem_ids,
+            elem_types,
+            elem_conn,
+            element_coords=elem_coords,
+        )
+
+        return mesh
+
     @classmethod
     def from_polygons(cls, polys, element_coords='centroid'):
         """
