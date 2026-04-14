@@ -527,6 +527,88 @@ def test_regrid_dataarray_from_locstream():
         regridder = xe.Regridder(ds_locs, ds_in, 'conservative', locstream_in=True)
 
 
+def test_regrid_dataarray_from_mesh():
+    nx = 4
+    ny = 4
+
+    lon_vals = np.linspace(0.0, 3.0, nx, dtype=np.float64)
+    lat_vals = np.linspace(0.0, 3.0, ny, dtype=np.float64)
+
+    lon2d, lat2d = np.meshgrid(lon_vals, lat_vals, indexing='xy')
+
+    node_lon = lon2d.ravel()
+    node_lat = lat2d.ravel()
+
+    def node_id(j, i):
+        return j * nx + i
+
+    faces = []
+    face_lon = []
+    face_lat = []
+
+    for j in range(ny - 1):
+        for i in range(nx - 1):
+            n00 = node_id(j, i)
+            n10 = node_id(j, i + 1)
+            n01 = node_id(j + 1, i)
+            n11 = node_id(j + 1, i + 1)
+
+            tri1 = [n00, n10, n11]
+            tri2 = [n00, n11, n01]
+
+            faces.append(tri1)
+            faces.append(tri2)
+
+            face_lon.append(node_lon[tri1].mean())
+            face_lat.append(node_lat[tri1].mean())
+
+            face_lon.append(node_lon[tri2].mean())
+            face_lat.append(node_lat[tri2].mean())
+
+    fill_value = -1
+    face_node_connectivity = np.full((len(faces), 4), fill_value, dtype=np.int64)
+
+    for k, face in enumerate(faces):
+        face_node_connectivity[k, : len(face)] = face
+
+    face_lon = np.asarray(face_lon, dtype=np.float64)
+    face_lat = np.asarray(face_lat, dtype=np.float64)
+
+    ds_mesh = xr.Dataset(
+        coords={
+            'node_lon': ('n_node', node_lon),
+            'node_lat': ('n_node', node_lat),
+            'face_lon': ('n_face', face_lon),
+            'face_lat': ('n_face', face_lat),
+        },
+        data_vars={
+            'face_node_connectivity': (
+                ('n_face', 'n_max_face_nodes'),
+                face_node_connectivity,
+                {'_FillValue': fill_value},
+            ),
+            'data': ('n_face', xe.data.wave_smooth(face_lon, face_lat)),
+        },
+    )
+
+    lon_out = np.asfortranarray(ds_out['lon'].values.T)
+    lat_out = np.asfortranarray(ds_out['lat'].values.T)
+
+    ds_grid = xr.Dataset(
+        coords={
+            'lon': (('y', 'x'), lon_out.T),
+            'lat': (('y', 'x'), lat_out.T),
+        }
+    )
+
+    regridder = xe.Regridder(ds_mesh, ds_grid, 'bilinear', mesh_in=True)
+    out = regridder(ds_mesh['data'])
+
+    assert out.dims == ds_grid['lon'].dims
+    assert out.shape == ds_grid['lon'].shape
+    assert np.isfinite(out.values).any()
+
+
 @pytest.mark.parametrize('scheduler', dask_schedulers)
 def test_regrid_dask(request, scheduler):
     # chunked dask array (no xarray metadata)
