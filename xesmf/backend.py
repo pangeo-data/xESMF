@@ -478,9 +478,9 @@ def esmf_regrid_build(  # noqa: C901
     # ESMF bug? when using locstream objects, options src_mask_values
     # and dst_mask_values produce runtime errors
     allow_masked_values = True
-    if isinstance(sourcefield.grid, ESMF.api.locstream.LocStream):
+    if isinstance(sourcefield.grid, ESMF.LocStream):
         allow_masked_values = False
-    if isinstance(destfield.grid, ESMF.api.locstream.LocStream):
+    if isinstance(destfield.grid, ESMF.LocStream):
         allow_masked_values = False
 
     # ESMPy will throw an incomprehensive error if the weight file
