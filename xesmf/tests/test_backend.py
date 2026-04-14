@@ -14,11 +14,12 @@ import xesmf as xe
 from xesmf.backend import (
     Grid,
     LocStream,
+    Mesh,
     add_corner,
     esmf_regrid_apply,
     esmf_regrid_build,
     esmf_regrid_finalize,
-    warn_f_contiguous,
+    warn_f_contiguous,  
     warn_lat_range,
 )
 from xesmf.smm import apply_weights, read_weights
@@ -118,6 +119,82 @@ def test_esmf_build_bilinear():
     regrid.dstfield.grid is grid_out
 
     esmf_regrid_finalize(regrid)
+
+def test_esmf_build_bilinear_mesh_to_grid():
+    nx = 4
+    ny = 4
+
+    lon_vals = np.linspace(0.0, 3.0, nx, dtype=np.float64)
+    lat_vals = np.linspace(0.0, 3.0, ny, dtype=np.float64)
+
+    lon2d, lat2d = np.meshgrid(lon_vals, lat_vals, indexing="xy")
+
+    node_lon = lon2d.ravel()
+    node_lat = lat2d.ravel()
+
+    def node_id(j, i):
+        return j * nx + i
+
+    faces = []
+    face_lon = []
+    face_lat = []
+
+    for j in range(ny - 1):
+        for i in range(nx - 1):
+            n00 = node_id(j, i)
+            n10 = node_id(j, i + 1)
+            n01 = node_id(j + 1, i)
+            n11 = node_id(j + 1, i + 1)
+
+            tri1 = [n00, n10, n11]
+            tri2 = [n00, n11, n01]
+
+            faces.append(tri1)
+            faces.append(tri2)
+
+            face_lon.append(node_lon[tri1].mean())
+            face_lat.append(node_lat[tri1].mean())
+
+            face_lon.append(node_lon[tri2].mean())
+            face_lat.append(node_lat[tri2].mean())
+
+    fill_value = -1
+    face_node_connectivity = np.full((len(faces), 4), fill_value, dtype=np.int64)
+
+    for k, face in enumerate(faces):
+        face_node_connectivity[k, : len(face)] = face
+
+    face_lon = np.asarray(face_lon, dtype=np.float64)
+    face_lat = np.asarray(face_lat, dtype=np.float64)
+
+    mesh = Mesh.from_ugrid(
+        node_lon,
+        node_lat,
+        face_node_connectivity,
+        face_lon,
+        face_lat,
+        fill_value=fill_value,
+    )
+
+    lon_target = np.linspace(face_lon.min() - 0.2, face_lon.max() + 0.2, 6)
+    lat_target = np.linspace(face_lat.min() - 0.2, face_lat.max() + 0.2, 6)
+    lon_out, lat_out = np.meshgrid(lon_target, lat_target, indexing="ij")
+
+    grid = Grid.from_xarray(
+        np.asfortranarray(lon_out), 
+        np.asfortranarray(lat_out)
+    )
+
+    regrid = esmf_regrid_build(mesh, grid, "bilinear")
+
+    assert regrid.unmapped_action is ESMF.UnmappedAction.IGNORE
+    assert regrid.regrid_method is ESMF.RegridMethod.BILINEAR
+    assert regrid.srcfield.grid is mesh
+    assert regrid.dstfield.grid is grid
+
+    esmf_regrid_finalize(regrid)
+    mesh.destroy()
+    grid.destroy()
 
 
 def test_esmf_extrapolation():
@@ -277,6 +354,37 @@ def test_esmf_locstream():
     grid_in = Grid.from_xarray(lon_in.T, lat_in.T, periodic=True)
     esmf_regrid_build(grid_in, ls, 'bilinear')
     esmf_regrid_build(ls, grid_in, 'nearest_s2d')
+
+
+def test_esmf_mesh_from_ugrid():
+    node_lon = np.array([0.0, 1.0, 0.0, 1.0, 2.0], dtype=np.float64)
+    node_lat = np.array([0.0, 0.0, 1.0, 1.0, 0.0], dtype=np.float64)
+
+    face_node_connectivity = np.array(
+        [
+            [0, 1, 2, -1],  # triangle
+            [1, 4, 3, 2],   # quad
+        ],
+        dtype=np.int64,
+    )
+
+    face_lon = np.array([1.0 / 3.0, 1.0], dtype=np.float64)
+    face_lat = np.array([1.0 / 3.0, 0.5], dtype=np.float64)
+
+    mesh = Mesh.from_ugrid(
+        node_lon,
+        node_lat,
+        face_node_connectivity,
+        face_lon,
+        face_lat,
+        fill_value=-1,
+    )
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert mesh.element_count == 2
+    assert mesh.size[ESMF.MeshLoc.ELEMENT] == 2
+
+    mesh.destroy()
 
 
 def test_read_weights(tmp_path):
