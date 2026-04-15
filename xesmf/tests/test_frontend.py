@@ -170,6 +170,25 @@ def test_build_regridder(method, locstream_in, locstream_out, unmapped_to_nan):
     assert method in str(regridder)
 
 
+def test_regridder_creep_fill_validation():
+    with pytest.raises(ValueError, match='extrap_num_levels'):
+        xe.Regridder(
+            ds_in,
+            ds_out,
+            'bilinear',
+            extrap_method='creep_fill',
+        )
+
+    with pytest.raises(ValueError, match='not supported with conservative'):
+        xe.Regridder(
+            ds_in,
+            ds_out,
+            'conservative',
+            extrap_method='creep_fill',
+            extrap_num_levels=4,
+        )
+
+
 def test_existing_weights():
     # the first run
     method = 'bilinear'
