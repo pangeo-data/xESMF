@@ -297,17 +297,17 @@ class BaseRegridder(object):
         extrap_num_src_pnts : int, optional
             The number of source points to use for the extrapolation methods
             that use more than one source point. If none are specified, defaults to 8
-        
+
         extrap_num_levels : int, optional
             Number of extrapolation levels to apply for the 'creep_fill' method.
 
             The creep fill algorithm iteratively fills unmapped target points by
             propagating values from neighboring mapped cells. Each level corresponds
-            to one iteration of this filling process. Larger values allow extrapolation 
-            to reach farther into unmapped regions, but may increase computational cost 
+            to one iteration of this filling process. Larger values allow extrapolation
+            to reach farther into unmapped regions, but may increase computational cost
             and smoothness of the result.
 
-            Required when ``extrap_method='creep_fill'``. 
+            Required when ``extrap_method='creep_fill'``.
 
         weights : None, coo_matrix, dict, str, Dataset, Path,
             Regridding weights, stored as
@@ -965,12 +965,12 @@ class Regridder(BaseRegridder):
 
             The creep fill algorithm iteratively fills unmapped target points by
             propagating values from neighboring mapped cells. Each level corresponds
-            to one iteration of this filling process. Larger values allow extrapolation 
-            to reach farther into unmapped regions, but may increase computational cost 
+            to one iteration of this filling process. Larger values allow extrapolation
+            to reach farther into unmapped regions, but may increase computational cost
             and smoothness of the result.
 
-            Required when ``extrap_method='creep_fill'``. 
-      
+            Required when ``extrap_method='creep_fill'``.
+
         weights : None, coo_matrix, dict, str, Dataset, Path,
             Regridding weights, stored as
               - a scipy.sparse COO matrix,
