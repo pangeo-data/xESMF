@@ -386,12 +386,12 @@ def esmf_regrid_build(  # noqa: C901
 
         The creep fill algorithm iteratively fills unmapped target points by
         propagating values from neighboring mapped cells. Each level corresponds
-        to one iteration of this filling process. Larger values allow extrapolation 
-        to reach farther into unmapped regions, but may increase computational cost 
+        to one iteration of this filling process. Larger values allow extrapolation
+        to reach farther into unmapped regions, but may increase computational cost
         and smoothness of the result.
 
-        Required when ``extrap_method='creep_fill'``. 
-    
+        Required when ``extrap_method='creep_fill'``.
+
     ignore_degenerate : bool, optional
         If False (default), raise error if grids contain degenerated cells
         (i.e. triangles or lines, instead of quadrilaterals)
