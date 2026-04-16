@@ -112,6 +112,39 @@ def _get_lon_lat_bounds(ds):
     return lon_b, lat_b
 
 
+def _get_node_lon_lat(ds):
+    """Return node longitude and latitude extracted from ds."""
+    if ('node_lon' in ds and 'node_lat' in ds) or (
+        'node_lon' in ds.coords and 'node_lat' in ds.coords
+    ):
+        return ds['node_lon'], ds['node_lat']
+
+    raise ValueError('dataset must include node_lon/node_lat')
+
+
+def _get_face_node_connectivity(ds):
+    """Return face-node connectivity and related metadata extracted from ds."""
+    if 'face_node_connectivity' in ds:
+        face_node_connectivity = ds['face_node_connectivity']
+    else:
+        raise ValueError('dataset must include face_node_connectivity')
+
+    fill_value = getattr(face_node_connectivity, 'attrs', {}).get('_FillValue', -1)
+    start_index = getattr(face_node_connectivity, 'attrs', {}).get('start_index', None)
+
+    return face_node_connectivity, fill_value, start_index
+
+
+def _get_face_lon_lat(ds):
+    """Return face longitude and latitude extracted from ds."""
+    if ('face_lon' in ds and 'face_lat' in ds) or (
+        'face_lon' in ds.coords and 'face_lat' in ds.coords
+    ):
+        return ds['face_lon'], ds['face_lat']
+
+    raise ValueError('dataset must include face_lon/face_lat')
+
+
 def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
     """
     Convert xarray DataSet or dictionary to ESMF.Grid object.
@@ -224,19 +257,14 @@ def ds_to_ESMFmesh(ds):
         Dimension names of the face coordinates
     """
 
-    node_lon = ds['node_lon']
-    node_lat = ds['node_lat']
-    face_node_connectivity = ds['face_node_connectivity']
-    face_lon = ds['face_lon']
-    face_lat = ds['face_lat']
+    node_lon, node_lat = _get_node_lon_lat(ds)
+    face_node_connectivity, fill_value, start_index = _get_face_node_connectivity(ds)
+    face_lon, face_lat = _get_face_lon_lat(ds)
 
     if hasattr(face_lon, 'dims'):
         dim_names = face_lon.dims
     else:
         dim_names = None
-
-    fill_value = getattr(face_node_connectivity, 'attrs', {}).get('_FillValue', -1)
-    start_index = getattr(face_node_connectivity, 'attrs', {}).get('start_index', None)
 
     mesh = Mesh.from_ugrid(
         np.asarray(node_lon),
