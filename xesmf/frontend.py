@@ -112,6 +112,15 @@ def _get_lon_lat_bounds(ds):
     return lon_b, lat_b
 
 
+def _get_ugrid_topology(ds):
+    """Return the UGRID mesh topology variable extracted from ds, if present."""
+    for name in ds:
+        var = ds[name]
+        if getattr(var, 'attrs', {}).get('cf_role') == 'mesh_topology':
+            return var
+    return None
+
+
 def _get_node_lon_lat(ds):
     """Return node longitude and latitude extracted from ds."""
     if ('node_lon' in ds and 'node_lat' in ds) or (
@@ -119,7 +128,24 @@ def _get_node_lon_lat(ds):
     ):
         return ds['node_lon'], ds['node_lat']
 
-    raise ValueError('dataset must include node_lon/node_lat')
+    topology = _get_ugrid_topology(ds)
+    if topology is not None:
+        node_coordinates = topology.attrs.get('node_coordinates')
+        if node_coordinates is None:
+            raise ValueError('mesh topology variable must define node_coordinates')
+
+        coord_names = node_coordinates.split()
+        if len(coord_names) != 2:
+            raise ValueError('mesh topology variable must define two node_coordinates')
+
+        try:
+            return ds[coord_names[0]], ds[coord_names[1]]
+        except KeyError as err:
+            raise ValueError(
+                'mesh topology variable points to missing node coordinate variables'
+            ) from err
+
+    raise ValueError('dataset must include node_lon/node_lat or UGRID node_coordinates')
 
 
 def _get_face_node_connectivity(ds):
@@ -127,7 +153,22 @@ def _get_face_node_connectivity(ds):
     if 'face_node_connectivity' in ds:
         face_node_connectivity = ds['face_node_connectivity']
     else:
-        raise ValueError('dataset must include face_node_connectivity')
+        topology = _get_ugrid_topology(ds)
+        if topology is not None:
+            connectivity_name = topology.attrs.get('face_node_connectivity')
+            if connectivity_name is None:
+                raise ValueError('mesh topology variable must define face_node_connectivity')
+
+            try:
+                face_node_connectivity = ds[connectivity_name]
+            except KeyError as err:
+                raise ValueError(
+                    'mesh topology variable points to missing face-node connectivity variable'
+                ) from err
+        else:
+            raise ValueError(
+                'dataset must include face_node_connectivity or UGRID face_node_connectivity metadata'
+            )
 
     fill_value = getattr(face_node_connectivity, 'attrs', {}).get('_FillValue', -1)
     start_index = getattr(face_node_connectivity, 'attrs', {}).get('start_index', None)
@@ -142,7 +183,24 @@ def _get_face_lon_lat(ds):
     ):
         return ds['face_lon'], ds['face_lat']
 
-    raise ValueError('dataset must include face_lon/face_lat')
+    topology = _get_ugrid_topology(ds)
+    if topology is not None:
+        face_coordinates = topology.attrs.get('face_coordinates')
+        if face_coordinates is None:
+            raise ValueError('mesh topology variable must define face_coordinates')
+
+        coord_names = face_coordinates.split()
+        if len(coord_names) != 2:
+            raise ValueError('mesh topology variable must define two face_coordinates')
+
+        try:
+            return ds[coord_names[0]], ds[coord_names[1]]
+        except KeyError as err:
+            raise ValueError(
+                'mesh topology variable points to missing face coordinate variables'
+            ) from err
+
+    raise ValueError('dataset must include face_lon/face_lat or UGRID face_coordinates')
 
 
 def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):

@@ -16,6 +16,7 @@ from shapely.geometry import MultiPolygon, Polygon
 import xesmf as xe
 from xesmf.frontend import as_2d_mesh
 
+
 dask_schedulers = ['threaded_scheduler', 'processes_scheduler', 'distributed_scheduler']
 pytestmark = pytest.mark.filterwarnings('ignore:Input array is not C_CONTIGUOUS')
 
@@ -97,6 +98,56 @@ polys_raw = [
         ),
     ],  # Combination of Polygon and MultiPolygon with two different areas
 ]
+
+
+# Create synthetic mesh for tests.
+mesh_nx = 4
+mesh_ny = 4
+mesh_fill_value = -1
+
+mesh_lon_vals = np.linspace(0.0, 3.0, mesh_nx, dtype=np.float64)
+mesh_lat_vals = np.linspace(0.0, 3.0, mesh_ny, dtype=np.float64)
+mesh_lon2d, mesh_lat2d = np.meshgrid(mesh_lon_vals, mesh_lat_vals, indexing='xy')
+
+mesh_faces = []
+for j in range(mesh_ny - 1):
+    for i in range(mesh_nx - 1):
+        n00 = j * mesh_nx + i
+        n10 = n00 + 1
+        n01 = (j + 1) * mesh_nx + i
+        n11 = n01 + 1
+        mesh_faces.extend([[n00, n10, n11], [n00, n11, n01]])
+
+mesh_face_node_connectivity = np.full((len(mesh_faces), 4), mesh_fill_value, dtype=np.int64)
+for k, face in enumerate(mesh_faces):
+    mesh_face_node_connectivity[k, : len(face)] = face
+
+ds_mesh = xr.Dataset(
+    coords={
+        'node_lon': ('n_node', mesh_lon2d.ravel()),
+        'node_lat': ('n_node', mesh_lat2d.ravel()),
+        'face_lon': (
+            'n_face',
+            np.asarray([mesh_lon2d.ravel()[face].mean() for face in mesh_faces], dtype=np.float64),
+        ),
+        'face_lat': (
+            'n_face',
+            np.asarray([mesh_lat2d.ravel()[face].mean() for face in mesh_faces], dtype=np.float64),
+        ),
+    },
+    data_vars={
+        'face_node_connectivity': (
+            ('n_face', 'n_max_face_nodes'),
+            mesh_face_node_connectivity,
+            {'_FillValue': mesh_fill_value},
+        ),
+    },
+)
+
+ds_mesh['data'] = (
+    'n_face',
+    xe.data.wave_smooth(ds_mesh['face_lon'], ds_mesh['face_lat']).data,
+)
 
 
 def _segmentize(p):
@@ -528,76 +579,10 @@ def test_regrid_dataarray_from_locstream():
 
 
 def test_regrid_dataarray_from_mesh():
-    nx = 4
-    ny = 4
-
-    lon_vals = np.linspace(0.0, 3.0, nx, dtype=np.float64)
-    lat_vals = np.linspace(0.0, 3.0, ny, dtype=np.float64)
-
-    lon2d, lat2d = np.meshgrid(lon_vals, lat_vals, indexing='xy')
-
-    node_lon = lon2d.ravel()
-    node_lat = lat2d.ravel()
-
-    def node_id(j, i):
-        return j * nx + i
-
-    faces = []
-    face_lon = []
-    face_lat = []
-
-    for j in range(ny - 1):
-        for i in range(nx - 1):
-            n00 = node_id(j, i)
-            n10 = node_id(j, i + 1)
-            n01 = node_id(j + 1, i)
-            n11 = node_id(j + 1, i + 1)
-
-            tri1 = [n00, n10, n11]
-            tri2 = [n00, n11, n01]
-
-            faces.append(tri1)
-            faces.append(tri2)
-
-            face_lon.append(node_lon[tri1].mean())
-            face_lat.append(node_lat[tri1].mean())
-
-            face_lon.append(node_lon[tri2].mean())
-            face_lat.append(node_lat[tri2].mean())
-
-    fill_value = -1
-    face_node_connectivity = np.full((len(faces), 4), fill_value, dtype=np.int64)
-
-    for k, face in enumerate(faces):
-        face_node_connectivity[k, : len(face)] = face
-
-    face_lon = np.asarray(face_lon, dtype=np.float64)
-    face_lat = np.asarray(face_lat, dtype=np.float64)
-
-    ds_mesh = xr.Dataset(
-        coords={
-            'node_lon': ('n_node', node_lon),
-            'node_lat': ('n_node', node_lat),
-            'face_lon': ('n_face', face_lon),
-            'face_lat': ('n_face', face_lat),
-        },
-        data_vars={
-            'face_node_connectivity': (
-                ('n_face', 'n_max_face_nodes'),
-                face_node_connectivity,
-                {'_FillValue': fill_value},
-            ),
-            'data': ('n_face', xe.data.wave_smooth(face_lon, face_lat)),
-        },
-    )
-
-    lon_out = np.asfortranarray(ds_out['lon'].values.T)
-    lat_out = np.asfortranarray(ds_out['lat'].values.T)
-
     ds_grid = xr.Dataset(
         coords={
-            'lon': (('y', 'x'), lon_out.T),
-            'lat': (('y', 'x'), lat_out.T),
+            'lon': ds_out['lon'],
+            'lat': ds_out['lat'],
         }
     )
 
@@ -942,6 +927,43 @@ def test_ds_to_ESMFlocstream():
     ds_bogus['lon'] = ds_locs['lon']
     with pytest.raises(ValueError):
         locstream, shape, names = ds_to_ESMFlocstream(ds_bogus)
+
+
+def test_ds_to_ESMFmesh():
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    try:
+        import esmpy as ESMF
+    except ImportError:
+        import ESMF
+
+    ds_mesh_topology = ds_mesh.rename(
+        {
+            'node_lon': 'mesh_node_x',
+            'node_lat': 'mesh_node_y',
+            'face_lon': 'mesh_face_x',
+            'face_lat': 'mesh_face_y',
+            'face_node_connectivity': 'mesh_face_nodes',
+        }
+    )
+
+    ds_mesh_topology['mesh'] = xr.DataArray(
+        data=0,
+        attrs={
+            'cf_role': 'mesh_topology',
+            'node_coordinates': 'mesh_node_x mesh_node_y',
+            'face_coordinates': 'mesh_face_x mesh_face_y',
+            'face_node_connectivity': 'mesh_face_nodes',
+        },
+    )
+
+    mesh, shape, names = ds_to_ESMFmesh(ds_mesh_topology)
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds_mesh_topology.sizes['n_face'])
+    assert names == ('n_face',)
+
+    mesh.destroy()
 
 
 @pytest.mark.parametrize('use_dask', [True, False])
