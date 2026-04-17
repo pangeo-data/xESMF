@@ -241,6 +241,7 @@ class BaseRegridder(object):
         extrap_method=None,
         extrap_dist_exponent=None,
         extrap_num_src_pnts=None,
+        extrap_num_levels=None,
         weights=None,
         ignore_degenerate=None,
         input_dims=None,
@@ -287,6 +288,7 @@ class BaseRegridder(object):
 
             - 'inverse_dist'
             - 'nearest_s2d'
+            - 'creep_fill'
 
         extrap_dist_exponent : float, optional
             The exponent to raise the distance to when calculating weights for the
@@ -295,6 +297,17 @@ class BaseRegridder(object):
         extrap_num_src_pnts : int, optional
             The number of source points to use for the extrapolation methods
             that use more than one source point. If none are specified, defaults to 8
+
+        extrap_num_levels : int, optional
+            Number of extrapolation levels to apply for the 'creep_fill' method.
+
+            The creep fill algorithm iteratively fills unmapped target points by
+            propagating values from neighboring mapped cells. Each level corresponds
+            to one iteration of this filling process. Larger values allow extrapolation
+            to reach farther into unmapped regions, but may increase computational cost
+            and smoothness of the result.
+
+            Required when ``extrap_method='creep_fill'``.
 
         weights : None, coo_matrix, dict, str, Dataset, Path,
             Regridding weights, stored as
@@ -361,6 +374,7 @@ class BaseRegridder(object):
         self.extrap_method = extrap_method
         self.extrap_dist_exponent = extrap_dist_exponent
         self.extrap_num_src_pnts = extrap_num_src_pnts
+        self.extrap_num_levels = extrap_num_levels
         self.ignore_degenerate = ignore_degenerate
         self.periodic = getattr(grid_in, 'periodic_dim', None) is not None
         self.sequence_in = isinstance(grid_in, (LocStream, Mesh))
@@ -513,6 +527,7 @@ class BaseRegridder(object):
             extrap_method=self.extrap_method,
             extrap_dist_exponent=self.extrap_dist_exponent,
             extrap_num_src_pnts=self.extrap_num_src_pnts,
+            extrap_num_levels=self.extrap_num_levels,
             ignore_degenerate=self.ignore_degenerate,
         )
 
@@ -935,6 +950,7 @@ class Regridder(BaseRegridder):
 
             - 'inverse_dist'
             - 'nearest_s2d'
+            - 'creep_fill'
 
         extrap_dist_exponent : float, optional
             The exponent to raise the distance to when calculating weights for the
@@ -943,6 +959,17 @@ class Regridder(BaseRegridder):
         extrap_num_src_pnts : int, optional
             The number of source points to use for the extrapolation methods
             that use more than one source point. If none are specified, defaults to 8
+
+        extrap_num_levels : int, optional
+            Number of extrapolation levels to apply for the 'creep_fill' method.
+
+            The creep fill algorithm iteratively fills unmapped target points by
+            propagating values from neighboring mapped cells. Each level corresponds
+            to one iteration of this filling process. Larger values allow extrapolation
+            to reach farther into unmapped regions, but may increase computational cost
+            and smoothness of the result.
+
+            Required when ``extrap_method='creep_fill'``.
 
         weights : None, coo_matrix, dict, str, Dataset, Path,
             Regridding weights, stored as

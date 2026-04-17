@@ -142,6 +142,33 @@ def test_esmf_extrapolation():
     assert np.round(data_out_esmpy[0, 0], 1) == 2.0
 
 
+def test_esmf_extrapolation_creep_fill():
+    grid_in = Grid.from_xarray(lon_in.T, lat_in.T)
+    grid_out = Grid.from_xarray(lon_out.T, lat_out.T)
+
+    regrid_no_extrap = esmf_regrid_build(grid_in, grid_out, 'bilinear')
+    data_out_no_extrap = esmf_regrid_apply(regrid_no_extrap, data_in.T).T
+
+    # without extrapolation
+    assert data_out_no_extrap[0, 0] == 0
+
+    regrid_creep_fill = esmf_regrid_build(
+        grid_in,
+        grid_out,
+        'bilinear',
+        extrap_method='creep_fill',
+        extrap_num_levels=4,
+    )
+    data_out_creep_fill = esmf_regrid_apply(regrid_creep_fill, data_in.T).T
+
+    # Same point should now be filled.
+    assert data_out_creep_fill[0, 0] != 0
+    assert np.isfinite(data_out_creep_fill[0, 0])
+
+    esmf_regrid_finalize(regrid_no_extrap)
+    esmf_regrid_finalize(regrid_creep_fill)
+
+
 def test_regrid():
     # use conservative regridding as an example,
     # since it is the most well-tested studied one in papers
