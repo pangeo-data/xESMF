@@ -19,7 +19,7 @@ from xesmf.backend import (
     esmf_regrid_apply,
     esmf_regrid_build,
     esmf_regrid_finalize,
-    warn_f_contiguous,  
+    warn_f_contiguous,
     warn_lat_range,
 )
 from xesmf.smm import apply_weights, read_weights
@@ -120,6 +120,7 @@ def test_esmf_build_bilinear():
 
     esmf_regrid_finalize(regrid)
 
+
 def test_esmf_build_bilinear_mesh_to_grid():
     nx = 4
     ny = 4
@@ -127,7 +128,7 @@ def test_esmf_build_bilinear_mesh_to_grid():
     lon_vals = np.linspace(0.0, 3.0, nx, dtype=np.float64)
     lat_vals = np.linspace(0.0, 3.0, ny, dtype=np.float64)
 
-    lon2d, lat2d = np.meshgrid(lon_vals, lat_vals, indexing="xy")
+    lon2d, lat2d = np.meshgrid(lon_vals, lat_vals, indexing='xy')
 
     node_lon = lon2d.ravel()
     node_lat = lat2d.ravel()
@@ -178,14 +179,11 @@ def test_esmf_build_bilinear_mesh_to_grid():
 
     lon_target = np.linspace(face_lon.min() - 0.2, face_lon.max() + 0.2, 6)
     lat_target = np.linspace(face_lat.min() - 0.2, face_lat.max() + 0.2, 6)
-    lon_out, lat_out = np.meshgrid(lon_target, lat_target, indexing="ij")
+    lon_out, lat_out = np.meshgrid(lon_target, lat_target, indexing='ij')
 
-    grid = Grid.from_xarray(
-        np.asfortranarray(lon_out), 
-        np.asfortranarray(lat_out)
-    )
+    grid = Grid.from_xarray(np.asfortranarray(lon_out), np.asfortranarray(lat_out))
 
-    regrid = esmf_regrid_build(mesh, grid, "bilinear")
+    regrid = esmf_regrid_build(mesh, grid, 'bilinear')
 
     assert regrid.unmapped_action is ESMF.UnmappedAction.IGNORE
     assert regrid.regrid_method is ESMF.RegridMethod.BILINEAR
@@ -363,7 +361,7 @@ def test_esmf_mesh_from_ugrid():
     face_node_connectivity = np.array(
         [
             [0, 1, 2, -1],  # triangle
-            [1, 4, 3, 2],   # quad
+            [1, 4, 3, 2],  # quad
         ],
         dtype=np.int64,
     )

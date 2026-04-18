@@ -1157,9 +1157,7 @@ class Regridder(BaseRegridder):
         methods_avail_ls_out = ['bilinear', 'patch'] + methods_avail_ls_in
 
         if mesh_in and method not in methods_avail_mesh_in:
-            raise ValueError(
-                f'mesh input is only available for method in {methods_avail_mesh_in}'
-            )
+            raise ValueError(f'mesh input is only available for method in {methods_avail_mesh_in}')
         if locstream_in and method not in methods_avail_ls_in:
             raise ValueError(
                 f'locstream input is only available for method in {methods_avail_ls_in}'
@@ -1173,7 +1171,9 @@ class Regridder(BaseRegridder):
         if mesh_in and method in ['conservative', 'conservative_normed']:
             raise ValueError('conservative regridding for mesh input is not implemented yet')
         if mesh_in and parallel:
-            raise NotImplementedError('parallel weight generation for mesh input is not implemented yet')
+            raise NotImplementedError(
+                'parallel weight generation for mesh input is not implemented yet'
+            )
 
         reuse_weights = kwargs.get('reuse_weights', False)
 

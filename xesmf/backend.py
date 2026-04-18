@@ -239,7 +239,7 @@ class Mesh(ESMF.Mesh):
         y = np.cos(lat) * np.sin(lon)
         z = np.sin(lat)
         return x, y, z
-    
+
     @classmethod
     def from_ugrid(
         cls,
@@ -258,17 +258,17 @@ class Mesh(ESMF.Mesh):
         face_lat = np.asarray(face_lat, dtype=np.float64)
 
         if node_lon.ndim != 1 or node_lat.ndim != 1:
-            raise ValueError("node_lon and node_lat must be 1D")
+            raise ValueError('node_lon and node_lat must be 1D')
         if node_lon.shape != node_lat.shape:
-            raise ValueError("node_lon and node_lat must have the same shape")
+            raise ValueError('node_lon and node_lat must have the same shape')
         if face_node_connectivity.ndim != 2:
-            raise ValueError("face_node_connectivity must be 2D")
+            raise ValueError('face_node_connectivity must be 2D')
         if face_lon.ndim != 1 or face_lat.ndim != 1:
-            raise ValueError("face_lon and face_lat must be 1D")
+            raise ValueError('face_lon and face_lat must be 1D')
         if face_lon.shape != face_lat.shape:
-            raise ValueError("face_lon and face_lat must have the same shape")
+            raise ValueError('face_lon and face_lat must have the same shape')
         if face_lon.size != face_node_connectivity.shape[0]:
-            raise ValueError("face coordinates must match number of faces")
+            raise ValueError('face coordinates must match number of faces')
         if fill_value is None:
             fill_value = -1
 
@@ -276,20 +276,20 @@ class Mesh(ESMF.Mesh):
         n_nodes_per_face = valid.sum(axis=1).astype(np.int32)
 
         if np.any(n_nodes_per_face < 3):
-            raise ValueError("each face must contain at least 3 valid nodes")
+            raise ValueError('each face must contain at least 3 valid nodes')
 
         conn = face_node_connectivity.copy()
 
         if start_index is None:
             valid_conn = conn[valid]
             if valid_conn.size == 0:
-                raise ValueError("face_node_connectivity contains no valid entries")
+                raise ValueError('face_node_connectivity contains no valid entries')
             start_index = 0 if valid_conn.min() == 0 else 1
 
         conn[valid] = conn[valid] - start_index
 
         if conn[valid].min() < 0 or conn[valid].max() >= node_lon.size:
-            raise ValueError("face_node_connectivity contains out-of-range node indices")
+            raise ValueError('face_node_connectivity contains out-of-range node indices')
 
         node_x, node_y, node_z = cls._lonlat_to_xyz(node_lon, node_lat)
         face_x, face_y, face_z = cls._lonlat_to_xyz(face_lon, face_lat)

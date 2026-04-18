@@ -16,7 +16,6 @@ from shapely.geometry import MultiPolygon, Polygon
 import xesmf as xe
 from xesmf.frontend import as_2d_mesh
 
-
 dask_schedulers = ['threaded_scheduler', 'processes_scheduler', 'distributed_scheduler']
 pytestmark = pytest.mark.filterwarnings('ignore:Input array is not C_CONTIGUOUS')
 
@@ -930,6 +929,25 @@ def test_ds_to_ESMFlocstream():
 
 
 def test_ds_to_ESMFmesh():
+    # Mesh explicit path test
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    try:
+        import esmpy as ESMF
+    except ImportError:
+        import ESMF
+
+    mesh, shape, names = ds_to_ESMFmesh(ds_mesh)
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds_mesh.sizes['n_face'])
+    assert names == ('n_face',)
+
+    mesh.destroy()
+
+
+def test_ds_to_ESMFmesh_with_ugrid_topology():
+    # Test ugrid topology
     from xesmf.frontend import ds_to_ESMFmesh
 
     try:
@@ -964,6 +982,43 @@ def test_ds_to_ESMFmesh():
     assert names == ('n_face',)
 
     mesh.destroy()
+
+
+@pytest.mark.parametrize(
+    'node_coordinates,match',
+    [
+        (None, 'node_coordinates'),
+        ('mesh_node_x missing_node_y', 'missing node coordinate variables'),
+    ],
+)
+def test_ds_to_ESMFmesh_with_invalid_ugrid_topology(node_coordinates, match):
+    """This test covers both when topology info is missing(node coordinates) and
+    when it's provided with wrong values"""
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    ds_mesh_topology = ds_mesh.rename(
+        {
+            'node_lon': 'mesh_node_x',
+            'node_lat': 'mesh_node_y',
+            'face_lon': 'mesh_face_x',
+            'face_lat': 'mesh_face_y',
+            'face_node_connectivity': 'mesh_face_nodes',
+        }
+    )
+
+    attrs = {
+        'cf_role': 'mesh_topology',
+        'face_coordinates': 'mesh_face_x mesh_face_y',
+        'face_node_connectivity': 'mesh_face_nodes',
+    }
+    # First one is with missing node coordinates
+    if node_coordinates is not None:
+        attrs['node_coordinates'] = node_coordinates
+
+    ds_mesh_topology['mesh'] = xr.DataArray(data=0, attrs=attrs)
+
+    with pytest.raises(ValueError, match=match):
+        ds_to_ESMFmesh(ds_mesh_topology)
 
 
 @pytest.mark.parametrize('use_dask', [True, False])
