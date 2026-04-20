@@ -149,6 +149,36 @@ ds_mesh['data'] = (
 )
 
 
+# mesh with xyz for tests;
+mesh_node_lon_rad = np.radians(ds_mesh['node_lon'].values)
+mesh_node_lat_rad = np.radians(ds_mesh['node_lat'].values)
+
+mesh_face_lon_rad = np.radians(ds_mesh['face_lon'].values)
+mesh_face_lat_rad = np.radians(ds_mesh['face_lat'].values)
+
+ds_mesh_xyz = xr.Dataset(
+    coords={
+        'node_x': ('n_node', np.cos(mesh_node_lat_rad) * np.cos(mesh_node_lon_rad)),
+        'node_y': ('n_node', np.cos(mesh_node_lat_rad) * np.sin(mesh_node_lon_rad)),
+        'node_z': ('n_node', np.sin(mesh_node_lat_rad)),
+        'face_x': ('n_face', np.cos(mesh_face_lat_rad) * np.cos(mesh_face_lon_rad)),
+        'face_y': ('n_face', np.cos(mesh_face_lat_rad) * np.sin(mesh_face_lon_rad)),
+        'face_z': ('n_face', np.sin(mesh_face_lat_rad)),
+    },
+    data_vars={
+        'face_node_connectivity': (
+            ('n_face', 'n_max_face_nodes'),
+            ds_mesh['face_node_connectivity'].data.copy(),
+            ds_mesh['face_node_connectivity'].attrs.copy(),
+        ),
+        'data': (
+            'n_face',
+            ds_mesh['data'].data.copy(),
+        ),
+    },
+)
+
+
 def _segmentize(p):
     if isinstance(p, list):
         return list(map(_segmentize, p))
@@ -1019,6 +1049,62 @@ def test_ds_to_ESMFmesh_with_invalid_ugrid_topology(node_coordinates, match):
 
     with pytest.raises(ValueError, match=match):
         ds_to_ESMFmesh(ds_mesh_topology)
+
+
+def test_ds_to_ESMFmesh_with_xyz():
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    try:
+        import esmpy as ESMF
+    except ImportError:
+        import ESMF
+
+    mesh, shape, names = ds_to_ESMFmesh(ds_mesh_xyz)
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds_mesh_xyz.sizes['n_face'])
+    assert names == ('n_face',)
+
+    mesh.destroy()
+
+
+def test_ds_to_ESMFmesh_with_xyz_ugrid_topology():
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    try:
+        import esmpy as ESMF
+    except ImportError:
+        import ESMF
+
+    ds_mesh_xyz_topology = ds_mesh_xyz.rename(
+        {
+            'node_x': 'mesh_node_x',
+            'node_y': 'mesh_node_y',
+            'node_z': 'mesh_node_z',
+            'face_x': 'mesh_face_x',
+            'face_y': 'mesh_face_y',
+            'face_z': 'mesh_face_z',
+            'face_node_connectivity': 'mesh_face_nodes',
+        }
+    )
+
+    ds_mesh_xyz_topology['mesh'] = xr.DataArray(
+        data=0,
+        attrs={
+            'cf_role': 'mesh_topology',
+            'node_coordinates': 'mesh_node_x mesh_node_y mesh_node_z',
+            'face_coordinates': 'mesh_face_x mesh_face_y mesh_face_z',
+            'face_node_connectivity': 'mesh_face_nodes',
+        },
+    )
+
+    mesh, shape, names = ds_to_ESMFmesh(ds_mesh_xyz_topology)
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds_mesh_xyz_topology.sizes['n_face'])
+    assert names == ('n_face',)
+
+    mesh.destroy()
 
 
 @pytest.mark.parametrize('use_dask', [True, False])

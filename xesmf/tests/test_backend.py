@@ -51,6 +51,53 @@ ds_in.coords['lev'] = np.arange(1, 51)
 ds_in['data4D'] = ds_in['time'] * ds_in['lev'] * ds_in['data']
 data4D_in = ds_in['data4D'].values
 
+# synthetic unstructured mesh for tests - triangle only (same mesh defined in test_frontend.py )
+mesh_nx = 4
+mesh_ny = 4
+mesh_fill_value = -1
+
+mesh_lon_vals = np.linspace(0.0, 3.0, mesh_nx, dtype=np.float64)
+mesh_lat_vals = np.linspace(0.0, 3.0, mesh_ny, dtype=np.float64)
+mesh_lon2d, mesh_lat2d = np.meshgrid(mesh_lon_vals, mesh_lat_vals, indexing='xy')
+
+mesh_node_lon = mesh_lon2d.ravel()
+mesh_node_lat = mesh_lat2d.ravel()
+
+mesh_faces = []
+for j in range(mesh_ny - 1):
+    for i in range(mesh_nx - 1):
+        n00 = j * mesh_nx + i
+        n10 = n00 + 1
+        n01 = (j + 1) * mesh_nx + i
+        n11 = n01 + 1
+        mesh_faces.extend([[n00, n10, n11], [n00, n11, n01]])
+
+mesh_face_node_connectivity = np.full((len(mesh_faces), 4), mesh_fill_value, dtype=np.int64)
+for k, face in enumerate(mesh_faces):
+    mesh_face_node_connectivity[k, : len(face)] = face
+
+mesh_face_lon = np.asarray(
+    [mesh_node_lon[face].mean() for face in mesh_faces],
+    dtype=np.float64,
+)
+mesh_face_lat = np.asarray(
+    [mesh_node_lat[face].mean() for face in mesh_faces],
+    dtype=np.float64,
+)
+
+mesh_node_lon_rad = np.radians(mesh_node_lon)
+mesh_node_lat_rad = np.radians(mesh_node_lat)
+mesh_face_lon_rad = np.radians(mesh_face_lon)
+mesh_face_lat_rad = np.radians(mesh_face_lat)
+
+mesh_node_x = np.cos(mesh_node_lat_rad) * np.cos(mesh_node_lon_rad)
+mesh_node_y = np.cos(mesh_node_lat_rad) * np.sin(mesh_node_lon_rad)
+mesh_node_z = np.sin(mesh_node_lat_rad)
+
+mesh_face_x = np.cos(mesh_face_lat_rad) * np.cos(mesh_face_lon_rad)
+mesh_face_y = np.cos(mesh_face_lat_rad) * np.sin(mesh_face_lon_rad)
+mesh_face_z = np.sin(mesh_face_lat_rad)
+
 
 def test_warn_f_on_array():
     a = np.zeros([2, 2], order='C')
@@ -122,66 +169,15 @@ def test_esmf_build_bilinear():
 
 
 def test_esmf_build_bilinear_mesh_to_grid():
-    nx = 4
-    ny = 4
-
-    lon_vals = np.linspace(0.0, 3.0, nx, dtype=np.float64)
-    lat_vals = np.linspace(0.0, 3.0, ny, dtype=np.float64)
-
-    lon2d, lat2d = np.meshgrid(lon_vals, lat_vals, indexing='xy')
-
-    node_lon = lon2d.ravel()
-    node_lat = lat2d.ravel()
-
-    def node_id(j, i):
-        return j * nx + i
-
-    faces = []
-    face_lon = []
-    face_lat = []
-
-    for j in range(ny - 1):
-        for i in range(nx - 1):
-            n00 = node_id(j, i)
-            n10 = node_id(j, i + 1)
-            n01 = node_id(j + 1, i)
-            n11 = node_id(j + 1, i + 1)
-
-            tri1 = [n00, n10, n11]
-            tri2 = [n00, n11, n01]
-
-            faces.append(tri1)
-            faces.append(tri2)
-
-            face_lon.append(node_lon[tri1].mean())
-            face_lat.append(node_lat[tri1].mean())
-
-            face_lon.append(node_lon[tri2].mean())
-            face_lat.append(node_lat[tri2].mean())
-
-    fill_value = -1
-    face_node_connectivity = np.full((len(faces), 4), fill_value, dtype=np.int64)
-
-    for k, face in enumerate(faces):
-        face_node_connectivity[k, : len(face)] = face
-
-    face_lon = np.asarray(face_lon, dtype=np.float64)
-    face_lat = np.asarray(face_lat, dtype=np.float64)
-
     mesh = Mesh.from_ugrid(
-        node_lon,
-        node_lat,
-        face_node_connectivity,
-        face_lon,
-        face_lat,
-        fill_value=fill_value,
+        mesh_node_lon,
+        mesh_node_lat,
+        mesh_face_node_connectivity,
+        mesh_face_lon,
+        mesh_face_lat,
+        fill_value=mesh_fill_value,
     )
-
-    lon_target = np.linspace(face_lon.min() - 0.2, face_lon.max() + 0.2, 6)
-    lat_target = np.linspace(face_lat.min() - 0.2, face_lat.max() + 0.2, 6)
-    lon_out, lat_out = np.meshgrid(lon_target, lat_target, indexing='ij')
-
-    grid = Grid.from_xarray(np.asfortranarray(lon_out), np.asfortranarray(lat_out))
+    grid = Grid.from_xarray(lon_out.T, lat_out.T)
 
     regrid = esmf_regrid_build(mesh, grid, 'bilinear')
 
@@ -192,7 +188,30 @@ def test_esmf_build_bilinear_mesh_to_grid():
 
     esmf_regrid_finalize(regrid)
     mesh.destroy()
-    grid.destroy()
+
+
+def test_esmf_build_bilinear_mesh_xyz_to_grid():
+    mesh = Mesh.from_ugrid_xyz(
+        mesh_node_x,
+        mesh_node_y,
+        mesh_node_z,
+        mesh_face_node_connectivity,
+        mesh_face_x,
+        mesh_face_y,
+        mesh_face_z,
+        fill_value=mesh_fill_value,
+    )
+    grid = Grid.from_xarray(lon_out.T, lat_out.T)
+
+    regrid = esmf_regrid_build(mesh, grid, 'bilinear')
+
+    assert regrid.unmapped_action is ESMF.UnmappedAction.IGNORE
+    assert regrid.regrid_method is ESMF.RegridMethod.BILINEAR
+    assert regrid.srcfield.grid is mesh
+    assert regrid.dstfield.grid is grid
+
+    esmf_regrid_finalize(regrid)
+    mesh.destroy()
 
 
 def test_esmf_extrapolation():
@@ -355,32 +374,37 @@ def test_esmf_locstream():
 
 
 def test_esmf_mesh_from_ugrid():
-    node_lon = np.array([0.0, 1.0, 0.0, 1.0, 2.0], dtype=np.float64)
-    node_lat = np.array([0.0, 0.0, 1.0, 1.0, 0.0], dtype=np.float64)
-
-    face_node_connectivity = np.array(
-        [
-            [0, 1, 2, -1],  # triangle
-            [1, 4, 3, 2],  # quad
-        ],
-        dtype=np.int64,
-    )
-
-    face_lon = np.array([1.0 / 3.0, 1.0], dtype=np.float64)
-    face_lat = np.array([1.0 / 3.0, 0.5], dtype=np.float64)
-
     mesh = Mesh.from_ugrid(
-        node_lon,
-        node_lat,
-        face_node_connectivity,
-        face_lon,
-        face_lat,
-        fill_value=-1,
+        mesh_node_lon,
+        mesh_node_lat,
+        mesh_face_node_connectivity,
+        mesh_face_lon,
+        mesh_face_lat,
+        fill_value=mesh_fill_value,
     )
 
     assert isinstance(mesh, ESMF.Mesh)
-    assert mesh.element_count == 2
-    assert mesh.size[ESMF.MeshLoc.ELEMENT] == 2
+    assert mesh.element_count == len(mesh_faces)
+    assert mesh.size[ESMF.MeshLoc.ELEMENT] == len(mesh_faces)
+
+    mesh.destroy()
+
+
+def test_esmf_mesh_from_ugrid_xyz():
+    mesh = Mesh.from_ugrid_xyz(
+        mesh_node_x,
+        mesh_node_y,
+        mesh_node_z,
+        mesh_face_node_connectivity,
+        mesh_face_x,
+        mesh_face_y,
+        mesh_face_z,
+        fill_value=mesh_fill_value,
+    )
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert mesh.element_count == len(mesh_faces)
+    assert mesh.size[ESMF.MeshLoc.ELEMENT] == len(mesh_faces)
 
     mesh.destroy()
 

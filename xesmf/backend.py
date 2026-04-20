@@ -269,6 +269,7 @@ class Mesh(ESMF.Mesh):
             raise ValueError('face_lon and face_lat must have the same shape')
         if face_lon.size != face_node_connectivity.shape[0]:
             raise ValueError('face coordinates must match number of faces')
+
         if fill_value is None:
             fill_value = -1
 
@@ -298,13 +299,9 @@ class Mesh(ESMF.Mesh):
 
         num_node = node_lon.size
         node_ids = np.arange(1, num_node + 1, dtype=np.int32)
-
-        node_coords = np.empty(num_node * 3, dtype=np.float64)
-        node_coords[0::3] = node_x
-        node_coords[1::3] = node_y
-        node_coords[2::3] = node_z
-
+        node_coords = np.column_stack((node_x, node_y, node_z)).ravel()
         node_owners = np.zeros(num_node, dtype=np.int32)
+
         mesh.add_nodes(num_node, node_ids, node_coords, node_owners)
 
         elem_count = face_node_connectivity.shape[0]
@@ -316,11 +313,93 @@ class Mesh(ESMF.Mesh):
             flat_conn.extend(np.asarray(row[:n][::-1], dtype=np.int32).tolist())
 
         elem_conn = np.asarray(flat_conn, dtype=np.int32)
+        elem_coords = np.column_stack((face_x, face_y, face_z)).ravel()
 
-        elem_coords = np.empty(elem_count * 3, dtype=np.float64)
-        elem_coords[0::3] = face_x
-        elem_coords[1::3] = face_y
-        elem_coords[2::3] = face_z
+        mesh.add_elements(
+            elem_count,
+            elem_ids,
+            elem_types,
+            elem_conn,
+            element_coords=elem_coords,
+        )
+
+        return mesh
+
+    @classmethod
+    def from_ugrid_xyz(
+        cls,
+        node_x,
+        node_y,
+        node_z,
+        face_node_connectivity,
+        face_x,
+        face_y,
+        face_z,
+        fill_value=None,
+        start_index=None,
+    ):
+        node_x = np.asarray(node_x, dtype=np.float64)
+        node_y = np.asarray(node_y, dtype=np.float64)
+        node_z = np.asarray(node_z, dtype=np.float64)
+        face_node_connectivity = np.asarray(face_node_connectivity, dtype=np.int64)
+        face_x = np.asarray(face_x, dtype=np.float64)
+        face_y = np.asarray(face_y, dtype=np.float64)
+        face_z = np.asarray(face_z, dtype=np.float64)
+
+        if node_x.ndim != 1 or node_y.ndim != 1 or node_z.ndim != 1:
+            raise ValueError('node_x, node_y, and node_z must be 1D')
+        if not (node_x.shape == node_y.shape == node_z.shape):
+            raise ValueError('node_x, node_y, and node_z must have the same shape')
+        if face_node_connectivity.ndim != 2:
+            raise ValueError('face_node_connectivity must be 2D')
+        if face_x.ndim != 1 or face_y.ndim != 1 or face_z.ndim != 1:
+            raise ValueError('face_x, face_y, and face_z must be 1D')
+        if not (face_x.shape == face_y.shape == face_z.shape):
+            raise ValueError('face_x, face_y, and face_z must have the same shape')
+        if face_x.size != face_node_connectivity.shape[0]:
+            raise ValueError('face coordinates must match number of faces')
+
+        if fill_value is None:
+            fill_value = -1
+
+        valid = face_node_connectivity != fill_value
+        n_nodes_per_face = valid.sum(axis=1).astype(np.int32)
+
+        if np.any(n_nodes_per_face < 3):
+            raise ValueError('each face must contain at least 3 valid nodes')
+
+        conn = face_node_connectivity.copy()
+
+        if start_index is None:
+            valid_conn = conn[valid]
+            if valid_conn.size == 0:
+                raise ValueError('face_node_connectivity contains no valid entries')
+            start_index = 0 if valid_conn.min() == 0 else 1
+
+        conn[valid] = conn[valid] - start_index
+
+        if conn[valid].min() < 0 or conn[valid].max() >= node_x.size:
+            raise ValueError('face_node_connectivity contains out-of-range node indices')
+
+        mesh = cls(parametric_dim=2, spatial_dim=3)
+
+        num_node = node_x.size
+        node_ids = np.arange(1, num_node + 1, dtype=np.int32)
+        node_coords = np.column_stack((node_x, node_y, node_z)).ravel()
+        node_owners = np.zeros(num_node, dtype=np.int32)
+
+        mesh.add_nodes(num_node, node_ids, node_coords, node_owners)
+
+        elem_count = face_node_connectivity.shape[0]
+        elem_ids = np.arange(1, elem_count + 1, dtype=np.int32)
+        elem_types = n_nodes_per_face.astype(np.int32)
+
+        flat_conn = []
+        for row, n in zip(conn, n_nodes_per_face):
+            flat_conn.extend(np.asarray(row[:n][::-1], dtype=np.int32).tolist())
+
+        elem_conn = np.asarray(flat_conn, dtype=np.int32)
+        elem_coords = np.column_stack((face_x, face_y, face_z)).ravel()
 
         mesh.add_elements(
             elem_count,
@@ -356,16 +435,18 @@ class Mesh(ESMF.Mesh):
         """
         node_num = sum(len(e.exterior.coords) - 1 for e in polys)
         elem_num = len(polys)
-        # Pre alloc arrays. Special structure for coords makes the code faster.
+
         crd_dt = np.dtype([('x', np.float32), ('y', np.float32)])
         node_coords = np.empty(node_num, dtype=crd_dt)
-        node_coords[:] = (np.nan, np.nan)  # Fill with impossible values
+        node_coords[:] = (np.nan, np.nan)
+
         element_types = np.empty(elem_num, dtype=np.uint32)
         element_conn = np.empty(node_num, dtype=np.uint32)
-        # Flag for centroid calculation
+
         calc_centroid = isinstance(element_coords, str) and element_coords == 'centroid'
         if calc_centroid:
             element_coords = np.empty(elem_num, dtype=crd_dt)
+
         inode = 0
         iconn = 0
         for ipoly, poly in enumerate(polys):
@@ -374,16 +455,17 @@ class Mesh(ESMF.Mesh):
                 element_coords[ipoly] = poly.centroid.coords[0]
             element_types[ipoly] = len(ring.coords) - 1
             for coord in ring.coords[:-1] if ring.is_ccw else ring.coords[:0:-1]:
-                crd = np.asarray(coord, dtype=crd_dt)  # Cast so we can compare
+                crd = np.asarray(coord, dtype=crd_dt)
                 node_index = np.where(node_coords == crd)[0]
-                if node_index.size == 0:  # New node
+                if node_index.size == 0:
                     node_coords[inode] = crd
                     element_conn[iconn] = inode
                     inode += 1
-                else:  # Node already exists
+                else:
                     element_conn[iconn] = node_index[0]
                 iconn += 1
-        node_num = inode  # With duplicate nodes, inode < node_num
+
+        node_num = inode
 
         mesh = cls(2, 2, coord_sys=ESMF.CoordSys.SPH_DEG)
         mesh.add_nodes(
@@ -392,10 +474,12 @@ class Mesh(ESMF.Mesh):
             nprec.structured_to_unstructured(node_coords[:node_num]).ravel(),
             np.zeros(node_num),
         )
+
         if calc_centroid:
             element_coords = nprec.structured_to_unstructured(element_coords)
         if element_coords is not None:
             element_coords = element_coords.ravel()
+
         try:
             mesh.add_elements(
                 elem_num,
@@ -408,6 +492,7 @@ class Mesh(ESMF.Mesh):
             raise ValueError(
                 'ESMF failed to create the Mesh, this usually happen when some polygons are invalid (test with `poly.is_valid`)'
             ) from err
+
         return mesh
 
     def get_shape(self, loc=ESMF.MeshLoc.ELEMENT):

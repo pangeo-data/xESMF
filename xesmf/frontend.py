@@ -121,12 +121,17 @@ def _get_ugrid_topology(ds):
     return None
 
 
-def _get_node_lon_lat(ds):
-    """Return node longitude and latitude extracted from ds."""
+def _get_node_coords(ds):
+    """Return node coordinate type and node coordinates extracted from ds."""
     if ('node_lon' in ds and 'node_lat' in ds) or (
         'node_lon' in ds.coords and 'node_lat' in ds.coords
     ):
-        return ds['node_lon'], ds['node_lat']
+        return 'latlon', (ds['node_lon'], ds['node_lat'])
+
+    if ('node_x' in ds and 'node_y' in ds and 'node_z' in ds) or (
+        'node_x' in ds.coords and 'node_y' in ds.coords and 'node_z' in ds.coords
+    ):
+        return 'xyz', (ds['node_x'], ds['node_y'], ds['node_z'])
 
     topology = _get_ugrid_topology(ds)
     if topology is not None:
@@ -135,17 +140,69 @@ def _get_node_lon_lat(ds):
             raise ValueError('mesh topology variable must define node_coordinates')
 
         coord_names = node_coordinates.split()
-        if len(coord_names) != 2:
-            raise ValueError('mesh topology variable must define two node_coordinates')
+        if len(coord_names) == 2:
+            try:
+                return 'latlon', (ds[coord_names[0]], ds[coord_names[1]])
+            except KeyError as err:
+                raise ValueError(
+                    'mesh topology variable points to missing node coordinate variables'
+                ) from err
 
-        try:
-            return ds[coord_names[0]], ds[coord_names[1]]
-        except KeyError as err:
-            raise ValueError(
-                'mesh topology variable points to missing node coordinate variables'
-            ) from err
+        if len(coord_names) == 3:
+            try:
+                return 'xyz', (ds[coord_names[0]], ds[coord_names[1]], ds[coord_names[2]])
+            except KeyError as err:
+                raise ValueError(
+                    'mesh topology variable points to missing node coordinate variables'
+                ) from err
 
-    raise ValueError('dataset must include node_lon/node_lat or UGRID node_coordinates')
+        raise ValueError('mesh topology variable must define two or three node_coordinates')
+
+    raise ValueError(
+        'dataset must include node_lon/node_lat, node_x/node_y/node_z, ' 'or UGRID node_coordinates'
+    )
+
+
+def _get_face_coords(ds):
+    """Return face coordinate type and face coordinates extracted from ds."""
+    if ('face_lon' in ds and 'face_lat' in ds) or (
+        'face_lon' in ds.coords and 'face_lat' in ds.coords
+    ):
+        return 'latlon', (ds['face_lon'], ds['face_lat'])
+
+    if ('face_x' in ds and 'face_y' in ds and 'face_z' in ds) or (
+        'face_x' in ds.coords and 'face_y' in ds.coords and 'face_z' in ds.coords
+    ):
+        return 'xyz', (ds['face_x'], ds['face_y'], ds['face_z'])
+
+    topology = _get_ugrid_topology(ds)
+    if topology is not None:
+        face_coordinates = topology.attrs.get('face_coordinates')
+        if face_coordinates is None:
+            raise ValueError('mesh topology variable must define face_coordinates')
+
+        coord_names = face_coordinates.split()
+        if len(coord_names) == 2:
+            try:
+                return 'latlon', (ds[coord_names[0]], ds[coord_names[1]])
+            except KeyError as err:
+                raise ValueError(
+                    'mesh topology variable points to missing face coordinate variables'
+                ) from err
+
+        if len(coord_names) == 3:
+            try:
+                return 'xyz', (ds[coord_names[0]], ds[coord_names[1]], ds[coord_names[2]])
+            except KeyError as err:
+                raise ValueError(
+                    'mesh topology variable points to missing face coordinate variables'
+                ) from err
+
+        raise ValueError('mesh topology variable must define two or three face_coordinates')
+
+    raise ValueError(
+        'dataset must include face_lon/face_lat, face_x/face_y/face_z, ' 'or UGRID face_coordinates'
+    )
 
 
 def _get_face_node_connectivity(ds):
@@ -176,31 +233,11 @@ def _get_face_node_connectivity(ds):
     return face_node_connectivity, fill_value, start_index
 
 
-def _get_face_lon_lat(ds):
-    """Return face longitude and latitude extracted from ds."""
-    if ('face_lon' in ds and 'face_lat' in ds) or (
-        'face_lon' in ds.coords and 'face_lat' in ds.coords
-    ):
-        return ds['face_lon'], ds['face_lat']
-
-    topology = _get_ugrid_topology(ds)
-    if topology is not None:
-        face_coordinates = topology.attrs.get('face_coordinates')
-        if face_coordinates is None:
-            raise ValueError('mesh topology variable must define face_coordinates')
-
-        coord_names = face_coordinates.split()
-        if len(coord_names) != 2:
-            raise ValueError('mesh topology variable must define two face_coordinates')
-
-        try:
-            return ds[coord_names[0]], ds[coord_names[1]]
-        except KeyError as err:
-            raise ValueError(
-                'mesh topology variable points to missing face coordinate variables'
-            ) from err
-
-    raise ValueError('dataset must include face_lon/face_lat or UGRID face_coordinates')
+def _get_face_dim_names(face_coords):
+    first = face_coords[0]
+    if hasattr(first, 'dims'):
+        return first.dims
+    return None
 
 
 def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
@@ -302,8 +339,7 @@ def ds_to_ESMFmesh(ds):
     Parameters
     ----------
     ds : xarray DataSet or dictionary
-        Contains variables ``node_lon``, ``node_lat``, ``face_node_connectivity``,
-        ``face_lon`` and ``face_lat``.
+        Contains mesh coordinate and connectivity variables.
 
     Returns
     -------
@@ -314,27 +350,48 @@ def ds_to_ESMFmesh(ds):
     dim_names
         Dimension names of the face coordinates
     """
-
-    node_lon, node_lat = _get_node_lon_lat(ds)
+    node_coord_type, node_coords = _get_node_coords(ds)
+    face_coord_type, face_coords = _get_face_coords(ds)
     face_node_connectivity, fill_value, start_index = _get_face_node_connectivity(ds)
-    face_lon, face_lat = _get_face_lon_lat(ds)
+    dim_names = _get_face_dim_names(face_coords)
 
-    if hasattr(face_lon, 'dims'):
-        dim_names = face_lon.dims
-    else:
-        dim_names = None
+    if node_coord_type == 'latlon' and face_coord_type == 'latlon':
+        node_lon, node_lat = node_coords
+        face_lon, face_lat = face_coords
 
-    mesh = Mesh.from_ugrid(
-        np.asarray(node_lon),
-        np.asarray(node_lat),
-        np.asarray(face_node_connectivity),
-        np.asarray(face_lon),
-        np.asarray(face_lat),
-        fill_value=fill_value,
-        start_index=start_index,
+        mesh = Mesh.from_ugrid(
+            np.asarray(node_lon),
+            np.asarray(node_lat),
+            np.asarray(face_node_connectivity),
+            np.asarray(face_lon),
+            np.asarray(face_lat),
+            fill_value=fill_value,
+            start_index=start_index,
+        )
+
+        return mesh, (1, np.asarray(face_lon).size), dim_names
+
+    if node_coord_type == 'xyz' and face_coord_type == 'xyz':
+        node_x, node_y, node_z = node_coords
+        face_x, face_y, face_z = face_coords
+
+        mesh = Mesh.from_ugrid_xyz(
+            np.asarray(node_x),
+            np.asarray(node_y),
+            np.asarray(node_z),
+            np.asarray(face_node_connectivity),
+            np.asarray(face_x),
+            np.asarray(face_y),
+            np.asarray(face_z),
+            fill_value=fill_value,
+            start_index=start_index,
+        )
+
+        return mesh, (1, np.asarray(face_x).size), dim_names
+
+    raise ValueError(
+        'mesh input currently supports only homogeneous lat/lon or xyz ' 'node and face coordinates'
     )
-
-    return mesh, (1, np.asarray(face_lon).size), dim_names
 
 
 def polys_to_ESMFmesh(polys):
@@ -1171,9 +1228,7 @@ class Regridder(BaseRegridder):
         if mesh_in and method in ['conservative', 'conservative_normed']:
             raise ValueError('conservative regridding for mesh input is not implemented yet')
         if mesh_in and parallel:
-            raise NotImplementedError(
-                'parallel weight generation for mesh input is not implemented yet'
-            )
+            raise ValueError('parallel weight generation for mesh input is not implemented yet')
 
         reuse_weights = kwargs.get('reuse_weights', False)
 
