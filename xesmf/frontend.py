@@ -240,6 +240,69 @@ def _get_face_dim_names(face_coords):
     return None
 
 
+def _resolve_start_index(face_node_connectivity, fill_value, start_index, node_coords):
+    """Resolve a reliable start_index from connectivity values and metadata."""
+    conn = np.asarray(face_node_connectivity)
+    valid = conn != fill_value
+    valid_conn = conn[valid]
+
+    if valid_conn.size == 0:
+        raise ValueError("face_node_connectivity contains no valid entries")
+
+    node_sizes = {np.asarray(coord).size for coord in node_coords}
+    if len(node_sizes) != 1:
+        raise ValueError("node coordinate arrays must have the same size")
+    n_nodes = node_sizes.pop()
+
+    min_idx = valid_conn.min()
+    max_idx = valid_conn.max()
+
+    fits_zero_based = min_idx >= 0 and max_idx < n_nodes
+    fits_one_based = min_idx >= 1 and max_idx <= n_nodes
+
+    if start_index is not None:
+        start_index = int(start_index)
+
+        if start_index not in (0, 1):
+            raise ValueError("face_node_connectivity start_index must be 0 or 1")
+
+        if start_index == 0 and fits_zero_based:
+            return 0
+
+        if start_index == 1 and fits_one_based:
+            return 1
+
+        if fits_zero_based and not fits_one_based:
+            warnings.warn(
+                "face_node_connectivity start_index metadata is inconsistent with "
+                "the connectivity values; falling back to inferred start_index=0"
+            )
+            return 0
+
+        if fits_one_based and not fits_zero_based:
+            warnings.warn(
+                "face_node_connectivity start_index metadata is inconsistent with "
+                "the connectivity values; falling back to inferred start_index=1"
+            )
+            return 1
+
+        raise ValueError(
+            "face_node_connectivity start_index metadata is inconsistent with "
+            "the connectivity values"
+        )
+
+    if fits_zero_based and not fits_one_based:
+        return 0
+
+    if fits_one_based and not fits_zero_based:
+        return 1
+
+    if fits_zero_based and fits_one_based:
+        return 0 if min_idx == 0 else 1
+
+    raise ValueError("face_node_connectivity contains out-of-range node indices")
+
+
 def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
     """
     Convert xarray DataSet or dictionary to ESMF.Grid object.
@@ -353,6 +416,12 @@ def ds_to_ESMFmesh(ds):
     node_coord_type, node_coords = _get_node_coords(ds)
     face_coord_type, face_coords = _get_face_coords(ds)
     face_node_connectivity, fill_value, start_index = _get_face_node_connectivity(ds)
+    start_index = _resolve_start_index(
+        face_node_connectivity,
+        fill_value,
+        start_index,
+        node_coords,
+    )
     dim_names = _get_face_dim_names(face_coords)
 
     if node_coord_type == 'latlon' and face_coord_type == 'latlon':
@@ -390,7 +459,7 @@ def ds_to_ESMFmesh(ds):
         return mesh, (1, np.asarray(face_x).size), dim_names
 
     raise ValueError(
-        'mesh input currently supports only homogeneous lat/lon or xyz ' 'node and face coordinates'
+        'mesh input currently supports only homogeneous lat/lon or xyz node and face coordinates'
     )
 
 

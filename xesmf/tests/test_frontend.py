@@ -1051,6 +1051,52 @@ def test_ds_to_ESMFmesh_with_invalid_ugrid_topology(node_coordinates, match):
         ds_to_ESMFmesh(ds_mesh_topology)
 
 
+def test_ds_to_ESMFmesh_overrides_with_invalid_topology():
+    """If explicit mesh variables are present in the dataset, invalid mesh_topology
+    metadata should not prevent mesh construction. Connectivity with
+    1-based indexing should also be accepted when start_index=1 is provided."""
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    try:
+        import esmpy as ESMF
+    except ImportError:
+        import ESMF
+
+    ds = ds_mesh.copy()
+
+    fill_value = ds['face_node_connectivity'].attrs.get('_FillValue', -1)
+    connectivity = ds['face_node_connectivity'].data.copy()
+    valid = connectivity != fill_value
+    connectivity[valid] += 1
+
+    ds['face_node_connectivity'] = xr.DataArray(
+        connectivity,
+        dims=ds['face_node_connectivity'].dims,
+        attrs={
+            **ds['face_node_connectivity'].attrs,
+            'start_index': 1,
+        },
+    )
+
+    ds['mesh'] = xr.DataArray(
+        data=0,
+        attrs={
+            'cf_role': 'mesh_topology',
+            'node_coordinates': 'missing_node_x missing_node_y',
+            'face_coordinates': 'missing_face_x missing_face_y',
+            'face_node_connectivity': 'missing_face_nodes',
+        },
+    )
+
+    mesh, shape, names = ds_to_ESMFmesh(ds)
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds.sizes['n_face'])
+    assert names == ('n_face',)
+
+    mesh.destroy()
+
+
 def test_ds_to_ESMFmesh_with_xyz():
     from xesmf.frontend import ds_to_ESMFmesh
 

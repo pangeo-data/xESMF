@@ -310,7 +310,7 @@ class Mesh(ESMF.Mesh):
 
         flat_conn = []
         for row, n in zip(conn, n_nodes_per_face):
-            flat_conn.extend(np.asarray(row[:n][::-1], dtype=np.int32).tolist())
+            flat_conn.extend(np.asarray(row[:n], dtype=np.int32).tolist())
 
         elem_conn = np.asarray(flat_conn, dtype=np.int32)
         elem_coords = np.column_stack((face_x, face_y, face_z)).ravel()
@@ -396,7 +396,7 @@ class Mesh(ESMF.Mesh):
 
         flat_conn = []
         for row, n in zip(conn, n_nodes_per_face):
-            flat_conn.extend(np.asarray(row[:n][::-1], dtype=np.int32).tolist())
+            flat_conn.extend(np.asarray(row[:n], dtype=np.int32).tolist())
 
         elem_conn = np.asarray(flat_conn, dtype=np.int32)
         elem_coords = np.column_stack((face_x, face_y, face_z)).ravel()
