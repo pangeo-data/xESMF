@@ -251,6 +251,36 @@ class Mesh(ESMF.Mesh):
         fill_value=None,
         start_index=None,
     ):
+        """
+        Create an ESMF.Mesh from UGRID-style lon/lat mesh coordinates.
+
+        Parameters
+        ----------
+        node_lon, node_lat : array-like
+            One-dimensional longitude and latitude coordinates of mesh nodes.
+        face_node_connectivity : array-like
+            Two-dimensional integer array with shape ``(n_face, n_max_face_nodes)``
+            mapping each face to its corner nodes.
+        face_lon, face_lat : array-like
+            One-dimensional longitude and latitude coordinates of face centers.
+        fill_value : int, optional
+            Fill value used for padded connectivity entries. Defaults to ``-1``.
+        start_index : {0, 1}, optional
+            Index offset used by ``face_node_connectivity``. If omitted, the offset
+            is inferred from the connectivity values.
+
+        Returns
+        -------
+        mesh
+            ESMF.Mesh object.
+
+        Notes
+        -----
+        Longitude and latitude coordinates are converted to Cartesian coordinates on
+        the unit sphere before constructing the ESMF mesh. The input face-node
+        ordering is preserved.
+        """
+
         node_lon = np.asarray(node_lon, dtype=np.float64)
         node_lat = np.asarray(node_lat, dtype=np.float64)
         face_node_connectivity = np.asarray(face_node_connectivity, dtype=np.int64)
@@ -338,6 +368,34 @@ class Mesh(ESMF.Mesh):
         fill_value=None,
         start_index=None,
     ):
+        """
+        Create an ESMF.Mesh from UGRID-style Cartesian mesh coordinates.
+
+        Parameters
+        ----------
+        node_x, node_y, node_z : array-like
+            One-dimensional Cartesian coordinates of mesh nodes.
+        face_node_connectivity : array-like
+            Two-dimensional integer array with shape ``(n_face, n_max_face_nodes)``
+            mapping each face to its corner nodes.
+        face_x, face_y, face_z : array-like
+            One-dimensional Cartesian coordinates of face centers.
+        fill_value : int, optional
+            Fill value used for padded connectivity entries. Defaults to ``-1``.
+        start_index : {0, 1}, optional
+            Index offset used by ``face_node_connectivity``. If omitted, the offset
+            is inferred from the connectivity values.
+
+        Returns
+        -------
+        mesh
+            ESMF.Mesh object.
+
+        Notes
+        -----
+        The input face-node ordering is preserved.
+        """
+
         node_x = np.asarray(node_x, dtype=np.float64)
         node_y = np.asarray(node_y, dtype=np.float64)
         node_z = np.asarray(node_z, dtype=np.float64)

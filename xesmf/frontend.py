@@ -234,6 +234,12 @@ def _get_face_node_connectivity(ds):
 
 
 def _get_face_dim_names(face_coords):
+    """Return face coordinate dimension names when available.
+
+    If the first face coordinate has xarray-style ``dims`` metadata, those
+    dimension names are returned. Otherwise return ``None``.
+    """
+
     first = face_coords[0]
     if hasattr(first, 'dims'):
         return first.dims
@@ -241,17 +247,24 @@ def _get_face_dim_names(face_coords):
 
 
 def _resolve_start_index(face_node_connectivity, fill_value, start_index, node_coords):
-    """Resolve a reliable start_index from connectivity values and metadata."""
+    """Resolve a reliable start_index from connectivity values and metadata.
+
+    The returned value is either 0 or 1. If metadata is missing, the start index is
+    inferred from the valid connectivity range. If metadata is present but
+    inconsistent with the connectivity values, this function warns and falls back
+    to the indexing convention implied by the values when possible.
+    """
+
     conn = np.asarray(face_node_connectivity)
     valid = conn != fill_value
     valid_conn = conn[valid]
 
     if valid_conn.size == 0:
-        raise ValueError("face_node_connectivity contains no valid entries")
+        raise ValueError('face_node_connectivity contains no valid entries')
 
     node_sizes = {np.asarray(coord).size for coord in node_coords}
     if len(node_sizes) != 1:
-        raise ValueError("node coordinate arrays must have the same size")
+        raise ValueError('node coordinate arrays must have the same size')
     n_nodes = node_sizes.pop()
 
     min_idx = valid_conn.min()
@@ -264,7 +277,7 @@ def _resolve_start_index(face_node_connectivity, fill_value, start_index, node_c
         start_index = int(start_index)
 
         if start_index not in (0, 1):
-            raise ValueError("face_node_connectivity start_index must be 0 or 1")
+            raise ValueError('face_node_connectivity start_index must be 0 or 1')
 
         if start_index == 0 and fits_zero_based:
             return 0
@@ -274,21 +287,21 @@ def _resolve_start_index(face_node_connectivity, fill_value, start_index, node_c
 
         if fits_zero_based and not fits_one_based:
             warnings.warn(
-                "face_node_connectivity start_index metadata is inconsistent with "
-                "the connectivity values; falling back to inferred start_index=0"
+                'face_node_connectivity start_index metadata is inconsistent with '
+                'the connectivity values; falling back to inferred start_index=0'
             )
             return 0
 
         if fits_one_based and not fits_zero_based:
             warnings.warn(
-                "face_node_connectivity start_index metadata is inconsistent with "
-                "the connectivity values; falling back to inferred start_index=1"
+                'face_node_connectivity start_index metadata is inconsistent with '
+                'the connectivity values; falling back to inferred start_index=1'
             )
             return 1
 
         raise ValueError(
-            "face_node_connectivity start_index metadata is inconsistent with "
-            "the connectivity values"
+            'face_node_connectivity start_index metadata is inconsistent with '
+            'the connectivity values'
         )
 
     if fits_zero_based and not fits_one_based:
@@ -300,7 +313,7 @@ def _resolve_start_index(face_node_connectivity, fill_value, start_index, node_c
     if fits_zero_based and fits_one_based:
         return 0 if min_idx == 0 else 1
 
-    raise ValueError("face_node_connectivity contains out-of-range node indices")
+    raise ValueError('face_node_connectivity contains out-of-range node indices')
 
 
 def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
@@ -397,22 +410,39 @@ def ds_to_ESMFlocstream(ds):
 
 def ds_to_ESMFmesh(ds):
     """
-    Convert xarray DataSet or dictionary to ESMF.Mesh object.
+    Convert an xarray Dataset or dictionary to an ESMF.Mesh object.
+
+    The input may describe mesh coordinates explicitly using
+    ``node_lon``/``node_lat``, ``face_lon``/``face_lat``, and
+    ``face_node_connectivity`` variables, or through UGRID-style mesh topology
+    metadata. For topology-driven discovery, the dataset must include a variable
+    with ``cf_role="mesh_topology"`` and attributes pointing to
+    ``node_coordinates``, ``face_coordinates``, and ``face_node_connectivity``.
+
+    Both spherical lon/lat coordinates and Cartesian xyz coordinates are
+    supported. Homogeneous coordinate modes are required: node and face
+    coordinates must both be lon/lat or both be xyz. The face-node connectivity
+    array may define ``_FillValue`` for padded entries and ``start_index`` for
+    0-based or 1-based indexing.
+
+    Currently this converter is intended for face-centered mesh input and returns
+    a shape of ``(1, n_face)``.
 
     Parameters
     ----------
-    ds : xarray DataSet or dictionary
-        Contains mesh coordinate and connectivity variables.
+    ds : xarray Dataset or dict-like
+        Dataset containing mesh coordinates and face-node connectivity.
 
     Returns
     -------
     mesh
-        ESMF.Mesh object
+        ESMF.Mesh object.
     shape
-        Shape of the mesh as ``(1, n_face)``
+        Mesh shape as ``(1, n_face)``.
     dim_names
-        Dimension names of the face coordinates
+        Dimension names of the face coordinates.
     """
+
     node_coord_type, node_coords = _get_node_coords(ds)
     face_coord_type, face_coords = _get_face_coords(ds)
     face_node_connectivity, fill_value, start_index = _get_face_node_connectivity(ds)
@@ -1184,6 +1214,17 @@ class Regridder(BaseRegridder):
             - 'patch'
             - 'nearest_s2d'
             - 'nearest_d2s'
+
+        mesh_in : bool, optional
+            If True, interpret ``ds_in`` as an unstructured mesh instead of a
+            structured grid or locstream. Mesh input currently supports face-centered
+            source data on mesh faces. The input dataset may use explicit mesh
+            variable names or UGRID-style topology metadata, as described by
+            ``ds_to_ESMFmesh``.
+
+            Supported methods for mesh input are ``"bilinear"``, ``"patch"``,
+            ``"nearest_s2d"``, and ``"nearest_d2s"``. Conservative methods are not
+            currently supported for mesh input.
 
         periodic : bool, optional
             Periodic in longitude? Default to False.
