@@ -112,6 +112,210 @@ def _get_lon_lat_bounds(ds):
     return lon_b, lat_b
 
 
+def _get_ugrid_topology(ds):
+    """Return the UGRID mesh topology variable extracted from ds, if present."""
+    for name in ds:
+        var = ds[name]
+        if getattr(var, 'attrs', {}).get('cf_role') == 'mesh_topology':
+            return var
+    return None
+
+
+def _get_node_coords(ds):
+    """Return node coordinate type and node coordinates extracted from ds."""
+    if ('node_lon' in ds and 'node_lat' in ds) or (
+        'node_lon' in ds.coords and 'node_lat' in ds.coords
+    ):
+        return 'latlon', (ds['node_lon'], ds['node_lat'])
+
+    if ('node_x' in ds and 'node_y' in ds and 'node_z' in ds) or (
+        'node_x' in ds.coords and 'node_y' in ds.coords and 'node_z' in ds.coords
+    ):
+        return 'xyz', (ds['node_x'], ds['node_y'], ds['node_z'])
+
+    topology = _get_ugrid_topology(ds)
+    if topology is not None:
+        node_coordinates = topology.attrs.get('node_coordinates')
+        if node_coordinates is None:
+            raise ValueError('mesh topology variable must define node_coordinates')
+
+        coord_names = node_coordinates.split()
+        if len(coord_names) == 2:
+            try:
+                return 'latlon', (ds[coord_names[0]], ds[coord_names[1]])
+            except KeyError as err:
+                raise ValueError(
+                    'mesh topology variable points to missing node coordinate variables'
+                ) from err
+
+        if len(coord_names) == 3:
+            try:
+                return 'xyz', (ds[coord_names[0]], ds[coord_names[1]], ds[coord_names[2]])
+            except KeyError as err:
+                raise ValueError(
+                    'mesh topology variable points to missing node coordinate variables'
+                ) from err
+
+        raise ValueError('mesh topology variable must define two or three node_coordinates')
+
+    raise ValueError(
+        'dataset must include node_lon/node_lat, node_x/node_y/node_z, ' 'or UGRID node_coordinates'
+    )
+
+
+def _get_face_coords(ds):
+    """Return face coordinate type and face coordinates extracted from ds."""
+    if ('face_lon' in ds and 'face_lat' in ds) or (
+        'face_lon' in ds.coords and 'face_lat' in ds.coords
+    ):
+        return 'latlon', (ds['face_lon'], ds['face_lat'])
+
+    if ('face_x' in ds and 'face_y' in ds and 'face_z' in ds) or (
+        'face_x' in ds.coords and 'face_y' in ds.coords and 'face_z' in ds.coords
+    ):
+        return 'xyz', (ds['face_x'], ds['face_y'], ds['face_z'])
+
+    topology = _get_ugrid_topology(ds)
+    if topology is not None:
+        face_coordinates = topology.attrs.get('face_coordinates')
+        if face_coordinates is None:
+            raise ValueError('mesh topology variable must define face_coordinates')
+
+        coord_names = face_coordinates.split()
+        if len(coord_names) == 2:
+            try:
+                return 'latlon', (ds[coord_names[0]], ds[coord_names[1]])
+            except KeyError as err:
+                raise ValueError(
+                    'mesh topology variable points to missing face coordinate variables'
+                ) from err
+
+        if len(coord_names) == 3:
+            try:
+                return 'xyz', (ds[coord_names[0]], ds[coord_names[1]], ds[coord_names[2]])
+            except KeyError as err:
+                raise ValueError(
+                    'mesh topology variable points to missing face coordinate variables'
+                ) from err
+
+        raise ValueError('mesh topology variable must define two or three face_coordinates')
+
+    raise ValueError(
+        'dataset must include face_lon/face_lat, face_x/face_y/face_z, ' 'or UGRID face_coordinates'
+    )
+
+
+def _get_face_node_connectivity(ds):
+    """Return face-node connectivity and related metadata extracted from ds."""
+    if 'face_node_connectivity' in ds:
+        face_node_connectivity = ds['face_node_connectivity']
+    else:
+        topology = _get_ugrid_topology(ds)
+        if topology is not None:
+            connectivity_name = topology.attrs.get('face_node_connectivity')
+            if connectivity_name is None:
+                raise ValueError('mesh topology variable must define face_node_connectivity')
+
+            try:
+                face_node_connectivity = ds[connectivity_name]
+            except KeyError as err:
+                raise ValueError(
+                    'mesh topology variable points to missing face-node connectivity variable'
+                ) from err
+        else:
+            raise ValueError(
+                'dataset must include face_node_connectivity or UGRID face_node_connectivity metadata'
+            )
+
+    fill_value = getattr(face_node_connectivity, 'attrs', {}).get('_FillValue', -1)
+    start_index = getattr(face_node_connectivity, 'attrs', {}).get('start_index', None)
+
+    return face_node_connectivity, fill_value, start_index
+
+
+def _get_face_dim_names(face_coords):
+    """Return face coordinate dimension names when available.
+
+    If the first face coordinate has xarray-style ``dims`` metadata, those
+    dimension names are returned. Otherwise return ``None``.
+    """
+
+    first = face_coords[0]
+    if hasattr(first, 'dims'):
+        return first.dims
+    return None
+
+
+def _resolve_start_index(face_node_connectivity, fill_value, start_index, node_coords):
+    """Resolve a reliable start_index from connectivity values and metadata.
+
+    The returned value is either 0 or 1. If metadata is missing, the start index is
+    inferred from the valid connectivity range. If metadata is present but
+    inconsistent with the connectivity values, this function warns and falls back
+    to the indexing convention implied by the values when possible.
+    """
+
+    conn = np.asarray(face_node_connectivity)
+    valid = conn != fill_value
+    valid_conn = conn[valid]
+
+    if valid_conn.size == 0:
+        raise ValueError('face_node_connectivity contains no valid entries')
+
+    node_sizes = {np.asarray(coord).size for coord in node_coords}
+    if len(node_sizes) != 1:
+        raise ValueError('node coordinate arrays must have the same size')
+    n_nodes = node_sizes.pop()
+
+    min_idx = valid_conn.min()
+    max_idx = valid_conn.max()
+
+    fits_zero_based = min_idx >= 0 and max_idx < n_nodes
+    fits_one_based = min_idx >= 1 and max_idx <= n_nodes
+
+    if start_index is not None:
+        start_index = int(start_index)
+
+        if start_index not in (0, 1):
+            raise ValueError('face_node_connectivity start_index must be 0 or 1')
+
+        if start_index == 0 and fits_zero_based:
+            return 0
+
+        if start_index == 1 and fits_one_based:
+            return 1
+
+        if fits_zero_based and not fits_one_based:
+            warnings.warn(
+                'face_node_connectivity start_index metadata is inconsistent with '
+                'the connectivity values; falling back to inferred start_index=0'
+            )
+            return 0
+
+        if fits_one_based and not fits_zero_based:
+            warnings.warn(
+                'face_node_connectivity start_index metadata is inconsistent with '
+                'the connectivity values; falling back to inferred start_index=1'
+            )
+            return 1
+
+        raise ValueError(
+            'face_node_connectivity start_index metadata is inconsistent with '
+            'the connectivity values'
+        )
+
+    if fits_zero_based and not fits_one_based:
+        return 0
+
+    if fits_one_based and not fits_zero_based:
+        return 1
+
+    if fits_zero_based and fits_one_based:
+        return 0 if min_idx == 0 else 1
+
+    raise ValueError('face_node_connectivity contains out-of-range node indices')
+
+
 def ds_to_ESMFgrid(ds, need_bounds=False, periodic=None, append=None):
     """
     Convert xarray DataSet or dictionary to ESMF.Grid object.
@@ -202,6 +406,91 @@ def ds_to_ESMFlocstream(ds):
     locstream = LocStream.from_xarray(lon, lat)
 
     return locstream, (1,) + lon.shape, dim_names
+
+
+def ds_to_ESMFmesh(ds):
+    """
+    Convert an xarray Dataset or dictionary to an ESMF.Mesh object.
+
+    The input may describe mesh coordinates explicitly using
+    ``node_lon``/``node_lat``, ``face_lon``/``face_lat``, and
+    ``face_node_connectivity`` variables, or through UGRID-style mesh topology
+    metadata. For topology-driven discovery, the dataset must include a variable
+    with ``cf_role="mesh_topology"`` and attributes pointing to
+    ``node_coordinates``, ``face_coordinates``, and ``face_node_connectivity``.
+
+    Both spherical lon/lat coordinates and Cartesian xyz coordinates are
+    supported. Homogeneous coordinate modes are required: node and face
+    coordinates must both be lon/lat or both be xyz. The face-node connectivity
+    array may define ``_FillValue`` for padded entries and ``start_index`` for
+    0-based or 1-based indexing.
+
+    Currently this converter is intended for face-centered mesh input and returns
+    a shape of ``(1, n_face)``.
+
+    Parameters
+    ----------
+    ds : xarray Dataset or dict-like
+        Dataset containing mesh coordinates and face-node connectivity.
+
+    Returns
+    -------
+    mesh
+        ESMF.Mesh object.
+    shape
+        Mesh shape as ``(1, n_face)``.
+    dim_names
+        Dimension names of the face coordinates.
+    """
+
+    node_coord_type, node_coords = _get_node_coords(ds)
+    face_coord_type, face_coords = _get_face_coords(ds)
+    face_node_connectivity, fill_value, start_index = _get_face_node_connectivity(ds)
+    start_index = _resolve_start_index(
+        face_node_connectivity,
+        fill_value,
+        start_index,
+        node_coords,
+    )
+    dim_names = _get_face_dim_names(face_coords)
+
+    if node_coord_type == 'latlon' and face_coord_type == 'latlon':
+        node_lon, node_lat = node_coords
+        face_lon, face_lat = face_coords
+
+        mesh = Mesh.from_ugrid(
+            np.asarray(node_lon),
+            np.asarray(node_lat),
+            np.asarray(face_node_connectivity),
+            np.asarray(face_lon),
+            np.asarray(face_lat),
+            fill_value=fill_value,
+            start_index=start_index,
+        )
+
+        return mesh, (1, np.asarray(face_lon).size), dim_names
+
+    if node_coord_type == 'xyz' and face_coord_type == 'xyz':
+        node_x, node_y, node_z = node_coords
+        face_x, face_y, face_z = face_coords
+
+        mesh = Mesh.from_ugrid_xyz(
+            np.asarray(node_x),
+            np.asarray(node_y),
+            np.asarray(node_z),
+            np.asarray(face_node_connectivity),
+            np.asarray(face_x),
+            np.asarray(face_y),
+            np.asarray(face_z),
+            fill_value=fill_value,
+            start_index=start_index,
+        )
+
+        return mesh, (1, np.asarray(face_x).size), dim_names
+
+    raise ValueError(
+        'mesh input currently supports only homogeneous lat/lon or xyz node and face coordinates'
+    )
 
 
 def polys_to_ESMFmesh(polys):
@@ -879,6 +1168,8 @@ class Regridder(BaseRegridder):
         method,
         locstream_in=False,
         locstream_out=False,
+        mesh_in=False,
+        mesh_out=False,
         periodic=False,
         parallel=False,
         **kwargs,
@@ -923,6 +1214,17 @@ class Regridder(BaseRegridder):
             - 'patch'
             - 'nearest_s2d'
             - 'nearest_d2s'
+
+        mesh_in : bool, optional
+            If True, interpret ``ds_in`` as an unstructured mesh instead of a
+            structured grid or locstream. Mesh input currently supports face-centered
+            source data on mesh faces. The input dataset may use explicit mesh
+            variable names or UGRID-style topology metadata, as described by
+            ``ds_to_ESMFmesh``.
+
+            Supported methods for mesh input are ``"bilinear"``, ``"patch"``,
+            ``"nearest_s2d"``, and ``"nearest_d2s"``. Conservative methods are not
+            currently supported for mesh input.
 
         periodic : bool, optional
             Periodic in longitude? Default to False.
@@ -1018,8 +1320,11 @@ class Regridder(BaseRegridder):
         regridder : xESMF regridder object
         """
         methods_avail_ls_in = ['nearest_s2d', 'nearest_d2s']
+        methods_avail_mesh_in = ['bilinear', 'patch', 'nearest_s2d', 'nearest_d2s']
         methods_avail_ls_out = ['bilinear', 'patch'] + methods_avail_ls_in
 
+        if mesh_in and method not in methods_avail_mesh_in:
+            raise ValueError(f'mesh input is only available for method in {methods_avail_mesh_in}')
         if locstream_in and method not in methods_avail_ls_in:
             raise ValueError(
                 f'locstream input is only available for method in {methods_avail_ls_in}'
@@ -1028,6 +1333,12 @@ class Regridder(BaseRegridder):
             raise ValueError(
                 f'locstream output is only available for method in {methods_avail_ls_out}'
             )
+        if mesh_out:
+            raise ValueError('mesh output is not implemented yet')
+        if mesh_in and method in ['conservative', 'conservative_normed']:
+            raise ValueError('conservative regridding for mesh input is not implemented yet')
+        if mesh_in and parallel:
+            raise ValueError('parallel weight generation for mesh input is not implemented yet')
 
         reuse_weights = kwargs.get('reuse_weights', False)
 
@@ -1056,6 +1367,8 @@ class Regridder(BaseRegridder):
         # Construct ESMF grid, with some shape checking
         if locstream_in:
             grid_in, shape_in, input_dims = ds_to_ESMFlocstream(ds_in)
+        elif mesh_in:
+            grid_in, shape_in, input_dims = ds_to_ESMFmesh(ds_in)
         else:
             grid_in, shape_in, input_dims = ds_to_ESMFgrid(
                 ds_in, need_bounds=need_bounds, periodic=periodic

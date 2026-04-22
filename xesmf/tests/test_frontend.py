@@ -99,6 +99,86 @@ polys_raw = [
 ]
 
 
+# Create synthetic mesh for tests.
+mesh_nx = 4
+mesh_ny = 4
+mesh_fill_value = -1
+
+mesh_lon_vals = np.linspace(0.0, 3.0, mesh_nx, dtype=np.float64)
+mesh_lat_vals = np.linspace(0.0, 3.0, mesh_ny, dtype=np.float64)
+mesh_lon2d, mesh_lat2d = np.meshgrid(mesh_lon_vals, mesh_lat_vals, indexing='xy')
+
+mesh_faces = []
+for j in range(mesh_ny - 1):
+    for i in range(mesh_nx - 1):
+        n00 = j * mesh_nx + i
+        n10 = n00 + 1
+        n01 = (j + 1) * mesh_nx + i
+        n11 = n01 + 1
+        mesh_faces.extend([[n00, n10, n11], [n00, n11, n01]])
+
+mesh_face_node_connectivity = np.full((len(mesh_faces), 4), mesh_fill_value, dtype=np.int64)
+for k, face in enumerate(mesh_faces):
+    mesh_face_node_connectivity[k, : len(face)] = face
+
+ds_mesh = xr.Dataset(
+    coords={
+        'node_lon': ('n_node', mesh_lon2d.ravel()),
+        'node_lat': ('n_node', mesh_lat2d.ravel()),
+        'face_lon': (
+            'n_face',
+            np.asarray([mesh_lon2d.ravel()[face].mean() for face in mesh_faces], dtype=np.float64),
+        ),
+        'face_lat': (
+            'n_face',
+            np.asarray([mesh_lat2d.ravel()[face].mean() for face in mesh_faces], dtype=np.float64),
+        ),
+    },
+    data_vars={
+        'face_node_connectivity': (
+            ('n_face', 'n_max_face_nodes'),
+            mesh_face_node_connectivity,
+            {'_FillValue': mesh_fill_value},
+        ),
+    },
+)
+
+ds_mesh['data'] = (
+    'n_face',
+    xe.data.wave_smooth(ds_mesh['face_lon'], ds_mesh['face_lat']).data,
+)
+
+
+# mesh with xyz for tests;
+mesh_node_lon_rad = np.radians(ds_mesh['node_lon'].values)
+mesh_node_lat_rad = np.radians(ds_mesh['node_lat'].values)
+
+mesh_face_lon_rad = np.radians(ds_mesh['face_lon'].values)
+mesh_face_lat_rad = np.radians(ds_mesh['face_lat'].values)
+
+ds_mesh_xyz = xr.Dataset(
+    coords={
+        'node_x': ('n_node', np.cos(mesh_node_lat_rad) * np.cos(mesh_node_lon_rad)),
+        'node_y': ('n_node', np.cos(mesh_node_lat_rad) * np.sin(mesh_node_lon_rad)),
+        'node_z': ('n_node', np.sin(mesh_node_lat_rad)),
+        'face_x': ('n_face', np.cos(mesh_face_lat_rad) * np.cos(mesh_face_lon_rad)),
+        'face_y': ('n_face', np.cos(mesh_face_lat_rad) * np.sin(mesh_face_lon_rad)),
+        'face_z': ('n_face', np.sin(mesh_face_lat_rad)),
+    },
+    data_vars={
+        'face_node_connectivity': (
+            ('n_face', 'n_max_face_nodes'),
+            ds_mesh['face_node_connectivity'].data.copy(),
+            ds_mesh['face_node_connectivity'].attrs.copy(),
+        ),
+        'data': (
+            'n_face',
+            ds_mesh['data'].data.copy(),
+        ),
+    },
+)
+
+
 def _segmentize(p):
     if isinstance(p, list):
         return list(map(_segmentize, p))
@@ -527,6 +607,22 @@ def test_regrid_dataarray_from_locstream():
         regridder = xe.Regridder(ds_locs, ds_in, 'conservative', locstream_in=True)
 
 
+def test_regrid_dataarray_from_mesh():
+    ds_grid = xr.Dataset(
+        coords={
+            'lon': ds_out['lon'],
+            'lat': ds_out['lat'],
+        }
+    )
+
+    regridder = xe.Regridder(ds_mesh, ds_grid, 'bilinear', mesh_in=True)
+    out = regridder(ds_mesh['data'])
+
+    assert out.dims == ds_grid['lon'].dims
+    assert out.shape == ds_grid['lon'].shape
+    assert np.isfinite(out.values).any()
+
+
 @pytest.mark.parametrize('scheduler', dask_schedulers)
 def test_regrid_dask(request, scheduler):
     # chunked dask array (no xarray metadata)
@@ -860,6 +956,201 @@ def test_ds_to_ESMFlocstream():
     ds_bogus['lon'] = ds_locs['lon']
     with pytest.raises(ValueError):
         locstream, shape, names = ds_to_ESMFlocstream(ds_bogus)
+
+
+def test_ds_to_ESMFmesh():
+    # Mesh explicit path test
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    try:
+        import esmpy as ESMF
+    except ImportError:
+        import ESMF
+
+    mesh, shape, names = ds_to_ESMFmesh(ds_mesh)
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds_mesh.sizes['n_face'])
+    assert names == ('n_face',)
+
+    mesh.destroy()
+
+
+def test_ds_to_ESMFmesh_with_ugrid_topology():
+    # Test ugrid topology
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    try:
+        import esmpy as ESMF
+    except ImportError:
+        import ESMF
+
+    ds_mesh_topology = ds_mesh.rename(
+        {
+            'node_lon': 'mesh_node_x',
+            'node_lat': 'mesh_node_y',
+            'face_lon': 'mesh_face_x',
+            'face_lat': 'mesh_face_y',
+            'face_node_connectivity': 'mesh_face_nodes',
+        }
+    )
+
+    ds_mesh_topology['mesh'] = xr.DataArray(
+        data=0,
+        attrs={
+            'cf_role': 'mesh_topology',
+            'node_coordinates': 'mesh_node_x mesh_node_y',
+            'face_coordinates': 'mesh_face_x mesh_face_y',
+            'face_node_connectivity': 'mesh_face_nodes',
+        },
+    )
+
+    mesh, shape, names = ds_to_ESMFmesh(ds_mesh_topology)
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds_mesh_topology.sizes['n_face'])
+    assert names == ('n_face',)
+
+    mesh.destroy()
+
+
+@pytest.mark.parametrize(
+    'node_coordinates,match',
+    [
+        (None, 'node_coordinates'),
+        ('mesh_node_x missing_node_y', 'missing node coordinate variables'),
+    ],
+)
+def test_ds_to_ESMFmesh_with_invalid_ugrid_topology(node_coordinates, match):
+    """This test covers both when topology info is missing(node coordinates) and
+    when it's provided with wrong values"""
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    ds_mesh_topology = ds_mesh.rename(
+        {
+            'node_lon': 'mesh_node_x',
+            'node_lat': 'mesh_node_y',
+            'face_lon': 'mesh_face_x',
+            'face_lat': 'mesh_face_y',
+            'face_node_connectivity': 'mesh_face_nodes',
+        }
+    )
+
+    attrs = {
+        'cf_role': 'mesh_topology',
+        'face_coordinates': 'mesh_face_x mesh_face_y',
+        'face_node_connectivity': 'mesh_face_nodes',
+    }
+    # First one is with missing node coordinates
+    if node_coordinates is not None:
+        attrs['node_coordinates'] = node_coordinates
+
+    ds_mesh_topology['mesh'] = xr.DataArray(data=0, attrs=attrs)
+
+    with pytest.raises(ValueError, match=match):
+        ds_to_ESMFmesh(ds_mesh_topology)
+
+
+def test_ds_to_ESMFmesh_overrides_with_invalid_topology():
+    """If explicit mesh variables are present in the dataset, invalid mesh_topology
+    metadata should not prevent mesh construction. Connectivity with
+    1-based indexing should also be accepted when start_index=1 is provided."""
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    try:
+        import esmpy as ESMF
+    except ImportError:
+        import ESMF
+
+    ds = ds_mesh.copy()
+
+    fill_value = ds['face_node_connectivity'].attrs.get('_FillValue', -1)
+    connectivity = ds['face_node_connectivity'].data.copy()
+    valid = connectivity != fill_value
+    connectivity[valid] += 1
+
+    ds['face_node_connectivity'] = xr.DataArray(
+        connectivity,
+        dims=ds['face_node_connectivity'].dims,
+        attrs={
+            **ds['face_node_connectivity'].attrs,
+            'start_index': 1,
+        },
+    )
+
+    ds['mesh'] = xr.DataArray(
+        data=0,
+        attrs={
+            'cf_role': 'mesh_topology',
+            'node_coordinates': 'missing_node_x missing_node_y',
+            'face_coordinates': 'missing_face_x missing_face_y',
+            'face_node_connectivity': 'missing_face_nodes',
+        },
+    )
+
+    mesh, shape, names = ds_to_ESMFmesh(ds)
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds.sizes['n_face'])
+    assert names == ('n_face',)
+
+    mesh.destroy()
+
+
+def test_ds_to_ESMFmesh_with_xyz():
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    try:
+        import esmpy as ESMF
+    except ImportError:
+        import ESMF
+
+    mesh, shape, names = ds_to_ESMFmesh(ds_mesh_xyz)
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds_mesh_xyz.sizes['n_face'])
+    assert names == ('n_face',)
+
+    mesh.destroy()
+
+
+def test_ds_to_ESMFmesh_with_xyz_ugrid_topology():
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    try:
+        import esmpy as ESMF
+    except ImportError:
+        import ESMF
+
+    ds_mesh_xyz_topology = ds_mesh_xyz.rename(
+        {
+            'node_x': 'mesh_node_x',
+            'node_y': 'mesh_node_y',
+            'node_z': 'mesh_node_z',
+            'face_x': 'mesh_face_x',
+            'face_y': 'mesh_face_y',
+            'face_z': 'mesh_face_z',
+            'face_node_connectivity': 'mesh_face_nodes',
+        }
+    )
+
+    ds_mesh_xyz_topology['mesh'] = xr.DataArray(
+        data=0,
+        attrs={
+            'cf_role': 'mesh_topology',
+            'node_coordinates': 'mesh_node_x mesh_node_y mesh_node_z',
+            'face_coordinates': 'mesh_face_x mesh_face_y mesh_face_z',
+            'face_node_connectivity': 'mesh_face_nodes',
+        },
+    )
+
+    mesh, shape, names = ds_to_ESMFmesh(ds_mesh_xyz_topology)
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds_mesh_xyz_topology.sizes['n_face'])
+    assert names == ('n_face',)
+
+    mesh.destroy()
 
 
 @pytest.mark.parametrize('use_dask', [True, False])
