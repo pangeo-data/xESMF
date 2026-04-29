@@ -123,6 +123,13 @@ def _get_ugrid_topology(ds):
 
 def _get_node_coords(ds):
     """Return node coordinate type and node coordinates extracted from ds."""
+    if hasattr(ds, 'uxgrid'):
+        if all(hasattr(ds.uxgrid, name) for name in ('node_lon', 'node_lat')):
+            return 'latlon', (ds.uxgrid.node_lon, ds.uxgrid.node_lat)
+
+        if all(hasattr(ds.uxgrid, name) for name in ('node_x', 'node_y', 'node_z')):
+            return 'xyz', (ds.uxgrid.node_x, ds.uxgrid.node_y, ds.uxgrid.node_z)
+
     if ('node_lon' in ds and 'node_lat' in ds) or (
         'node_lon' in ds.coords and 'node_lat' in ds.coords
     ):
@@ -165,6 +172,13 @@ def _get_node_coords(ds):
 
 def _get_face_coords(ds):
     """Return face coordinate type and face coordinates extracted from ds."""
+    if hasattr(ds, 'uxgrid'):
+        if all(hasattr(ds.uxgrid, name) for name in ('face_lon', 'face_lat')):
+            return 'latlon', (ds.uxgrid.face_lon, ds.uxgrid.face_lat)
+
+        if all(hasattr(ds.uxgrid, name) for name in ('face_x', 'face_y', 'face_z')):
+            return 'xyz', (ds.uxgrid.face_x, ds.uxgrid.face_y, ds.uxgrid.face_z)
+
     if ('face_lon' in ds and 'face_lat' in ds) or (
         'face_lon' in ds.coords and 'face_lat' in ds.coords
     ):
@@ -207,6 +221,12 @@ def _get_face_coords(ds):
 
 def _get_face_node_connectivity(ds):
     """Return face-node connectivity and related metadata extracted from ds."""
+    if hasattr(ds, 'uxgrid') and hasattr(ds.uxgrid, 'face_node_connectivity'):
+        face_node_connectivity = ds.uxgrid.face_node_connectivity
+        fill_value = getattr(face_node_connectivity, 'attrs', {}).get('_FillValue', -1)
+        start_index = getattr(face_node_connectivity, 'attrs', {}).get('start_index', None)
+        return face_node_connectivity, fill_value, start_index
+
     if 'face_node_connectivity' in ds:
         face_node_connectivity = ds['face_node_connectivity']
     else:

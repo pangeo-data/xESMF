@@ -494,13 +494,15 @@ class Mesh(ESMF.Mesh):
         node_num = sum(len(e.exterior.coords) - 1 for e in polys)
         elem_num = len(polys)
 
+        # Pre alloc arrays. Special structure for coords makes the code faster.
         crd_dt = np.dtype([('x', np.float32), ('y', np.float32)])
         node_coords = np.empty(node_num, dtype=crd_dt)
-        node_coords[:] = (np.nan, np.nan)
+        node_coords[:] = (np.nan, np.nan)  # Fill with impossible values
 
         element_types = np.empty(elem_num, dtype=np.uint32)
         element_conn = np.empty(node_num, dtype=np.uint32)
 
+        # Flag for centroid calculation
         calc_centroid = isinstance(element_coords, str) and element_coords == 'centroid'
         if calc_centroid:
             element_coords = np.empty(elem_num, dtype=crd_dt)
@@ -513,17 +515,17 @@ class Mesh(ESMF.Mesh):
                 element_coords[ipoly] = poly.centroid.coords[0]
             element_types[ipoly] = len(ring.coords) - 1
             for coord in ring.coords[:-1] if ring.is_ccw else ring.coords[:0:-1]:
-                crd = np.asarray(coord, dtype=crd_dt)
+                crd = np.asarray(coord, dtype=crd_dt)  # Cast so we can compare
                 node_index = np.where(node_coords == crd)[0]
-                if node_index.size == 0:
+                if node_index.size == 0:  # New node
                     node_coords[inode] = crd
                     element_conn[iconn] = inode
                     inode += 1
-                else:
+                else:  # Node already exists
                     element_conn[iconn] = node_index[0]
                 iconn += 1
 
-        node_num = inode
+        node_num = inode  # With duplicate nodes, inode < node_num
 
         mesh = cls(2, 2, coord_sys=ESMF.CoordSys.SPH_DEG)
         mesh.add_nodes(
