@@ -162,8 +162,9 @@ def apply_weights(weights, indata, shape_in, shape_out):
 
     Parameters
     ----------
-    weights : sparse COO matrix
-      Regridding weights.
+    weights : sparse COO matrix of shape ``(n_out, n_in)`` (2D) OR
+        ``(ny_out, nx_out, ny_in, nx_in)`` (4D, legacy). 2D is preferred —
+        passing 4D triggers a flatten-to-2D step here.
     indata : numpy array of shape ``(..., n_lat, n_lon)`` or ``(..., n_y, n_x)``.
         Should be C-ordered. Will be then tranposed to F-ordered.
     shape_in, shape_out : tuple of two integers
@@ -186,12 +187,23 @@ def apply_weights(weights, indata, shape_in, shape_out):
     except (NotImplementedError, nb.core.errors.NumbaError):
         indata = indata.astype('<f8')  # On the fly conversion
 
-    # Dot product
-    outdata = np.tensordot(
-        indata,
-        weights,
-        axes=((indata.ndim - 2, indata.ndim - 1), (weights.ndim - 2, weights.ndim - 1)),
-    )
+    if weights.ndim == 4:
+        # Dask path: weights chunked as (ny_out, nx_out, ny_in, nx_in). Keep
+        # the original 2-axis tensordot so dask graph structure and
+        # per-chunk matmul are preserved.
+        outdata = np.tensordot(
+            indata,
+            weights,
+            axes=((indata.ndim - 2, indata.ndim - 1), (weights.ndim - 2, weights.ndim - 1)),
+        )
+    else:
+        # Numpy path: weights stay 2D (n_out, n_in). Contract on a single
+        # flat spatial axis rather than two; saves one sparse transpose +
+        # reshape per call (sparse.tensordot transposes/reshapes its
+        # operands even when the target shape is already canonical).
+        n_in = shape_in[0] * shape_in[1]
+        indata_flat = indata.reshape(*extra_shape, n_in)
+        outdata = np.tensordot(indata_flat, weights, axes=((-1,), (1,)))
 
     # Ensure same dtype as the input.
     outdata = outdata.astype(indata_dtype)
