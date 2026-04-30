@@ -13,6 +13,11 @@ from packaging.version import Version
 from shapely import segmentize
 from shapely.geometry import MultiPolygon, Polygon
 
+try:
+    import esmpy as ESMF
+except ImportError:
+    import ESMF
+
 import xesmf as xe
 from xesmf.frontend import as_2d_mesh
 
@@ -245,6 +250,7 @@ def test_regridder_w():
     assert averager.w.shape == (2,) + ds_in_cf.lat.shape + ds_in_cf.lon.shape
 
 
+@pytest.mark.skipif(not ESMF.api.constants._ESMF_PIO, reason='ESMF without parallel I/O')
 @pytest.mark.parametrize('unmapped_to_nan', [True, False])
 def test_to_netcdf(tmp_path, unmapped_to_nan):
     from xesmf.backend import Grid, esmf_regrid_build
@@ -840,11 +846,6 @@ def test_regrid_dataset_from_locstream():
 
 
 def test_ds_to_ESMFlocstream():
-    try:
-        import esmpy as ESMF
-    except ImportError:
-        import ESMF
-
     from xesmf.frontend import ds_to_ESMFlocstream
 
     locstream, shape, names = ds_to_ESMFlocstream(ds_locs)
@@ -945,11 +946,6 @@ def test_compare_weights_from_poly_and_grid():
 
 
 def test_polys_to_ESMFmesh():
-    try:
-        import esmpy as ESMF
-    except ImportError:
-        import ESMF
-
     from xesmf.frontend import polys_to_ESMFmesh
 
     # No overlap but multi + holes
