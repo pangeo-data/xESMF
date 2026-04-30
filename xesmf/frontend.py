@@ -987,8 +987,11 @@ class BaseRegridder(object):
 
         kwargs.update(skipna=skipna, na_thres=na_thres)
 
-        weights = self.weights.data.reshape(self.shape_out + self.shape_in)
         if isinstance(indata, dask_array_type):  # dask
+            # Dask path: keep weights reshaped to 4D so the chunk layout
+            # (ny_out, nx_out, ny_in, nx_in) matches the spatial dims on
+            # both input and output, one chunk per output block × input block.
+            weights = self.weights.data.reshape(self.shape_out + self.shape_in)
             if output_chunks is None:
                 # Default : same chunk size as the input to preserve chunksize
                 # Unless the input is not chunked along the dimension (shape_in == in_chunk_size), in which case we do not chunk along the dimension
@@ -1023,8 +1026,8 @@ class BaseRegridder(object):
                     )
             weights = da.from_array(weights, chunks=(output_chunks + indata.chunksize[-2:]))
             outdata = self._regrid(indata, weights, **kwargs)
-        else:  # numpy
-            outdata = self._regrid(indata, weights, **kwargs)
+        else:  # numpy — keep weights 2D; apply_weights does flat contraction
+            outdata = self._regrid(indata, self.weights.data, **kwargs)
         return outdata
 
     def regrid_numpy(self, indata, **kwargs):
