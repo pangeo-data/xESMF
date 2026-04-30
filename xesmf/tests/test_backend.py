@@ -14,6 +14,7 @@ import xesmf as xe
 from xesmf.backend import (
     Grid,
     LocStream,
+    Mesh,
     add_corner,
     esmf_regrid_apply,
     esmf_regrid_build,
@@ -49,6 +50,53 @@ ds_in.coords['time'] = np.arange(1, 11)
 ds_in.coords['lev'] = np.arange(1, 51)
 ds_in['data4D'] = ds_in['time'] * ds_in['lev'] * ds_in['data']
 data4D_in = ds_in['data4D'].values
+
+# synthetic unstructured mesh for tests - triangle only (same mesh defined in test_frontend.py )
+mesh_nx = 4
+mesh_ny = 4
+mesh_fill_value = -1
+
+mesh_lon_vals = np.linspace(0.0, 3.0, mesh_nx, dtype=np.float64)
+mesh_lat_vals = np.linspace(0.0, 3.0, mesh_ny, dtype=np.float64)
+mesh_lon2d, mesh_lat2d = np.meshgrid(mesh_lon_vals, mesh_lat_vals, indexing='xy')
+
+mesh_node_lon = mesh_lon2d.ravel()
+mesh_node_lat = mesh_lat2d.ravel()
+
+mesh_faces = []
+for j in range(mesh_ny - 1):
+    for i in range(mesh_nx - 1):
+        n00 = j * mesh_nx + i
+        n10 = n00 + 1
+        n01 = (j + 1) * mesh_nx + i
+        n11 = n01 + 1
+        mesh_faces.extend([[n00, n10, n11], [n00, n11, n01]])
+
+mesh_face_node_connectivity = np.full((len(mesh_faces), 4), mesh_fill_value, dtype=np.int64)
+for k, face in enumerate(mesh_faces):
+    mesh_face_node_connectivity[k, : len(face)] = face
+
+mesh_face_lon = np.asarray(
+    [mesh_node_lon[face].mean() for face in mesh_faces],
+    dtype=np.float64,
+)
+mesh_face_lat = np.asarray(
+    [mesh_node_lat[face].mean() for face in mesh_faces],
+    dtype=np.float64,
+)
+
+mesh_node_lon_rad = np.radians(mesh_node_lon)
+mesh_node_lat_rad = np.radians(mesh_node_lat)
+mesh_face_lon_rad = np.radians(mesh_face_lon)
+mesh_face_lat_rad = np.radians(mesh_face_lat)
+
+mesh_node_x = np.cos(mesh_node_lat_rad) * np.cos(mesh_node_lon_rad)
+mesh_node_y = np.cos(mesh_node_lat_rad) * np.sin(mesh_node_lon_rad)
+mesh_node_z = np.sin(mesh_node_lat_rad)
+
+mesh_face_x = np.cos(mesh_face_lat_rad) * np.cos(mesh_face_lon_rad)
+mesh_face_y = np.cos(mesh_face_lat_rad) * np.sin(mesh_face_lon_rad)
+mesh_face_z = np.sin(mesh_face_lat_rad)
 
 
 def test_warn_f_on_array():
@@ -118,6 +166,52 @@ def test_esmf_build_bilinear():
     regrid.dstfield.grid is grid_out
 
     esmf_regrid_finalize(regrid)
+
+
+def test_esmf_build_bilinear_mesh_to_grid():
+    mesh = Mesh.from_ugrid(
+        mesh_node_lon,
+        mesh_node_lat,
+        mesh_face_node_connectivity,
+        mesh_face_lon,
+        mesh_face_lat,
+        fill_value=mesh_fill_value,
+    )
+    grid = Grid.from_xarray(lon_out.T, lat_out.T)
+
+    regrid = esmf_regrid_build(mesh, grid, 'bilinear')
+
+    assert regrid.unmapped_action is ESMF.UnmappedAction.IGNORE
+    assert regrid.regrid_method is ESMF.RegridMethod.BILINEAR
+    assert regrid.srcfield.grid is mesh
+    assert regrid.dstfield.grid is grid
+
+    esmf_regrid_finalize(regrid)
+    mesh.destroy()
+
+
+def test_esmf_build_bilinear_mesh_xyz_to_grid():
+    mesh = Mesh.from_ugrid_xyz(
+        mesh_node_x,
+        mesh_node_y,
+        mesh_node_z,
+        mesh_face_node_connectivity,
+        mesh_face_x,
+        mesh_face_y,
+        mesh_face_z,
+        fill_value=mesh_fill_value,
+    )
+    grid = Grid.from_xarray(lon_out.T, lat_out.T)
+
+    regrid = esmf_regrid_build(mesh, grid, 'bilinear')
+
+    assert regrid.unmapped_action is ESMF.UnmappedAction.IGNORE
+    assert regrid.regrid_method is ESMF.RegridMethod.BILINEAR
+    assert regrid.srcfield.grid is mesh
+    assert regrid.dstfield.grid is grid
+
+    esmf_regrid_finalize(regrid)
+    mesh.destroy()
 
 
 def test_esmf_extrapolation():
@@ -277,6 +371,42 @@ def test_esmf_locstream():
     grid_in = Grid.from_xarray(lon_in.T, lat_in.T, periodic=True)
     esmf_regrid_build(grid_in, ls, 'bilinear')
     esmf_regrid_build(ls, grid_in, 'nearest_s2d')
+
+
+def test_esmf_mesh_from_ugrid():
+    mesh = Mesh.from_ugrid(
+        mesh_node_lon,
+        mesh_node_lat,
+        mesh_face_node_connectivity,
+        mesh_face_lon,
+        mesh_face_lat,
+        fill_value=mesh_fill_value,
+    )
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert mesh.element_count == len(mesh_faces)
+    assert mesh.size[ESMF.MeshLoc.ELEMENT] == len(mesh_faces)
+
+    mesh.destroy()
+
+
+def test_esmf_mesh_from_ugrid_xyz():
+    mesh = Mesh.from_ugrid_xyz(
+        mesh_node_x,
+        mesh_node_y,
+        mesh_node_z,
+        mesh_face_node_connectivity,
+        mesh_face_x,
+        mesh_face_y,
+        mesh_face_z,
+        fill_value=mesh_fill_value,
+    )
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert mesh.element_count == len(mesh_faces)
+    assert mesh.size[ESMF.MeshLoc.ELEMENT] == len(mesh_faces)
+
+    mesh.destroy()
 
 
 def test_read_weights(tmp_path):
