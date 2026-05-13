@@ -344,6 +344,7 @@ def esmf_regrid_build(  # noqa: C901
 
         - 'bilinear'
         - 'conservative', **need grid corner information**
+        - 'conservative_2nd', **need grid corner information**
         - 'conservative_normed', **need grid corner information**
         - 'patch'
         - 'nearest_s2d'
@@ -419,6 +420,7 @@ def esmf_regrid_build(  # noqa: C901
     method_dict = {
         'bilinear': ESMF.RegridMethod.BILINEAR,
         'conservative': ESMF.RegridMethod.CONSERVE,
+        'conservative_2nd': ESMF.RegridMethod.CONSERVE_2ND,
         'conservative_normed': ESMF.RegridMethod.CONSERVE,
         'patch': ESMF.RegridMethod.PATCH,
         'nearest_s2d': ESMF.RegridMethod.NEAREST_STOD,
@@ -449,7 +451,7 @@ def esmf_regrid_build(  # noqa: C901
             raise ValueError(
                 '`extrap_num_levels` must be provided when `extrap_method="creep_fill"`.'
             )
-        if method in ['conservative', 'conservative_normed']:
+        if method in ['conservative', 'conservative_2nd', 'conservative_normed']:
             raise ValueError(
                 '`extrap_method="creep_fill"` is not supported with conservative regridding methods.'
             )
@@ -459,7 +461,7 @@ def esmf_regrid_build(  # noqa: C901
         raise ValueError('`extrap_method` cannot be used along with `filename`.')
 
     # conservative regridding needs cell corner information
-    if method in ['conservative', 'conservative_normed']:
+    if method in ['conservative', 'conservative_2nd', 'conservative_normed']:
         if not isinstance(sourcegrid, ESMF.Mesh) and not sourcegrid.has_corners:
             raise ValueError(
                 'source grid has no corner information. ' 'cannot use conservative regridding.'
