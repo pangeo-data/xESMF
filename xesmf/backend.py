@@ -344,7 +344,7 @@ def esmf_regrid_build(  # noqa: C901
 
         - 'bilinear'
         - 'conservative', **need grid corner information**
-        - 'conservative_2nd', **need grid corner information**
+        - 'conservative_2nd', **need grid corner information; may overshoot**
         - 'conservative_normed', **need grid corner information**
         - 'patch'
         - 'nearest_s2d'

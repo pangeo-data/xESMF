@@ -267,7 +267,7 @@ class BaseRegridder(object):
 
             - 'bilinear'
             - 'conservative', **need grid corner information**
-            - 'conservative_2nd', **need grid corner information**
+            - 'conservative_2nd', **need grid corner information; may overshoot**
             - 'conservative_normed', **need grid corner information**
             - 'patch'
             - 'nearest_s2d'
@@ -924,7 +924,7 @@ class Regridder(BaseRegridder):
 
             - 'bilinear'
             - 'conservative', **need grid corner information**
-            - 'conservative_2nd', **need grid corner information**
+            - 'conservative_2nd', **need grid corner information; may overshoot**
             - 'conservative_normed', **need grid corner information**
             - 'patch'
             - 'nearest_s2d'
