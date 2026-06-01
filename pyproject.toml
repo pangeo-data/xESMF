@@ -41,28 +41,32 @@ packages = [
   "xesmf",
   "xesmf.tests",
 ]
-license-files = [
-  "LICENSE",
-]
 dynamic.dependencies = { file = [
   "requirements.txt",
 ] }
 dynamic.readme = { file = "README.rst", content-type = "text/x-rst" }
+license-files = [
+  "LICENSE",
+]
 
 [tool.setuptools_scm]
+tag_regex = "^(?P<prefix>v)?(?P<version>[^\\+]+)(?P<suffix>.*)?$"
 write_to = "xesmf/_version.py"
 write_to_template = "__version__ = '{version}'"
-tag_regex = "^(?P<prefix>v)?(?P<version>[^\\+]+)(?P<suffix>.*)?$"
 
 [tool.black]
-line-length = 100
 target-version = [
   "py311",
 ]
+line-length = 100
 skip-string-normalization = true
 
 [tool.isort]
-known_first_party = "xesmf"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+combine_as_imports = true
 known_third_party = [
   "cf_xarray",
   "cftime",
@@ -74,14 +78,10 @@ known_third_party = [
   "sparse",
   "xarray",
 ]
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-combine_as_imports = true
-line_length = 100
+known_first_party = "xesmf"
 skip = [
-  "setup.py",
   "doc/conf.py",
+  "setup.py",
 ]
 
 [tool.pyproject-fmt]
