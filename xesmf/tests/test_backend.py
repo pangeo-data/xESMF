@@ -263,6 +263,7 @@ def test_esmf_extrapolation_creep_fill():
     esmf_regrid_finalize(regrid_creep_fill)
 
 
+@pytest.mark.skipif(not ESMF.api.constants._ESMF_PIO, reason='ESMF without parallel I/O')
 def test_regrid():
     # use conservative regridding as an example,
     # since it is the most well-tested studied one in papers
@@ -281,7 +282,7 @@ def test_regrid():
     add_corner(grid_in, lon_b_in.T, lat_b_in.T)
     add_corner(grid_out, lon_b_out.T, lat_b_out.T)
 
-    # also write to file for scipy regridding
+    # also write to file for regridding within xesmf
     filename = 'test_weights.nc'
     if os.path.exists(filename):
         os.remove(filename)
@@ -294,7 +295,7 @@ def test_regrid():
     rel_err = (data_out_esmpy - data_ref) / data_ref  # relative error
     assert np.max(np.abs(rel_err)) < 0.05
 
-    # apply regridding using scipy
+    # apply regridding using xesmf
     weights = read_weights(filename, lon_in.size, lon_out.size).data
     shape_in = lon_in.shape
     shape_out = lon_out.shape
@@ -306,7 +307,7 @@ def test_regrid():
 
     # finally, test broadcasting with scipy
     # TODO: need to test broadcasting with ESMPy backend?
-    # We only use Scipy in frontend, and ESMPy is just for backend benchmark
+    # We only use sparse matrices in frontend, and ESMPy is just for backend benchmark
     # However, it is useful to compare performance and show scipy is 3x faster
     data4D_out = apply_weights(w, data4D_in, shape_in, shape_out)
 
@@ -409,6 +410,7 @@ def test_esmf_mesh_from_ugrid_xyz():
     mesh.destroy()
 
 
+@pytest.mark.skipif(not ESMF.api.constants._ESMF_PIO, reason='ESMF without parallel I/O')
 def test_read_weights(tmp_path):
     fn = tmp_path / 'weights.nc'
 
