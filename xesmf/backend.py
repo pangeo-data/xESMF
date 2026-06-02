@@ -350,11 +350,9 @@ def esmf_regrid_build(  # noqa: C901
         - 'nearest_d2s'
 
     filename : str, optional
-        Offline weight file. **Require ESMPy 7.1.0.dev38 or newer.**
-        With the weights available, we can use Scipy's sparse matrix
-        multiplication to apply weights, which is faster and more Pythonic
-        than ESMPy's online regridding. If None, weights are stored in
-        memory only.
+        Save the weights to this netCDF file.
+        Require ESMPy 7.1.1 or newer and a parallel IO enabled ESMF.
+        Saving weights here is not needed for xESMF.
 
     extra_dims : a list of integers, optional
         Extra dimensions (e.g. time or levels) in the data field
@@ -533,7 +531,13 @@ def esmf_regrid_build(  # noqa: C901
     if vector_regrid:
         kwargs['vector_regrid'] = vector_regrid
 
-    regrid = ESMF.Regrid(sourcefield, destfield, **kwargs)
+    try:
+        regrid = ESMF.Regrid(sourcefield, destfield, **kwargs)
+    except ESMF.util.exceptions.PIOMissing as err:
+        raise ValueError(
+            'ESMF needs to be build with parallel-IO to be able to write weights to file. '
+            'You can either write the weights using xESMF instead or re-install ESMF.'
+        ) from err
 
     return regrid
 
