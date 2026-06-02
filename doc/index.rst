@@ -49,6 +49,7 @@ Contents
    notebooks/Reuse_regridder
    notebooks/Using_LocStream
    notebooks/Masking
+   notebooks/Unstructured_grid
    large_problems_on_HPC
    notebooks/Spatial_Averaging
 
