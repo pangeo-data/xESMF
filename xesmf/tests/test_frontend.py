@@ -214,6 +214,26 @@ def test_as_2d_mesh():
 methods_list = ['bilinear', 'conservative', 'nearest_s2d', 'nearest_d2s']
 
 
+def _smooth_integral_field(grid):
+    lon = np.deg2rad(grid['lon'])
+    lat = np.deg2rad(grid['lat'])
+    return 2 + np.exp(0.45 * np.sin(lon) + 0.25 * np.cos(2 * lon + lat) + 0.35 * np.sin(lat))
+
+
+def _area_integral(grid, field):
+    return float((field * xe.util.cell_area(grid)).sum())
+
+
+def _relative_integral_error(grid_in, field_in, grid_out, field_out):
+    return abs(_area_integral(grid_out, field_out) - _area_integral(grid_in, field_in)) / abs(
+        _area_integral(grid_in, field_in)
+    )
+
+
+def _rmse(actual, expected):
+    return float(np.sqrt(((actual - expected) ** 2).mean()))
+
+
 @pytest.mark.parametrize(
     'locstream_in,locstream_out,method,unmapped_to_nan',
     [
@@ -269,6 +289,15 @@ def test_regridder_creep_fill_validation():
             ds_in,
             ds_out,
             'conservative',
+            extrap_method='creep_fill',
+            extrap_num_levels=4,
+        )
+
+    with pytest.raises(ValueError, match='not supported with conservative'):
+        xe.Regridder(
+            ds_in,
+            ds_out,
+            'conservative_2nd',
             extrap_method='creep_fill',
             extrap_num_levels=4,
         )
@@ -379,9 +408,54 @@ def test_to_netcdf(tmp_path, unmapped_to_nan):
     xr.testing.assert_identical(x, e)
 
 
-def test_conservative_without_bounds():
+@pytest.mark.parametrize('method', ['conservative', 'conservative_2nd'])
+def test_conservative_without_bounds(method):
     with pytest.raises(KeyError):
-        xe.Regridder(ds_in.drop_vars('lon_b'), ds_out, 'conservative')
+        xe.Regridder(ds_in.drop_vars('lon_b'), ds_out, method)
+
+
+def test_conservative_2nd_regridder_builds_and_reuses_weights(tmp_path):
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative_2nd')
+    dr_out = regridder(ds_in['data'])
+
+    assert dr_out.shape == horiz_shape_out
+    assert regridder.weights.data.nnz > 0
+
+    filename = tmp_path / 'conservative_2nd_weights.nc'
+    regridder.to_netcdf(filename=filename)
+    regridder_reuse = xe.Regridder(
+        ds_in, ds_out, 'conservative_2nd', reuse_weights=True, filename=filename
+    )
+
+    assert regridder_reuse.weights.shape == regridder.weights.shape
+
+
+def test_conservative_2nd_preserves_area_weighted_integral_unlike_smooth_interpolation():
+    grid_in = xe.util.grid_global(20, 15)
+    grid_out = xe.util.grid_global(4, 4)
+    field_in = _smooth_integral_field(grid_in)
+
+    regridder = xe.Regridder(grid_in, grid_out, 'conservative_2nd')
+    field_out = regridder(field_in)
+
+    assert _relative_integral_error(grid_in, field_in, grid_out, field_out) < 1e-12
+
+    for method in ['bilinear', 'patch']:
+        smooth_interpolated = xe.Regridder(grid_in, grid_out, method, periodic=True)(field_in)
+        assert _relative_integral_error(grid_in, field_in, grid_out, smooth_interpolated) > 1e-6
+
+
+def test_conservative_2nd_has_lower_smooth_field_rmse_than_first_order():
+    grid_coarse = xe.util.grid_global(20, 15)
+    grid_fine = xe.util.grid_global(4, 4)
+    field_coarse = _smooth_integral_field(grid_coarse)
+    field_fine_ref = _smooth_integral_field(grid_fine)
+
+    first_order = xe.Regridder(grid_coarse, grid_fine, 'conservative')(field_coarse)
+    second_order = xe.Regridder(grid_coarse, grid_fine, 'conservative_2nd')(field_coarse)
+
+    # CONSERVE_2ND may overshoot source bounds, so compare accuracy rather than extrema.
+    assert _rmse(second_order, field_fine_ref) < _rmse(first_order, field_fine_ref)
 
 
 def test_regridder_from_dict():

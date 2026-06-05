@@ -576,6 +576,7 @@ class BaseRegridder(object):
 
             - 'bilinear'
             - 'conservative', **need grid corner information**
+            - 'conservative_2nd', **need grid corner information; may overshoot**
             - 'conservative_normed', **need grid corner information**
             - 'patch'
             - 'nearest_s2d'
@@ -1167,6 +1168,7 @@ class BaseRegridder(object):
         method_labels = {
             'bilinear': 'Bilinear',
             'conservative': 'Conservative',
+            'conservative_2nd': 'Conservative',
             'conservative_normed': 'Conservative',
             'patch': 'Patch',
             'nearest_s2d': 'Nearest source to destination',
@@ -1233,6 +1235,7 @@ class Regridder(BaseRegridder):
 
             - 'bilinear'
             - 'conservative', **need grid corner information**
+            - 'conservative_2nd', **need grid corner information; may overshoot**
             - 'conservative_normed', **need grid corner information**
             - 'patch'
             - 'nearest_s2d'
@@ -1374,7 +1377,7 @@ class Regridder(BaseRegridder):
             )
 
         # Record basic switches
-        if method in ['conservative', 'conservative_normed']:
+        if method in ['conservative', 'conservative_2nd', 'conservative_normed']:
             need_bounds = True
             periodic = False  # bound shape will not be N+1 for periodic grid
         else:
