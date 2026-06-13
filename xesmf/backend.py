@@ -56,6 +56,7 @@ def warn_lat_range(lat):
     if (lat.max() > 90.0) or (lat.min() < -90.0):
         warnings.warn('Latitude is outside of [-90, 90]')
 
+
 def _normalize_mesh_loc(mesh_loc, default=ESMF.MeshLoc.ELEMENT):
     if mesh_loc is None:
         return default
