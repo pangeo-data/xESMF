@@ -752,7 +752,7 @@ def esmf_regrid_build(  # noqa: C901
         sourcefield = ESMF.Field(sourcegrid, ndbounds=extra_dims)
     if isinstance(destgrid, ESMF.Mesh):
         destfield = ESMF.Field(
-            destgrid, meshloc=_normalize_mesh_loc(source_mesh_loc), ndbounds=extra_dims
+            destgrid, meshloc=_normalize_mesh_loc(dest_mesh_loc), ndbounds=extra_dims
         )
     else:
         destfield = ESMF.Field(destgrid, ndbounds=extra_dims)

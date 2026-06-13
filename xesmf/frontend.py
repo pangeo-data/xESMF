@@ -566,6 +566,8 @@ class BaseRegridder(object):
         ignore_degenerate=None,
         input_dims=None,
         output_dims=None,
+        source_mesh_loc=None,
+        dest_mesh_loc=None,
         unmapped_to_nan=False,
         parallel=False,
         post_mask_source=None,
@@ -700,6 +702,8 @@ class BaseRegridder(object):
         self.periodic = getattr(grid_in, 'periodic_dim', None) is not None
         self.sequence_in = isinstance(grid_in, (LocStream, Mesh))
         self.sequence_out = isinstance(grid_out, (LocStream, Mesh))
+        self.source_mesh_loc = source_mesh_loc
+        self.dest_mesh_loc = dest_mesh_loc
 
         if input_dims is not None and len(input_dims) != int(not self.sequence_in) + 1:
             raise ValueError(f'Wrong number of dimension names in `input_dims` ({len(input_dims)}.')
@@ -713,8 +717,15 @@ class BaseRegridder(object):
 
         # record grid shape information
         # We need to invert Grid shapes to respect xESMF's convention (y, x).
-        self.shape_in = grid_in.get_shape()[::-1]
-        self.shape_out = grid_out.get_shape()[::-1]
+        if isinstance(grid_in, Mesh):
+            self.shape_in = grid_in.get_shape(source_mesh_loc)[::-1]
+        else:
+            self.shape_in = grid_in.get_shape()[::-1]
+
+        if isinstance(grid_out, Mesh):
+            self.shape_out = grid_out.get_shape(dest_mesh_loc)[::-1]
+        else:
+            self.shape_out = grid_out.get_shape()[::-1]
         self.n_in = self.shape_in[0] * self.shape_in[1]
         self.n_out = self.shape_out[0] * self.shape_out[1]
 
@@ -850,6 +861,8 @@ class BaseRegridder(object):
             extrap_num_src_pnts=self.extrap_num_src_pnts,
             extrap_num_levels=self.extrap_num_levels,
             ignore_degenerate=self.ignore_degenerate,
+            source_mesh_loc=self.source_mesh_loc,
+            dest_mesh_loc=self.dest_mesh_loc,
         )
 
         w = regrid.get_weights_dict(deep_copy=True)
@@ -1206,6 +1219,7 @@ class Regridder(BaseRegridder):
         locstream_out=False,
         mesh_in=False,
         mesh_out=False,
+        mesh_location='face',
         periodic=False,
         parallel=False,
         **kwargs,
@@ -1405,7 +1419,8 @@ class Regridder(BaseRegridder):
         if locstream_in:
             grid_in, shape_in, input_dims = ds_to_ESMFlocstream(ds_in)
         elif mesh_in:
-            grid_in, shape_in, input_dims = ds_to_ESMFmesh(ds_in)
+            mesh_location = _normalize_mesh_location(mesh_location)
+            grid_in, shape_in, input_dims = ds_to_ESMFmesh(ds_in, mesh_location=mesh_location)
         else:
             grid_in, shape_in, input_dims = ds_to_ESMFgrid(
                 ds_in, need_bounds=need_bounds, periodic=periodic
@@ -1429,6 +1444,7 @@ class Regridder(BaseRegridder):
             input_dims=input_dims,
             output_dims=output_dims,
             parallel=parallel,
+            source_mesh_loc=mesh_location if mesh_in else None,
             **kwargs,
         )
 

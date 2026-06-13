@@ -153,6 +153,12 @@ ds_mesh['data'] = (
     xe.data.wave_smooth(ds_mesh['face_lon'], ds_mesh['face_lat']).data,
 )
 
+# synthetic node data
+ds_mesh['node_data'] = (
+    'n_node',
+    xe.data.wave_smooth(ds_mesh['node_lon'], ds_mesh['node_lat']).data,
+)
+
 
 # mesh with xyz for tests;
 mesh_node_lon_rad = np.radians(ds_mesh['node_lon'].values)
@@ -698,6 +704,30 @@ def test_regrid_dataarray_from_mesh():
     regridder = xe.Regridder(ds_mesh, ds_grid, 'bilinear', mesh_in=True)
     out = regridder(ds_mesh['data'])
 
+    assert out.dims == ds_grid['lon'].dims
+    assert out.shape == ds_grid['lon'].shape
+    assert np.isfinite(out.values).any()
+
+
+def test_regrid_dataarray_from_node_mesh():
+    ds_grid = xr.Dataset(
+        coords={
+            'lon': ds_out['lon'],
+            'lat': ds_out['lat'],
+        }
+    )
+
+    regridder = xe.Regridder(
+        ds_mesh,
+        ds_grid,
+        'bilinear',
+        mesh_in=True,
+        mesh_location='node',
+    )
+    out = regridder(ds_mesh['node_data'])
+
+    assert regridder.shape_in == (1, ds_mesh.sizes['n_node'])
+    assert regridder.n_in == ds_mesh.sizes['n_node']
     assert out.dims == ds_grid['lon'].dims
     assert out.shape == ds_grid['lon'].shape
     assert np.isfinite(out.values).any()
