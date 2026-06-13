@@ -253,14 +253,21 @@ def _get_face_node_connectivity(ds):
     return face_node_connectivity, fill_value, start_index
 
 
-def _get_face_dim_names(face_coords):
-    """Return face coordinate dimension names when available.
+def _normalize_mesh_location(mesh_location):
+    if mesh_location is None:
+        return 'face'
 
-    If the first face coordinate has xarray-style ``dims`` metadata, those
-    dimension names are returned. Otherwise return ``None``.
-    """
+    mesh_location = mesh_location.lower()
+    if mesh_location == 'element':
+        return 'face'
+    if mesh_location in ('face', 'node'):
+        return mesh_location
 
-    first = face_coords[0]
+    raise ValueError("mesh_location must be one of 'face', 'element', or 'node'")
+
+
+def _get_coord_dim_names(coords):
+    first = coords[0]
     if hasattr(first, 'dims'):
         return first.dims
     return None
@@ -428,7 +435,7 @@ def ds_to_ESMFlocstream(ds):
     return locstream, (1,) + lon.shape, dim_names
 
 
-def ds_to_ESMFmesh(ds):
+def ds_to_ESMFmesh(ds, mesh_location='face'):
     """
     Convert an xarray Dataset or dictionary to an ESMF.Mesh object.
 
@@ -463,6 +470,7 @@ def ds_to_ESMFmesh(ds):
         Dimension names of the face coordinates.
     """
 
+    mesh_location = _normalize_mesh_location(mesh_location)
     node_coord_type, node_coords = _get_node_coords(ds)
     face_coord_type, face_coords = _get_face_coords(ds)
     face_node_connectivity, fill_value, start_index = _get_face_node_connectivity(ds)
@@ -472,7 +480,8 @@ def ds_to_ESMFmesh(ds):
         start_index,
         node_coords,
     )
-    dim_names = _get_face_dim_names(face_coords)
+    location_coords = node_coords if mesh_location == 'node' else face_coords
+    dim_names = _get_coord_dim_names(location_coords)
 
     if node_coord_type == 'latlon' and face_coord_type == 'latlon':
         node_lon, node_lat = node_coords
@@ -488,7 +497,8 @@ def ds_to_ESMFmesh(ds):
             start_index=start_index,
         )
 
-        return mesh, (1, np.asarray(face_lon).size), dim_names
+        size = np.asarray(node_lon if mesh_location == 'node' else face_lon).size
+        return mesh, (1, size), dim_names
 
     if node_coord_type == 'xyz' and face_coord_type == 'xyz':
         node_x, node_y, node_z = node_coords
@@ -506,7 +516,8 @@ def ds_to_ESMFmesh(ds):
             start_index=start_index,
         )
 
-        return mesh, (1, np.asarray(face_x).size), dim_names
+        size = np.asarray(node_x if mesh_location == 'node' else face_x).size
+        return mesh, (1, size), dim_names
 
     raise ValueError(
         'mesh input currently supports only homogeneous lat/lon or xyz node and face coordinates'

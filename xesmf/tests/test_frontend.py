@@ -1051,6 +1051,18 @@ def test_ds_to_ESMFmesh():
     mesh.destroy()
 
 
+def test_ds_to_ESMFmesh_node_location():
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    mesh, shape, names = ds_to_ESMFmesh(ds_mesh, mesh_location='node')
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds_mesh.sizes['n_node'])
+    assert names == ('n_node',)
+
+    mesh.destroy()
+
+
 def test_ds_to_ESMFmesh_with_ugrid_topology():
     # Test ugrid topology
     from xesmf.frontend import ds_to_ESMFmesh

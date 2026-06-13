@@ -56,6 +56,22 @@ def warn_lat_range(lat):
     if (lat.max() > 90.0) or (lat.min() < -90.0):
         warnings.warn('Latitude is outside of [-90, 90]')
 
+def _normalize_mesh_loc(mesh_loc, default=ESMF.MeshLoc.ELEMENT):
+    if mesh_loc is None:
+        return default
+
+    if mesh_loc in (ESMF.MeshLoc.ELEMENT, ESMF.MeshLoc.NODE):
+        return mesh_loc
+
+    if isinstance(mesh_loc, str):
+        mesh_loc = mesh_loc.lower()
+        if mesh_loc in ('face', 'element'):
+            return ESMF.MeshLoc.ELEMENT
+        if mesh_loc == 'node':
+            return ESMF.MeshLoc.NODE
+
+    raise ValueError("mesh_loc must be one of 'face', 'element', or 'node'")
+
 
 class Grid(ESMF.Grid):
     @classmethod
@@ -557,6 +573,7 @@ class Mesh(ESMF.Mesh):
 
     def get_shape(self, loc=ESMF.MeshLoc.ELEMENT):
         """Return the shape of the Mesh at specified MeshLoc location."""
+        loc = _normalize_mesh_loc(loc)
         return (self.size[loc], 1)
 
 
