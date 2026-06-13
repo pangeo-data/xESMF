@@ -566,11 +566,11 @@ class BaseRegridder(object):
         ignore_degenerate=None,
         input_dims=None,
         output_dims=None,
-        source_mesh_loc=None,
-        dest_mesh_loc=None,
         unmapped_to_nan=False,
         parallel=False,
         post_mask_source=None,
+        source_mesh_loc=None,
+        dest_mesh_loc=None,
     ):
         """
         Base xESMF regridding class supporting ESMF objects: `Grid`, `Mesh` and `LocStream`.
@@ -1217,11 +1217,11 @@ class Regridder(BaseRegridder):
         method,
         locstream_in=False,
         locstream_out=False,
+        periodic=False,
+        parallel=False,
         mesh_in=False,
         mesh_out=False,
         mesh_location='face',
-        periodic=False,
-        parallel=False,
         **kwargs,
     ):
         """

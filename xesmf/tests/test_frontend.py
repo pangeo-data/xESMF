@@ -1,3 +1,4 @@
+import inspect
 import os
 import warnings
 
@@ -279,6 +280,25 @@ def test_build_regridder(method, locstream_in, locstream_out, unmapped_to_nan):
     assert repr(regridder) == str(regridder)
     assert 'xESMF Regridder' in str(regridder)
     assert method in str(regridder)
+
+
+def test_regridder_positional_arguments_backward_compatible():
+    bound = inspect.signature(xe.Regridder).bind(
+        ds_in,
+        ds_out,
+        'bilinear',
+        False,  # locstream_in
+        False,  # locstream_out
+        True,  # periodic
+        False,  # parallel
+    )
+    bound.apply_defaults()
+
+    assert bound.arguments['periodic'] is True
+    assert bound.arguments['parallel'] is False
+    assert bound.arguments['mesh_in'] is False
+    assert bound.arguments['mesh_out'] is False
+    assert bound.arguments['mesh_location'] == 'face'
 
 
 def test_regridder_creep_fill_validation():
