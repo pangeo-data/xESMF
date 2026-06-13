@@ -590,6 +590,8 @@ def esmf_regrid_build(  # noqa: C901
     extrap_num_levels=None,
     ignore_degenerate=None,
     vector_regrid=None,
+    source_mesh_loc=None,
+    dest_mesh_loc=None,
 ):
     """
     Create an ESMF.Regrid object, containing regridding weights.
@@ -743,11 +745,15 @@ def esmf_regrid_build(  # noqa: C901
     # Extra dimensions are specified when constructing the Field objects,
     # not when constructing the Regrid object later on.
     if isinstance(sourcegrid, ESMF.Mesh):
-        sourcefield = ESMF.Field(sourcegrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims)
+        sourcefield = ESMF.Field(
+            sourcegrid, meshloc=_normalize_mesh_loc(source_mesh_loc), ndbounds=extra_dims
+        )
     else:
         sourcefield = ESMF.Field(sourcegrid, ndbounds=extra_dims)
     if isinstance(destgrid, ESMF.Mesh):
-        destfield = ESMF.Field(destgrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims)
+        destfield = ESMF.Field(
+            destgrid, meshloc=_normalize_mesh_loc(source_mesh_loc), ndbounds=extra_dims
+        )
     else:
         destfield = ESMF.Field(destgrid, ndbounds=extra_dims)
 
