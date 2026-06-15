@@ -255,7 +255,7 @@ def _get_face_node_connectivity(ds):
 
 def _normalize_mesh_location(mesh_location):
     if mesh_location is None:
-        return 'face'
+        raise ValueError("mesh_location must be 'auto', 'face', 'element', or 'node'")
 
     mesh_location = mesh_location.lower()
     if mesh_location == 'element':
@@ -264,6 +264,68 @@ def _normalize_mesh_location(mesh_location):
         return mesh_location
 
     raise ValueError("mesh_location must be one of 'face', 'element', or 'node'")
+
+
+def _infer_mesh_location(ds):
+    if not isinstance(ds, (DataArray, Dataset)):
+        raise ValueError(
+            'mesh_location cannot be inferred from this input; ' 'pass mesh_location explicitly'
+        )
+
+    # to skip the connectivity
+    connectivity = _get_face_node_connectivity(ds)[0]
+    connectivity_name = getattr(connectivity, 'name', None)
+
+    node_coords = _get_node_coords(ds)[1]
+    face_coords = _get_face_coords(ds)[1]
+
+    node_dims = set(_get_coord_dim_names(node_coords) or ())
+    face_dims = set(_get_coord_dim_names(face_coords) or ())
+
+    if isinstance(ds, DataArray):
+        variables = [(ds.name, ds)]
+    else:
+        variables = ds.data_vars.items()
+    locations = set()
+
+    for name, var in variables:
+        cf_role = var.attrs.get('cf_role', '')
+
+        # Ignore mesh topology and connectivity variables.
+        if (
+            name == connectivity_name
+            or cf_role == 'mesh_topology'
+            or cf_role.endswith('_connectivity')
+        ):
+            continue
+
+        location = var.attrs.get('location')
+
+        if location is not None:
+            locations.add(_normalize_mesh_location(location))
+            continue
+
+        var_dims = set(var.dims)
+        uses_node_dim = bool(var_dims & node_dims)
+        uses_face_dim = bool(var_dims & face_dims)
+
+        if uses_node_dim and not uses_face_dim:
+            locations.add('node')
+        elif uses_face_dim and not uses_node_dim:
+            locations.add('face')
+
+    if len(locations) == 1:
+        return locations.pop()
+
+    if not locations:
+        raise ValueError(
+            'mesh_location could not be inferred from metadata or dimensions; '
+            'pass mesh_location explicitly'
+        )
+
+    raise ValueError(
+        'multiple mesh locations found in the input dataset; ' 'pass mesh_location explicitly'
+    )
 
 
 def _get_coord_dim_names(coords):
@@ -1221,7 +1283,7 @@ class Regridder(BaseRegridder):
         parallel=False,
         mesh_in=False,
         mesh_out=False,
-        mesh_location='face',
+        mesh_location='auto',
         **kwargs,
     ):
         """
@@ -1419,7 +1481,10 @@ class Regridder(BaseRegridder):
         if locstream_in:
             grid_in, shape_in, input_dims = ds_to_ESMFlocstream(ds_in)
         elif mesh_in:
-            mesh_location = _normalize_mesh_location(mesh_location)
+            if mesh_location is None or mesh_location == 'auto':
+                mesh_location = _infer_mesh_location(ds_in)
+            else:
+                mesh_location = _normalize_mesh_location(mesh_location)
             grid_in, shape_in, input_dims = ds_to_ESMFmesh(ds_in, mesh_location=mesh_location)
         else:
             grid_in, shape_in, input_dims = ds_to_ESMFgrid(

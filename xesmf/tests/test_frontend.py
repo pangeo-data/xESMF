@@ -153,13 +153,21 @@ ds_mesh['data'] = (
     'n_face',
     xe.data.wave_smooth(ds_mesh['face_lon'], ds_mesh['face_lat']).data,
 )
+ds_mesh['data'].attrs.update(
+    location='face',
+    mesh='mesh',
+)
 
 # synthetic node data
 ds_mesh['node_data'] = (
     'n_node',
     xe.data.wave_smooth(ds_mesh['node_lon'], ds_mesh['node_lat']).data,
 )
-
+# to check auto mesh detection
+ds_mesh['node_data'].attrs.update(
+    location='node',
+    mesh='mesh',
+)
 
 # mesh with xyz for tests;
 mesh_node_lon_rad = np.radians(ds_mesh['node_lon'].values)
@@ -298,7 +306,7 @@ def test_regridder_positional_arguments_backward_compatible():
     assert bound.arguments['parallel'] is False
     assert bound.arguments['mesh_in'] is False
     assert bound.arguments['mesh_out'] is False
-    assert bound.arguments['mesh_location'] == 'face'
+    assert bound.arguments['mesh_location'] == 'auto'
 
 
 def test_regridder_creep_fill_validation():
@@ -721,7 +729,7 @@ def test_regrid_dataarray_from_mesh():
         }
     )
 
-    regridder = xe.Regridder(ds_mesh, ds_grid, 'bilinear', mesh_in=True)
+    regridder = xe.Regridder(ds_mesh, ds_grid, 'bilinear', mesh_in=True, mesh_location='face')
     out = regridder(ds_mesh['data'])
 
     assert out.dims == ds_grid['lon'].dims
@@ -751,6 +759,28 @@ def test_regrid_dataarray_from_node_mesh():
     assert out.dims == ds_grid['lon'].dims
     assert out.shape == ds_grid['lon'].shape
     assert np.isfinite(out.values).any()
+
+
+def test_regrid_dataarray_from_node_mesh_auto_location():
+    ds_grid = xr.Dataset(
+        coords={
+            'lon': ds_out['lon'],
+            'lat': ds_out['lat'],
+        }
+    )
+    ds_node = ds_mesh.drop_vars('data')
+
+    regridder = xe.Regridder(
+        ds_node,
+        ds_grid,
+        'bilinear',
+        mesh_in=True,
+        # mesh_location='auto', Intentionally removed to test the default (auto)
+    )
+    out = regridder(ds_node['node_data'])
+
+    assert regridder.shape_in == (1, ds_node.sizes['n_node'])
+    assert out.shape == ds_grid['lon'].shape
 
 
 @pytest.mark.parametrize('scheduler', dask_schedulers)
