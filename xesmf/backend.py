@@ -58,6 +58,7 @@ def warn_lat_range(lat):
 
 
 def _normalize_mesh_loc(mesh_loc, default=ESMF.MeshLoc.ELEMENT):
+    """Return an ESMF mesh location from a string or MeshLoc value."""
     if mesh_loc is None:
         return default
 
@@ -573,7 +574,14 @@ class Mesh(ESMF.Mesh):
         return mesh
 
     def get_shape(self, loc=ESMF.MeshLoc.ELEMENT):
-        """Return the shape of the Mesh at specified MeshLoc location."""
+        """Return the shape of the Mesh at the specified mesh location.
+
+        Parameters
+        ----------
+        loc : {'face', 'element', 'node'} or ESMF.MeshLoc, optional
+            Mesh location used to determine the horizontal size. ``'face'`` and
+            ``'element'`` refer to mesh elements. Defaults to elements.
+        """
         loc = _normalize_mesh_loc(loc)
         return (self.size[loc], 1)
 
@@ -673,6 +681,12 @@ def esmf_regrid_build(  # noqa: C901
         i.e., ``extra_dims`` must be ``[2]``.
 
         Requires ESMPy 8.9.0 or newer.
+
+    source_mesh_loc, dest_mesh_loc : {'face', 'element', 'node'} or ESMF.MeshLoc, optional
+        Mesh location used when creating ESMF fields on mesh inputs. ``'face'``
+        and ``'element'`` create fields on mesh elements; ``'node'`` creates
+        fields on mesh nodes. Only used when the corresponding source or
+        destination object is an ESMF.Mesh. Defaults to elements.
 
     Returns
     -------

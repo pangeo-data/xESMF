@@ -254,6 +254,7 @@ def _get_face_node_connectivity(ds):
 
 
 def _normalize_mesh_location(mesh_location):
+    """Return the canonical frontend mesh location name."""
     if mesh_location is None:
         raise ValueError("mesh_location must be 'auto', 'face', 'element', or 'node'")
 
@@ -267,6 +268,13 @@ def _normalize_mesh_location(mesh_location):
 
 
 def _infer_mesh_location(ds):
+    """Infer whether mesh input data is located on nodes or faces.
+
+    Inference first uses UGRID-style ``location`` attributes on data variables.
+    If those are absent, variables are classified by whether their dimensions
+    match the mesh node or face coordinate dimensions. Mesh topology and
+    connectivity variables are ignored.
+    """
     if not isinstance(ds, (DataArray, Dataset)):
         raise ValueError(
             'mesh_location cannot be inferred from this input; ' 'pass mesh_location explicitly'
@@ -329,6 +337,7 @@ def _infer_mesh_location(ds):
 
 
 def _get_coord_dim_names(coords):
+    """Return coordinate dimension names when coordinates are xarray objects."""
     first = coords[0]
     if hasattr(first, 'dims'):
         return first.dims
@@ -514,22 +523,27 @@ def ds_to_ESMFmesh(ds, mesh_location='face'):
     array may define ``_FillValue`` for padded entries and ``start_index`` for
     0-based or 1-based indexing.
 
-    Currently this converter is intended for face-centered mesh input and returns
-    a shape of ``(1, n_face)``.
+    ``mesh_location`` controls the location of the data field represented by the
+    returned shape and dimension names. Face-centered data uses mesh elements and
+    returns a shape of ``(1, n_face)``. Node-centered data uses mesh nodes and
+    returns a shape of ``(1, n_node)``.
 
     Parameters
     ----------
     ds : xarray Dataset or dict-like
         Dataset containing mesh coordinates and face-node connectivity.
+    mesh_location : {'face', 'element', 'node'}, optional
+        Location of the data field on the mesh. ``'face'`` and ``'element'`` are
+        equivalent and refer to mesh elements. Defaults to ``'face'``.
 
     Returns
     -------
     mesh
         ESMF.Mesh object.
     shape
-        Mesh shape as ``(1, n_face)``.
+        Mesh shape at ``mesh_location`` as ``(1, n_face)`` or ``(1, n_node)``.
     dim_names
-        Dimension names of the face coordinates.
+        Dimension names of the coordinates at ``mesh_location``.
     """
 
     mesh_location = _normalize_mesh_location(mesh_location)
@@ -748,6 +762,11 @@ class BaseRegridder(object):
               whose contribution to the regridding weights should be removed.
 
             Default is ``None``, meaning no post-weight-generation source grid cell masking is applied.
+
+        source_mesh_loc, dest_mesh_loc : {'face', 'element', 'node'} or ESMF.MeshLoc, optional
+            Mesh location used for input or output ESMF.Mesh objects. ``'face'``
+            and ``'element'`` refer to mesh elements; ``'node'`` refers to mesh
+            nodes. Defaults to elements when omitted.
 
         Returns
         -------
@@ -1330,14 +1349,27 @@ class Regridder(BaseRegridder):
 
         mesh_in : bool, optional
             If True, interpret ``ds_in`` as an unstructured mesh instead of a
-            structured grid or locstream. Mesh input currently supports face-centered
-            source data on mesh faces. The input dataset may use explicit mesh
+            structured grid or locstream. Mesh input supports source data located
+            on mesh faces or mesh nodes. The input dataset may use explicit mesh
             variable names or UGRID-style topology metadata, as described by
             ``ds_to_ESMFmesh``.
 
             Supported methods for mesh input are ``"bilinear"``, ``"patch"``,
             ``"nearest_s2d"``, and ``"nearest_d2s"``. Conservative methods are not
             currently supported for mesh input.
+
+        mesh_out : bool, optional
+            If True, interpret ``ds_out`` as an unstructured mesh. Mesh output is
+            not implemented yet.
+
+        mesh_location : {'auto', 'face', 'element', 'node'} or None, optional
+            Location of source data when ``mesh_in=True``. ``'face'`` and
+            ``'element'`` are equivalent and create an ESMF source field on mesh
+            elements. ``'node'`` creates the source field on mesh nodes. If
+            ``'auto'`` or ``None``, xESMF infers the location from data variable
+            ``location`` attributes, falling back to node and face coordinate
+            dimensions. If both node- and face-centered variables are present, or
+            the location cannot be inferred, pass ``mesh_location`` explicitly.
 
         periodic : bool, optional
             Periodic in longitude? Default to False.
