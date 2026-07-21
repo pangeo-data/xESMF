@@ -627,6 +627,11 @@ class BaseRegridder(object):
               - or a path to a netCDF file created by ESMF.
             If None, compute the weights.
 
+            On first NumPy use, xESMF enables sparse operation caching on
+            the attached COO. Caller-supplied weights are not copied, so
+            treat attached weights as immutable; replace
+            ``regridder.weights`` rather than mutating COO buffers.
+
         ignore_degenerate : bool, optional
             If False (default), raise error if grids contain degenerated cells
             (i.e. triangles or lines, instead of quadrilaterals)
@@ -1028,7 +1033,11 @@ class BaseRegridder(object):
             weights = da.from_array(weights, chunks=(output_chunks + indata.chunksize[-2:]))
             outdata = self._regrid(indata, weights, **kwargs)
         else:  # numpy — keep weights 2D; apply_weights does flat contraction
-            outdata = self._regrid(indata, self.weights.data, **kwargs)
+            wdata = self.weights.data
+            if isinstance(wdata, sps.COO) and getattr(wdata, '_cache', None) is None:
+                # Cache sparse.tensordot's internal transpose and reshape.
+                wdata.enable_caching()
+            outdata = self._regrid(indata, wdata, **kwargs)
         return outdata
 
     def regrid_numpy(self, indata, **kwargs):
