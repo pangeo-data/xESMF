@@ -184,6 +184,35 @@ def test_esmf_build_bilinear_mesh_to_grid():
     assert regrid.unmapped_action is ESMF.UnmappedAction.IGNORE
     assert regrid.regrid_method is ESMF.RegridMethod.BILINEAR
     assert regrid.srcfield.grid is mesh
+    # if no parameter is provided the size of the mesh has to be
+    # equal with the face size
+    assert regrid.srcfield.data.size == mesh_face_lon.size
+    assert regrid.dstfield.grid is grid
+
+    esmf_regrid_finalize(regrid)
+    mesh.destroy()
+
+
+def test_esmf_build_bilinear_node_mesh_to_grid():
+    mesh = Mesh.from_ugrid(
+        mesh_node_lon,
+        mesh_node_lat,
+        mesh_face_node_connectivity,
+        mesh_face_lon,
+        mesh_face_lat,
+        fill_value=mesh_fill_value,
+    )
+    grid = Grid.from_xarray(lon_out.T, lat_out.T)
+
+    regrid = esmf_regrid_build(
+        mesh,
+        grid,
+        'bilinear',
+        source_mesh_loc='node',
+    )
+
+    assert regrid.srcfield.grid is mesh
+    assert regrid.srcfield.data.size == mesh_node_lon.size
     assert regrid.dstfield.grid is grid
 
     esmf_regrid_finalize(regrid)

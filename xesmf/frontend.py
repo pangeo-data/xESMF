@@ -253,14 +253,92 @@ def _get_face_node_connectivity(ds):
     return face_node_connectivity, fill_value, start_index
 
 
-def _get_face_dim_names(face_coords):
-    """Return face coordinate dimension names when available.
+def _normalize_mesh_location(mesh_location):
+    """Return the canonical frontend mesh location name."""
+    if mesh_location is None:
+        raise ValueError("mesh_location must be 'auto', 'face', 'element', or 'node'")
 
-    If the first face coordinate has xarray-style ``dims`` metadata, those
-    dimension names are returned. Otherwise return ``None``.
+    mesh_location = mesh_location.lower()
+    if mesh_location == 'element':
+        return 'face'
+    if mesh_location in ('face', 'node'):
+        return mesh_location
+
+    raise ValueError("mesh_location must be one of 'face', 'element', or 'node'")
+
+
+def _infer_mesh_location(ds):
+    """Infer whether mesh input data is located on nodes or faces.
+
+    Inference first uses UGRID-style ``location`` attributes on data variables.
+    If those are absent, variables are classified by whether their dimensions
+    match the mesh node or face coordinate dimensions. Mesh topology and
+    connectivity variables are ignored.
     """
+    if not isinstance(ds, (DataArray, Dataset)):
+        raise ValueError(
+            'mesh_location cannot be inferred from this input; ' 'pass mesh_location explicitly'
+        )
 
-    first = face_coords[0]
+    # to skip the connectivity
+    connectivity = _get_face_node_connectivity(ds)[0]
+    connectivity_name = getattr(connectivity, 'name', None)
+
+    node_coords = _get_node_coords(ds)[1]
+    face_coords = _get_face_coords(ds)[1]
+
+    node_dims = set(_get_coord_dim_names(node_coords) or ())
+    face_dims = set(_get_coord_dim_names(face_coords) or ())
+
+    if isinstance(ds, DataArray):
+        variables = [(ds.name, ds)]
+    else:
+        variables = ds.data_vars.items()
+    locations = set()
+
+    for name, var in variables:
+        cf_role = var.attrs.get('cf_role', '')
+
+        # Ignore mesh topology and connectivity variables.
+        if (
+            name == connectivity_name
+            or cf_role == 'mesh_topology'
+            or cf_role.endswith('_connectivity')
+        ):
+            continue
+
+        location = var.attrs.get('location')
+
+        if location is not None:
+            locations.add(_normalize_mesh_location(location))
+            continue
+
+        var_dims = set(var.dims)
+        uses_node_dim = bool(var_dims & node_dims)
+        uses_face_dim = bool(var_dims & face_dims)
+
+        if uses_node_dim and not uses_face_dim:
+            locations.add('node')
+        elif uses_face_dim and not uses_node_dim:
+            locations.add('face')
+
+    if len(locations) == 1:
+        return locations.pop()
+
+    if not locations:
+        raise ValueError(
+            'mesh_location could not be inferred from metadata or dimensions; '
+            'pass mesh_location explicitly'
+        )
+
+    raise ValueError(
+        'multiple mesh locations found in the input dataset; ' 'pass mesh_location explicitly'
+    )
+
+
+def _get_coord_dim_names(coords):
+    """Return coordinate dimension names when coordinates are xarray objects."""
+    first = coords[0]
     if hasattr(first, 'dims'):
         return first.dims
     return None
@@ -428,7 +506,7 @@ def ds_to_ESMFlocstream(ds):
     return locstream, (1,) + lon.shape, dim_names
 
 
-def ds_to_ESMFmesh(ds):
+def ds_to_ESMFmesh(ds, mesh_location='face'):
     """
     Convert an xarray Dataset or dictionary to an ESMF.Mesh object.
 
@@ -445,24 +523,30 @@ def ds_to_ESMFmesh(ds):
     array may define ``_FillValue`` for padded entries and ``start_index`` for
     0-based or 1-based indexing.
 
-    Currently this converter is intended for face-centered mesh input and returns
-    a shape of ``(1, n_face)``.
+    ``mesh_location`` controls the location of the data field represented by the
+    returned shape and dimension names. Face-centered data uses mesh elements and
+    returns a shape of ``(1, n_face)``. Node-centered data uses mesh nodes and
+    returns a shape of ``(1, n_node)``.
 
     Parameters
     ----------
     ds : xarray Dataset or dict-like
         Dataset containing mesh coordinates and face-node connectivity.
+    mesh_location : {'face', 'element', 'node'}, optional
+        Location of the data field on the mesh. ``'face'`` and ``'element'`` are
+        equivalent and refer to mesh elements. Defaults to ``'face'``.
 
     Returns
     -------
     mesh
         ESMF.Mesh object.
     shape
-        Mesh shape as ``(1, n_face)``.
+        Mesh shape at ``mesh_location`` as ``(1, n_face)`` or ``(1, n_node)``.
     dim_names
-        Dimension names of the face coordinates.
+        Dimension names of the coordinates at ``mesh_location``.
     """
 
+    mesh_location = _normalize_mesh_location(mesh_location)
     node_coord_type, node_coords = _get_node_coords(ds)
     face_coord_type, face_coords = _get_face_coords(ds)
     face_node_connectivity, fill_value, start_index = _get_face_node_connectivity(ds)
@@ -472,7 +556,8 @@ def ds_to_ESMFmesh(ds):
         start_index,
         node_coords,
     )
-    dim_names = _get_face_dim_names(face_coords)
+    location_coords = node_coords if mesh_location == 'node' else face_coords
+    dim_names = _get_coord_dim_names(location_coords)
 
     if node_coord_type == 'latlon' and face_coord_type == 'latlon':
         node_lon, node_lat = node_coords
@@ -488,7 +573,8 @@ def ds_to_ESMFmesh(ds):
             start_index=start_index,
         )
 
-        return mesh, (1, np.asarray(face_lon).size), dim_names
+        size = np.asarray(node_lon if mesh_location == 'node' else face_lon).size
+        return mesh, (1, size), dim_names
 
     if node_coord_type == 'xyz' and face_coord_type == 'xyz':
         node_x, node_y, node_z = node_coords
@@ -506,7 +592,8 @@ def ds_to_ESMFmesh(ds):
             start_index=start_index,
         )
 
-        return mesh, (1, np.asarray(face_x).size), dim_names
+        size = np.asarray(node_x if mesh_location == 'node' else face_x).size
+        return mesh, (1, size), dim_names
 
     raise ValueError(
         'mesh input currently supports only homogeneous lat/lon or xyz node and face coordinates'
@@ -558,6 +645,8 @@ class BaseRegridder(object):
         unmapped_to_nan=False,
         parallel=False,
         post_mask_source=None,
+        source_mesh_loc=None,
+        dest_mesh_loc=None,
     ):
         """
         Base xESMF regridding class supporting ESMF objects: `Grid`, `Mesh` and `LocStream`.
@@ -679,6 +768,11 @@ class BaseRegridder(object):
 
             Default is ``None``, meaning no post-weight-generation source grid cell masking is applied.
 
+        source_mesh_loc, dest_mesh_loc : {'face', 'element', 'node'} or ESMF.MeshLoc, optional
+            Mesh location used for input or output ESMF.Mesh objects. ``'face'``
+            and ``'element'`` refer to mesh elements; ``'node'`` refers to mesh
+            nodes. Defaults to elements when omitted.
+
         Returns
         -------
         baseregridder : xESMF BaseRegridder object
@@ -694,6 +788,8 @@ class BaseRegridder(object):
         self.periodic = getattr(grid_in, 'periodic_dim', None) is not None
         self.sequence_in = isinstance(grid_in, (LocStream, Mesh))
         self.sequence_out = isinstance(grid_out, (LocStream, Mesh))
+        self.source_mesh_loc = source_mesh_loc
+        self.dest_mesh_loc = dest_mesh_loc
 
         if input_dims is not None and len(input_dims) != int(not self.sequence_in) + 1:
             raise ValueError(f'Wrong number of dimension names in `input_dims` ({len(input_dims)}.')
@@ -707,8 +803,15 @@ class BaseRegridder(object):
 
         # record grid shape information
         # We need to invert Grid shapes to respect xESMF's convention (y, x).
-        self.shape_in = grid_in.get_shape()[::-1]
-        self.shape_out = grid_out.get_shape()[::-1]
+        if isinstance(grid_in, Mesh):
+            self.shape_in = grid_in.get_shape(source_mesh_loc)[::-1]
+        else:
+            self.shape_in = grid_in.get_shape()[::-1]
+
+        if isinstance(grid_out, Mesh):
+            self.shape_out = grid_out.get_shape(dest_mesh_loc)[::-1]
+        else:
+            self.shape_out = grid_out.get_shape()[::-1]
         self.n_in = self.shape_in[0] * self.shape_in[1]
         self.n_out = self.shape_out[0] * self.shape_out[1]
 
@@ -844,6 +947,8 @@ class BaseRegridder(object):
             extrap_num_src_pnts=self.extrap_num_src_pnts,
             extrap_num_levels=self.extrap_num_levels,
             ignore_degenerate=self.ignore_degenerate,
+            source_mesh_loc=self.source_mesh_loc,
+            dest_mesh_loc=self.dest_mesh_loc,
         )
 
         w = regrid.get_weights_dict(deep_copy=True)
@@ -1202,10 +1307,11 @@ class Regridder(BaseRegridder):
         method,
         locstream_in=False,
         locstream_out=False,
-        mesh_in=False,
-        mesh_out=False,
         periodic=False,
         parallel=False,
+        mesh_in=False,
+        mesh_out=False,
+        mesh_location='auto',
         **kwargs,
     ):
         """
@@ -1252,14 +1358,27 @@ class Regridder(BaseRegridder):
 
         mesh_in : bool, optional
             If True, interpret ``ds_in`` as an unstructured mesh instead of a
-            structured grid or locstream. Mesh input currently supports face-centered
-            source data on mesh faces. The input dataset may use explicit mesh
+            structured grid or locstream. Mesh input supports source data located
+            on mesh faces or mesh nodes. The input dataset may use explicit mesh
             variable names or UGRID-style topology metadata, as described by
             ``ds_to_ESMFmesh``.
 
             Supported methods for mesh input are ``"bilinear"``, ``"patch"``,
             ``"nearest_s2d"``, and ``"nearest_d2s"``. Conservative methods are not
             currently supported for mesh input.
+
+        mesh_out : bool, optional
+            If True, interpret ``ds_out`` as an unstructured mesh. Mesh output is
+            not implemented yet.
+
+        mesh_location : {'auto', 'face', 'element', 'node'} or None, optional
+            Location of source data when ``mesh_in=True``. ``'face'`` and
+            ``'element'`` are equivalent and create an ESMF source field on mesh
+            elements. ``'node'`` creates the source field on mesh nodes. If
+            ``'auto'`` or ``None``, xESMF infers the location from data variable
+            ``location`` attributes, falling back to node and face coordinate
+            dimensions. If both node- and face-centered variables are present, or
+            the location cannot be inferred, pass ``mesh_location`` explicitly.
 
         periodic : bool, optional
             Periodic in longitude? Default to False.
@@ -1403,7 +1522,11 @@ class Regridder(BaseRegridder):
         if locstream_in:
             grid_in, shape_in, input_dims = ds_to_ESMFlocstream(ds_in)
         elif mesh_in:
-            grid_in, shape_in, input_dims = ds_to_ESMFmesh(ds_in)
+            if mesh_location is None or mesh_location == 'auto':
+                mesh_location = _infer_mesh_location(ds_in)
+            else:
+                mesh_location = _normalize_mesh_location(mesh_location)
+            grid_in, shape_in, input_dims = ds_to_ESMFmesh(ds_in, mesh_location=mesh_location)
         else:
             grid_in, shape_in, input_dims = ds_to_ESMFgrid(
                 ds_in, need_bounds=need_bounds, periodic=periodic
@@ -1427,6 +1550,7 @@ class Regridder(BaseRegridder):
             input_dims=input_dims,
             output_dims=output_dims,
             parallel=parallel,
+            source_mesh_loc=mesh_location if mesh_in else None,
             **kwargs,
         )
 

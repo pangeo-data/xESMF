@@ -1,3 +1,4 @@
+import inspect
 import os
 import warnings
 
@@ -153,7 +154,21 @@ ds_mesh['data'] = (
     'n_face',
     xe.data.wave_smooth(ds_mesh['face_lon'], ds_mesh['face_lat']).data,
 )
+ds_mesh['data'].attrs.update(
+    location='face',
+    mesh='mesh',
+)
 
+# synthetic node data
+ds_mesh['node_data'] = (
+    'n_node',
+    xe.data.wave_smooth(ds_mesh['node_lon'], ds_mesh['node_lat']).data,
+)
+# to check auto mesh detection
+ds_mesh['node_data'].attrs.update(
+    location='node',
+    mesh='mesh',
+)
 
 # mesh with xyz for tests;
 mesh_node_lon_rad = np.radians(ds_mesh['node_lon'].values)
@@ -274,6 +289,25 @@ def test_build_regridder(method, locstream_in, locstream_out, unmapped_to_nan):
     assert repr(regridder) == str(regridder)
     assert 'xESMF Regridder' in str(regridder)
     assert method in str(regridder)
+
+
+def test_regridder_positional_arguments_backward_compatible():
+    bound = inspect.signature(xe.Regridder).bind(
+        ds_in,
+        ds_out,
+        'bilinear',
+        False,  # locstream_in
+        False,  # locstream_out
+        True,  # periodic
+        False,  # parallel
+    )
+    bound.apply_defaults()
+
+    assert bound.arguments['periodic'] is True
+    assert bound.arguments['parallel'] is False
+    assert bound.arguments['mesh_in'] is False
+    assert bound.arguments['mesh_out'] is False
+    assert bound.arguments['mesh_location'] == 'auto'
 
 
 def test_regridder_creep_fill_validation():
@@ -696,12 +730,58 @@ def test_regrid_dataarray_from_mesh():
         }
     )
 
-    regridder = xe.Regridder(ds_mesh, ds_grid, 'bilinear', mesh_in=True)
+    regridder = xe.Regridder(ds_mesh, ds_grid, 'bilinear', mesh_in=True, mesh_location='face')
     out = regridder(ds_mesh['data'])
 
     assert out.dims == ds_grid['lon'].dims
     assert out.shape == ds_grid['lon'].shape
     assert np.isfinite(out.values).any()
+
+
+def test_regrid_dataarray_from_node_mesh():
+    ds_grid = xr.Dataset(
+        coords={
+            'lon': ds_out['lon'],
+            'lat': ds_out['lat'],
+        }
+    )
+
+    regridder = xe.Regridder(
+        ds_mesh,
+        ds_grid,
+        'bilinear',
+        mesh_in=True,
+        mesh_location='node',
+    )
+    out = regridder(ds_mesh['node_data'])
+
+    assert regridder.shape_in == (1, ds_mesh.sizes['n_node'])
+    assert regridder.n_in == ds_mesh.sizes['n_node']
+    assert out.dims == ds_grid['lon'].dims
+    assert out.shape == ds_grid['lon'].shape
+    assert np.isfinite(out.values).any()
+
+
+def test_regrid_dataarray_from_node_mesh_auto_location():
+    ds_grid = xr.Dataset(
+        coords={
+            'lon': ds_out['lon'],
+            'lat': ds_out['lat'],
+        }
+    )
+    ds_node = ds_mesh.drop_vars('data')
+
+    regridder = xe.Regridder(
+        ds_node,
+        ds_grid,
+        'bilinear',
+        mesh_in=True,
+        # mesh_location='auto', Intentionally removed to test the default (auto)
+    )
+    out = regridder(ds_node['node_data'])
+
+    assert regridder.shape_in == (1, ds_node.sizes['n_node'])
+    assert out.shape == ds_grid['lon'].shape
 
 
 @pytest.mark.parametrize('scheduler', dask_schedulers)
@@ -1048,6 +1128,18 @@ def test_ds_to_ESMFmesh():
     assert isinstance(mesh, ESMF.Mesh)
     assert shape == (1, ds_mesh.sizes['n_face'])
     assert names == ('n_face',)
+
+    mesh.destroy()
+
+
+def test_ds_to_ESMFmesh_node_location():
+    from xesmf.frontend import ds_to_ESMFmesh
+
+    mesh, shape, names = ds_to_ESMFmesh(ds_mesh, mesh_location='node')
+
+    assert isinstance(mesh, ESMF.Mesh)
+    assert shape == (1, ds_mesh.sizes['n_node'])
+    assert names == ('n_node',)
 
     mesh.destroy()
 

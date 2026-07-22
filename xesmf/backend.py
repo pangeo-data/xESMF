@@ -57,6 +57,24 @@ def warn_lat_range(lat):
         warnings.warn('Latitude is outside of [-90, 90]')
 
 
+def _normalize_mesh_loc(mesh_loc, default=ESMF.MeshLoc.ELEMENT):
+    """Return an ESMF mesh location from a string or MeshLoc value."""
+    if mesh_loc is None:
+        return default
+
+    if mesh_loc in (ESMF.MeshLoc.ELEMENT, ESMF.MeshLoc.NODE):
+        return mesh_loc
+
+    if isinstance(mesh_loc, str):
+        mesh_loc = mesh_loc.lower()
+        if mesh_loc in ('face', 'element'):
+            return ESMF.MeshLoc.ELEMENT
+        if mesh_loc == 'node':
+            return ESMF.MeshLoc.NODE
+
+    raise ValueError("mesh_loc must be one of 'face', 'element', or 'node'")
+
+
 class Grid(ESMF.Grid):
     @classmethod
     def from_xarray(cls, lon, lat, periodic=False, mask=None):
@@ -556,7 +574,15 @@ class Mesh(ESMF.Mesh):
         return mesh
 
     def get_shape(self, loc=ESMF.MeshLoc.ELEMENT):
-        """Return the shape of the Mesh at specified MeshLoc location."""
+        """Return the shape of the Mesh at the specified mesh location.
+
+        Parameters
+        ----------
+        loc : {'face', 'element', 'node'} or ESMF.MeshLoc, optional
+            Mesh location used to determine the horizontal size. ``'face'`` and
+            ``'element'`` refer to mesh elements. Defaults to elements.
+        """
+        loc = _normalize_mesh_loc(loc)
         return (self.size[loc], 1)
 
 
@@ -572,6 +598,8 @@ def esmf_regrid_build(  # noqa: C901
     extrap_num_levels=None,
     ignore_degenerate=None,
     vector_regrid=None,
+    source_mesh_loc=None,
+    dest_mesh_loc=None,
 ):
     """
     Create an ESMF.Regrid object, containing regridding weights.
@@ -654,6 +682,12 @@ def esmf_regrid_build(  # noqa: C901
 
         Requires ESMPy 8.9.0 or newer.
 
+    source_mesh_loc, dest_mesh_loc : {'face', 'element', 'node'} or ESMF.MeshLoc, optional
+        Mesh location used when creating ESMF fields on mesh inputs. ``'face'``
+        and ``'element'`` create fields on mesh elements; ``'node'`` creates
+        fields on mesh nodes. Only used when the corresponding source or
+        destination object is an ESMF.Mesh. Defaults to elements.
+
     Returns
     -------
     regrid : ESMF.Regrid object
@@ -725,11 +759,15 @@ def esmf_regrid_build(  # noqa: C901
     # Extra dimensions are specified when constructing the Field objects,
     # not when constructing the Regrid object later on.
     if isinstance(sourcegrid, ESMF.Mesh):
-        sourcefield = ESMF.Field(sourcegrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims)
+        sourcefield = ESMF.Field(
+            sourcegrid, meshloc=_normalize_mesh_loc(source_mesh_loc), ndbounds=extra_dims
+        )
     else:
         sourcefield = ESMF.Field(sourcegrid, ndbounds=extra_dims)
     if isinstance(destgrid, ESMF.Mesh):
-        destfield = ESMF.Field(destgrid, meshloc=ESMF.MeshLoc.ELEMENT, ndbounds=extra_dims)
+        destfield = ESMF.Field(
+            destgrid, meshloc=_normalize_mesh_loc(dest_mesh_loc), ndbounds=extra_dims
+        )
     else:
         destfield = ESMF.Field(destgrid, ndbounds=extra_dims)
 
