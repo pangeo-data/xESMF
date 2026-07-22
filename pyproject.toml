@@ -1,10 +1,6 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = [
-  "setuptools>=41.2",
-  "setuptools-scm",
-  "wheel",
-]
+requires = [ "setuptools>=41.2", "setuptools-scm" ]
 
 [project]
 name = "xesmf"
