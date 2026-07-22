@@ -1,6 +1,16 @@
 What's new
 ==========
 
+Unreleased
+----------
+* Repeated numpy-path applications no longer re-sort the sparse weights on
+  every call (``sparse``'s operation caching is enabled at first use);
+  results are bit-identical. Weights are now logically immutable while
+  attached — assign a replacement to ``regridder.weights`` instead of
+  mutating buffers. The cache is not pickled and re-enables lazily;
+  dask-only regridders are unaffected.
+  By `Ben Mares <https://github.com/maresb>`_.
+
 0.9.2 (2025-11-27)
 ------------------
 This release drops support for Python < 3.11. xESMF aims to preserve support for older python and ESMF version as long as possible with its reduced maintaining team. The most recent windows release of ESMF is currently 8.4.2 and new versions of xESMF will support it as long as it is not updated. All fixes in :pull:`463`, by `Pascal Bourgault <https://github.com/aulemahal>`_.

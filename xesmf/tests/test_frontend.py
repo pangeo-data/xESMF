@@ -5,10 +5,11 @@ import cf_xarray as cfxr
 import dask
 import numpy as np
 import pytest
+import sparse
 import xarray as xr
 from dask.array.core import PerformanceWarning
 from esmpy import __version__ as esmf_version
-from numpy.testing import assert_allclose, assert_almost_equal, assert_equal
+from numpy.testing import assert_allclose, assert_almost_equal, assert_array_equal, assert_equal
 from packaging.version import Version
 from shapely import segmentize
 from shapely.geometry import MultiPolygon, Polygon
@@ -1550,3 +1551,70 @@ def test_input_output_dims():
     # Check that the shapes match the output grid
     assert ds_result['y2'].shape == ds_out['y'].shape
     assert ds_result['x2'].shape == ds_out['x'].shape
+
+
+def test_weight_caching_bit_identical_and_repeatable():
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
+    indata = ds_in['data4D'].values
+
+    first = regridder(indata)
+    second = regridder(indata)
+    assert_array_equal(first, second)
+
+    # Reference: an uncached evaluation of the same weight values.
+    coo = regridder.weights.data
+    fresh = sparse.COO(coo.coords.copy(), coo.data.copy(), shape=coo.shape)
+    reference = regridder._regrid(
+        indata,
+        fresh,
+        shape_in=regridder.shape_in,
+        shape_out=regridder.shape_out,
+        skipna=False,
+        na_thres=1.0,
+    )
+    assert_array_equal(first, reference)
+
+
+def test_weight_replacement_reenables_caching():
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
+    indata = ds_in['data4D'].values
+    before = regridder(indata)
+
+    regridder.weights = regridder.weights * 0.5
+    assert getattr(regridder.weights.data, '_cache', None) is None
+    after = regridder(indata)
+    assert_array_equal(after, before * 0.5)
+    assert getattr(regridder.weights.data, '_cache', None) is not None
+
+
+def test_unpickled_regridder_reenables_caching():
+    import pickle
+
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
+    indata = ds_in['data4D'].values
+    expected = regridder(indata)
+
+    restored = pickle.loads(pickle.dumps(regridder))
+    assert getattr(restored.weights.data, '_cache', None) is None
+    actual = restored(indata)
+    assert getattr(restored.weights.data, '_cache', None) is not None
+    assert_array_equal(actual, expected)
+
+
+def test_cached_weights_are_collectible():
+    import gc
+    import weakref
+
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
+    regridder(ds_in['data4D'].values)
+    ref = weakref.ref(regridder.weights.data)
+    del regridder
+    gc.collect()
+    assert ref() is None
+
+
+def test_dask_path_does_not_populate_weight_cache():
+    regridder = xe.Regridder(ds_in, ds_out, 'conservative')
+    indata = dask.array.from_array(ds_in['data4D'].values, chunks=(2, 2, -1, -1))
+    regridder(indata).compute()
+    assert getattr(regridder.weights.data, '_cache', None) is None
