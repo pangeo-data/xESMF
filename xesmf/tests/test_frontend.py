@@ -536,19 +536,36 @@ def _sphere_field(ds):
     return (np.cos(la) * np.cos(lo) + np.sin(la)).transpose('lat', 'lon')
 
 
-def test_global_grid_polar_values():
+@pytest.mark.parametrize('method', ['bilinear', 'patch'])
+def test_global_grid_polar_values(method):
     # GH422: fine target points poleward of the outermost source latitude were set to 0
     src, dst = _global_1d(4), _global_1d(1)
+    polar = np.abs(dst.lat) > 88
+    seam = dst.lon > src.lon.max()  # between the last and first source longitude
+    interior = (np.abs(dst.lat) < 80) & ~seam
     with pytest.warns(UserWarning, match='covers all longitudes but periodic=False'):
-        reg = xe.Regridder(src, dst, 'bilinear')
-    err = np.abs(reg(_sphere_field(src)) - _sphere_field(dst))
-    assert err.where(np.abs(dst.lat) > 88).max() > 0.9  # unmapped, filled with 0
+        reg = xe.Regridder(src, dst, method)
+    out = reg(_sphere_field(src))
+    assert ((out == 0) & polar).sum() > 0  # unmapped, filled with 0
+    assert ((out == 0) & seam).sum() > 0
+    assert (np.abs(out - _sphere_field(dst)) > 0.9).where(polar, False).any()
+
+    # the same points are NaN with unmapped_to_nan=True, the rest unchanged
+    with pytest.warns(UserWarning, match='covers all longitudes but periodic=False'):
+        reg_nan = xe.Regridder(src, dst, method, unmapped_to_nan=True)
+    out_nan = reg_nan(_sphere_field(src))
+    unmapped = out_nan.isnull()
+    assert (unmapped & polar).sum() > 0
+    assert not (unmapped & interior).any()
+    assert (out.where(unmapped, 0) == 0).all()  # every NaN point was a 0 before
+    xr.testing.assert_allclose(out.where(~unmapped), out_nan.where(~unmapped))
 
     with warnings.catch_warnings():
         warnings.simplefilter('error')
-        reg = xe.Regridder(src, dst, 'bilinear', periodic=True)
-    err = np.abs(reg(_sphere_field(src)) - _sphere_field(dst))
-    assert err.max() < 0.01
+        reg = xe.Regridder(src, dst, method, periodic=True)
+    out = reg(_sphere_field(src))
+    assert not out.isnull().any()
+    assert np.abs(out - _sphere_field(dst)).max() < 0.01
 
 
 def test_global_grid_duplicated_seam():
