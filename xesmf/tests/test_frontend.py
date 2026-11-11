@@ -505,7 +505,8 @@ def test_regridder_from_dict():
 
 def test_regrid_periodic_wrong():
     # not using periodic option
-    regridder = xe.Regridder(ds_in, ds_out, 'bilinear', unmapped_to_nan=False)
+    with pytest.warns(UserWarning, match='covers all longitudes but periodic=False'):
+        regridder = xe.Regridder(ds_in, ds_out, 'bilinear', unmapped_to_nan=False)
 
     dr_out = regridder(ds_in['data'])  # xarray DataArray
 
@@ -522,6 +523,54 @@ def test_regrid_periodic_correct():
     # compare with analytical solution
     rel_err = (ds_out['data_ref'] - dr_out) / ds_out['data_ref']
     assert np.max(np.abs(rel_err)) < 0.065
+
+
+def _global_1d(res, seam_duplicated=False):
+    lon = np.arange(0, 360 + (res if seam_duplicated else 0) - 1e-9, res)
+    lat = np.arange(-90 + res / 2, 90, res)
+    return xr.Dataset(coords={'lon': ('lon', lon), 'lat': ('lat', lat)})
+
+
+def _sphere_field(ds):
+    la, lo = np.radians(ds.lat), np.radians(ds.lon)
+    return (np.cos(la) * np.cos(lo) + np.sin(la)).transpose('lat', 'lon')
+
+
+def test_global_grid_polar_values():
+    # GH422: fine target points poleward of the outermost source latitude were set to 0
+    src, dst = _global_1d(4), _global_1d(1)
+    with pytest.warns(UserWarning, match='covers all longitudes but periodic=False'):
+        reg = xe.Regridder(src, dst, 'bilinear')
+    err = np.abs(reg(_sphere_field(src)) - _sphere_field(dst))
+    assert err.where(np.abs(dst.lat) > 88).max() > 0.9  # unmapped, filled with 0
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        reg = xe.Regridder(src, dst, 'bilinear', periodic=True)
+    err = np.abs(reg(_sphere_field(src)) - _sphere_field(dst))
+    assert err.max() < 0.01
+
+
+def test_global_grid_duplicated_seam():
+    src, dst = _global_1d(4, seam_duplicated=True), _global_1d(1)
+    with pytest.raises(ValueError, match='same meridian'):
+        xe.Regridder(src, dst, 'bilinear', periodic=True)
+    with pytest.warns(UserWarning, match='same meridian'):
+        xe.Regridder(src, dst, 'bilinear')
+
+
+@pytest.mark.parametrize('method', ['bilinear', 'conservative', 'nearest_s2d'])
+def test_no_periodic_warning(method):
+    regional = xe.util.grid_2d(-20, 40, 2, 30, 60, 2)
+    target = xe.util.grid_2d(-10, 30, 1, 35, 55, 1)
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        xe.Regridder(regional, target, method)
+    if method != 'bilinear':
+        # conservative forces periodic=False, nearest_s2d maps every point
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            xe.Regridder(ds_in, ds_out, method)
 
 
 def ds_2d_to_1d(ds):
