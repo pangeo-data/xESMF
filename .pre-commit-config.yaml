@@ -13,7 +13,7 @@ repos:
       - id: double-quote-string-fixer
 
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 26.5.1
+    rev: 26.10.1
     hooks:
       - id: black
 
@@ -23,12 +23,12 @@ repos:
       - id: blackdoc
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.3.0
+    rev: 7.5.0
     hooks:
       - id: flake8
 
   - repo: https://github.com/PyCQA/isort
-    rev: 9.0.1
+    rev: 10.0.0b2
     hooks:
       - id: isort
 
@@ -37,20 +37,8 @@ repos:
     hooks:
       - id: prettier
 
-  - repo: https://github.com/deathbeds/prenotebook
-    rev: f5bdb72a400f1a56fe88109936c83aa12cc349fa
-    hooks:
-      - id: prenotebook
-        args:
-          [
-            "--keep-output",
-            "--keep-metadata",
-            "--keep-execution-count",
-            "--keep-empty",
-          ]
-
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: v2.29.3
+    rev: v2.30.3
     hooks:
       - id: pyproject-fmt
 
