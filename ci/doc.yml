@@ -3,14 +3,14 @@ channels:
   - conda-forge
 dependencies:
   # Python pin only to accelerate solving
-  - python>=3.12
+  - python>=3.14
   - cf_xarray>=0.5.1
   - esmpy >=8.0.0
   - numba >=0.55.2
-  - numpy >=1.16
+  - numpy >=2
   - shapely
   - sparse>=0.8.0
-  - xarray>=0.17.0
+  - xarray>=2025.1.1
   # Doc
   - numpydoc
   - geopandas
@@ -18,6 +18,6 @@ dependencies:
   - ipython
   - Pygments>=2.6
   - nbsphinx
-  - sphinx
+  - sphinx>=9
   - sphinx_rtd_theme
   - docutils!=0.18
