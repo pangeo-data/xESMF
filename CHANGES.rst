@@ -3,6 +3,8 @@ What's new
 
 Unreleased
 ----------
+* ``Regridder`` now warns when a rectilinear input grid covers all longitudes but ``periodic=False`` with the ``bilinear`` or ``patch`` methods: target points across the seam and poleward of the outermost input latitude are not mapped and were silently set to 0 (:issue:`422`). A grid whose first and last longitudes are the same meridian now raises a clear ``ValueError`` with ``periodic=True`` instead of ESMF's ``rc = 506``.
+  By `Paul S. Mamakos <https://github.com/SpaceOceanCorp>`_.
 * Repeated numpy-path applications no longer re-sort the sparse weights on
   every call (``sparse``'s operation caching is enabled at first use);
   results are bit-identical. Weights are now logically immutable while
