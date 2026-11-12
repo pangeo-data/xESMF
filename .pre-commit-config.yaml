@@ -37,18 +37,6 @@ repos:
     hooks:
       - id: prettier
 
-  - repo: https://github.com/deathbeds/prenotebook
-    rev: f5bdb72a400f1a56fe88109936c83aa12cc349fa
-    hooks:
-      - id: prenotebook
-        args:
-          [
-            "--keep-output",
-            "--keep-metadata",
-            "--keep-execution-count",
-            "--keep-empty",
-          ]
-
   - repo: https://github.com/tox-dev/pyproject-fmt
     rev: v2.30.3
     hooks:

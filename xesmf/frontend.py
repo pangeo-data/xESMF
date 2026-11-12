@@ -83,6 +83,60 @@ def _get_lon_lat(ds):
     return lon, lat
 
 
+def _check_global_longitude(ds, periodic, method):
+    """Warn or raise when a rectilinear grid that covers all longitudes is not set up as periodic.
+
+    Without ``periodic=True``, ESMF does not connect the last longitude to the first one or
+    extrapolate to the poles, so target points between the last and first longitude and
+    poleward of the outermost source latitude are unmapped, and get 0 unless
+    ``unmapped_to_nan=True``. A grid whose first and last longitudes are the same meridian
+    makes ESMF fail with ``periodic=True``.
+    """
+    if method not in ('bilinear', 'patch'):
+        return
+    try:
+        lon, _ = _get_lon_lat(ds)
+    except ValueError:
+        return
+    lon = np.asarray(lon, dtype=float)
+    if lon.ndim == 2:
+        if lon.shape[0] == 0 or not np.allclose(lon, lon[:1, :]):
+            return  # curvilinear grid: no simple test
+        lon = lon[0, :]
+    if lon.ndim != 1 or lon.size < 3:
+        return
+    step = np.diff(lon)
+    if not (np.all(step > 0) or np.all(step < 0)):
+        return
+    step = np.median(np.abs(step))
+    span = abs(lon[-1] - lon[0])
+    tol = 0.01 * step
+    if abs(span - 360) <= tol:
+        msg = (
+            'The first and last longitudes of the input grid are the same meridian '
+            f'({lon[0]} and {lon[-1]}). '
+        )
+        if periodic:
+            raise ValueError(
+                msg + 'ESMF cannot build a periodic grid with a duplicated column. '
+                'Drop the last longitude (e.g. `ds.isel(lon=slice(None, -1))`) and keep periodic=True.'
+            )
+        warnings.warn(
+            msg + 'With periodic=False, target points poleward of the outermost input latitude are '
+            'not mapped and are set to 0 (NaN with unmapped_to_nan=True). Drop the last '
+            'longitude and pass periodic=True to regrid a global grid.',
+            UserWarning,
+        )
+    elif not periodic and abs(span + step - 360) <= tol:
+        warnings.warn(
+            'The input grid covers all longitudes but periodic=False. Target points between the '
+            'last and first longitude, and poleward of the outermost input latitude, are not mapped '
+            'and are set to 0 (NaN with unmapped_to_nan=True). Pass periodic=True to regrid a '
+            'global grid.',
+            UserWarning,
+        )
+
+
 def _get_lon_lat_bounds(ds):
     """Return bounds of lon and lat extracted from ds."""
     if 'lat_b' in ds and 'lon_b' in ds:
@@ -1528,6 +1582,7 @@ class Regridder(BaseRegridder):
                 mesh_location = _normalize_mesh_location(mesh_location)
             grid_in, shape_in, input_dims = ds_to_ESMFmesh(ds_in, mesh_location=mesh_location)
         else:
+            _check_global_longitude(ds_in, periodic, method)
             grid_in, shape_in, input_dims = ds_to_ESMFgrid(
                 ds_in, need_bounds=need_bounds, periodic=periodic
             )

@@ -21,6 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Scientific/Engineering",
 ]
 dynamic = [
@@ -52,7 +53,7 @@ write_to_template = "__version__ = '{version}'"
 
 [tool.black]
 target-version = [
-  "py311",
+  "py312",
 ]
 line-length = 100
 skip-string-normalization = true
@@ -82,4 +83,4 @@ skip = [
 
 [tool.pyproject-fmt]
 # maximum Python version to use when generating version specifiers
-max_supported_python = "3.14"
+max_supported_python = "3.15"
