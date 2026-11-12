@@ -53,7 +53,7 @@ write_to_template = "__version__ = '{version}'"
 
 [tool.black]
 target-version = [
-  "py314",
+  "py312",
 ]
 line-length = 100
 skip-string-normalization = true
