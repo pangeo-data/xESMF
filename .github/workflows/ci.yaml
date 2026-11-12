@@ -49,15 +49,14 @@ jobs:
       - name: Fix env for esmpy 8.4
         run: |
           if [ "${{ matrix.esmf-version }}" == "8.4" ]; then
-              conda install "importlib-metadata<8.0.0"
+              micromamba install "importlib-metadata<8.0.0"
           fi
       - name: Install Xesmf (editable)
         run: |
           python -m pip install --no-deps -e .
       - name: Conda list information
         run: |
-          conda env list
-          conda list
+          micromamba list
       - name: Run tests
         run: |
           python -m pytest --cov=./ --cov-report=xml --verbose
@@ -90,8 +89,7 @@ jobs:
           python -m pip install -e .
       - name: Conda list information
         run: |
-          conda env list
-          conda list
+          micromamba list
       - name: Run tests
         run: |
           python -m pytest --cov=./ --cov-report=xml --verbose
