@@ -3,6 +3,8 @@ What's new
 
 Unreleased
 ----------
+* Bounds inferred for rectilinear grids with points on the poles (e.g. ERA5, NCEP) are now clipped to [-90, 90]. Previously the polar cells extended past the poles and conservative regridding returned wrong values in the polar rows (:issue:`497`).
+  By `Mark L. Morrissey <https://github.com/klemmeri>`_.
 * ``Regridder`` now warns when a rectilinear input grid covers all longitudes but ``periodic=False`` with the ``bilinear`` or ``patch`` methods: target points across the seam and poleward of the outermost input latitude are not mapped and were silently set to 0 (:issue:`422`). A grid whose first and last longitudes are the same meridian now raises a clear ``ValueError`` with ``periodic=True`` instead of ESMF's ``rc = 506``.
   By `Paul S. Mamakos <https://github.com/SpaceOceanCorp>`_.
 * Repeated numpy-path applications no longer re-sort the sparse weights on
