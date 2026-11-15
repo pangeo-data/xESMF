@@ -652,6 +652,24 @@ def test_regrid_with_1d_grid_infer_bounds():
     assert_allclose(dr_out, dr_exp)
 
 
+@pytest.mark.parametrize('res', [0.25, 2.5])
+def test_conservative_infer_bounds_pole_centred_grid(res):
+    # Grids with points on the poles (e.g. ERA5, NCEP): inferred latitude bounds
+    # must not extend past +/-90, or the polar rows get wrong weights.
+    lat = np.arange(90, -90 - res / 2, -res)
+    lon = np.arange(0, 360, res)
+    ds = xr.Dataset(
+        {'data': (('lat', 'lon'), np.full((lat.size, lon.size), 280.0))},
+        coords={
+            'lat': ('lat', lat, {'standard_name': 'latitude', 'units': 'degrees_north'}),
+            'lon': ('lon', lon, {'standard_name': 'longitude', 'units': 'degrees_east'}),
+        },
+    )
+    ds_out = xe.util.grid_global(1, 1, cf=True)
+    out = xe.Regridder(ds, ds_out, 'conservative', periodic=True)(ds['data'])
+    assert_allclose(out, 280.0, rtol=1e-6)
+
+
 def test_regrid_cfbounds():
     # Test regridding when bounds are given in cf format with a custom "bounds" name.
     ds = ds_in.copy().drop_vars(['lat_b', 'lon_b'])
