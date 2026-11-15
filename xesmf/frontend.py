@@ -157,7 +157,9 @@ def _get_lon_lat_bounds(ds):
         lat_name = ds.cf['latitude'].name
         ds = ds.cf.add_bounds([lon_name, lat_name])
         lon_bnds = ds.cf.get_bounds('longitude')
-        lat_bnds = ds.cf.get_bounds('latitude')
+        # Inferred bounds of cells centred on the poles extend past +/-90 degrees,
+        # which corrupts the conservative weights of the polar cells. Clip them.
+        lat_bnds = ds.cf.get_bounds('latitude').clip(-90, 90)
 
     # Convert from CF bounds to xESMF bounds.
     # order=None is because we don't want to assume the dimension order for 2D bounds.
